@@ -178,19 +178,19 @@ void robot(void *pvParameters) {
         modo = 1;
       }
       // si deja de detectar al robot por ojos 1
-      else if (memo1 && dist_1 == 0) {
+      else if (dist_1 != 0) {
         modo = 2;
       }
       // si deja de detectar al robot por ojos 2
-      else if (memo2 && dist_2 == 0) {
+      else if (dist_2 != 0) {
         modo = 3;
       }
       // si detecta el robot por ojos 1
-      else if (dist_1 != 0) {
+      else if (memo1 && dist_1 == 0) {
         modo = 4;
       }
       // si detecta el robot por ojos 2
-      else if (dist_2 != 0) {
+      else if (memo2 && dist_2 == 0) {
         modo = 5;
       }
       // si no detecta nada
@@ -215,28 +215,28 @@ void robot(void *pvParameters) {
       // avanza por un tiempo definido de 4 segundo en direccion a
       case 2:
         dir_a();
+        memo1 = true;
+        temp1 = millis();
         temp3 = millis();
         temp4 = millis();
         break;
       // avanza por un tiempo definido de 4 segundos en direccion b
       case 3:
         dir_b();
+        memo2 = true;
+        temp2 = millis();
         temp3 = millis();
         temp4 = millis();
         break;
       // avanza en direccion a
       case 4:
         dir_a();
-        memo1 = true;
-        temp1 = millis();
         temp3 = millis();
         temp4 = millis();
         break;
       // avanza en direccion b
       case 5:
         dir_b();
-        memo2 = true;
-        temp2 = millis();
         temp3 = millis();
         temp4 = millis();
         break;
@@ -266,7 +266,7 @@ void senColor(void *pvParameters) {
       sc_1.getRawData(&r, &g, &b, &c);
       // sc_1 determina si el color detectado es el mismo del limite
       long difCol = abs(r - lcr) + abs(g - lcg) + abs(b - lcb);
-      if (difCol < limCol) {
+      if (difCol > limCol) {
         // manda alerta para alejarse del limite
         xSemaphoreGive(alerta);
       }
@@ -279,7 +279,7 @@ void senColor(void *pvParameters) {
       sc_2.getRawData(&r, &g, &b, &c);
       // sc_2 determina si el color detectado es el mismo del limite
       long difCol2 = abs(r - lcr) + abs(g - lcg) + abs(b - lcb);
-      if (difCol2 < limCol) {
+      if (difCol2 > limCol) {
         // manda alerta para alejarse del limite
         xSemaphoreGive(alerta2);
       }
@@ -291,9 +291,11 @@ void senColor(void *pvParameters) {
 
 void musica(void *pvParameters) {
   while (2) {
-    adestes();
+    while (start) {
+      adestes();
+      vTaskDelay(10);
+    }
     vTaskDelay(10);
-    c
   }
 }
 
