@@ -20,6 +20,10 @@ int limCol = 200; // tolerancia del color
 SemaphoreHandle_t alerta;
 SemaphoreHandle_t alerta2;
 
+// alerta de deteccion del rival
+SemaphoreHandle_t enemigo;
+SemaphoreHandle_t enemigo2;
+
 // variables de control
 bool estado = false;
 bool estado2 = false;
@@ -38,6 +42,8 @@ int trig_2 = 12;
 int echo_2 = 35;
 int led_1 = 19;
 int led_2 = 5;
+int pwm_A1 = 4;
+int pwm_A2 = 18;
 int cal = 15;
 int ledp_1 = 16;
 int ledp_2 = 17;
@@ -149,9 +155,7 @@ void robot(void *pvParameters) {
     // inicia
     while (start) {
 
-      int dist_1 = ojos_1.ping_cm();
-      int dist_2 = ojos_2.ping_cm();
-
+      // condiciones que evaluan si ya pasaron los tiempos
       if (millis() - temp1 >= tiempo1) {
         memo1 = false;
       }
@@ -178,19 +182,19 @@ void robot(void *pvParameters) {
         modo = 1;
       }
       // si deja de detectar al robot por ojos 1
-      else if (dist_1 != 0) {
+      else if (xSemaphoreTake(enemigo, 0)) {
         modo = 2;
       }
       // si deja de detectar al robot por ojos 2
-      else if (dist_2 != 0) {
+      else if (xSemaphoreTake(enemigo2, 0)) {
         modo = 3;
       }
       // si detecta el robot por ojos 1
-      else if (memo1 && dist_1 == 0) {
+      else if (memo1) {
         modo = 4;
       }
       // si detecta el robot por ojos 2
-      else if (memo2 && dist_2 == 0) {
+      else if (memo2) {
         modo = 5;
       }
       // si no detecta nada
@@ -271,10 +275,11 @@ void senColor(void *pvParameters) {
         xSemaphoreGive(alerta);
       }
     }
+
     // detecta si sc_2 funciona
     if (estado2) {
       // selecciona sc_2
-      scSel(1);
+      scSel(3);
       // sc_1 lee el color
       sc_2.getRawData(&r, &g, &b, &c);
       // sc_2 determina si el color detectado es el mismo del limite
@@ -286,6 +291,22 @@ void senColor(void *pvParameters) {
     }
 
     vTaskDelay(5 / portTICK_PERIOD_MS);
+  }
+}
+
+// TAREA DE LOS SENSORES ultrasonicos
+
+void senUltra(void *pvParameters) {
+  while (4) {
+    int dist_1 = ojos_1.ping_cm();
+    int dist_2 = ojos_2.ping_cm();
+    if (dist_1 != 0) {
+      xSemaphoreGive(enemigo);
+    }
+    if (dist_2 != 0) {
+      xSemaphoreGive(enemigo2);
+    }
+    vTaskDelay(50 / portTICK_PERIOD_MS);
   }
 }
 
@@ -301,10 +322,13 @@ void musica(void *pvParameters) {
 
 // setup
 void setup() {
-  // se crea la alerta
+  // se crea la alerta de deteccion del limite
   alerta = xSemaphoreCreateBinary();
   alerta2 = xSemaphoreCreateBinary();
 
+  // se crean las alertas de deteccion de enemigos
+  enemigo = xSemaphoreCreateBinary();
+  enemigo2 = xSemaphoreCreateBinary();
   // configuaracion de pines de los sensores de color
   Wire.begin();
 
@@ -338,7 +362,7 @@ void setup() {
   }
 
   // selecciona sc_2
-  scSel(1);
+  scSel(3);
   // verifica el funcionamiento de sc_2
   if (sc_2.begin()) {
     // todo bien
@@ -348,6 +372,7 @@ void setup() {
     // no funciona y desantiva su funcionamiento
     estado2 = false;
   }
+  calCol();
 
   // aun no tiene propocito(determinara la calibracion)
   if (digitalRead(cal) == LOW) {
