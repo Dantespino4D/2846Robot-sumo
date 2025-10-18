@@ -43,7 +43,7 @@ QueueHandle_t orden;
 bool estado = false;
 bool estado2 = false;
 bool start = false;
-int modo = 0;
+int modo = 6;
 bool memo1 = false;
 bool memo2 = false;
 bool memo3 = false;
@@ -59,14 +59,8 @@ int led_1 = 19;
 int led_2 = 5;
 int pwm_1 = 4;
 int pwm_2 = 18;
-int cal = 15;
 int ledp_1 = 16;
 int ledp_2 = 17;
-
-// variables del color predeterminado
-int redC = 800;
-int green = 700;
-int blue = 500;
 
 // se crean los objetos sc_1 y sc_2
 Adafruit_TCS34725 sc_1 =
@@ -154,10 +148,11 @@ void calCol() {
 
 void robot(void *pvParameters) {
   // prende al precionar el boton
-  while (digitalRead(ini) == LOW) {
+  while (digitalRead(ini) == HIGH) {
     start = true;
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
+  vTaskDelay(5000 / portTICK_PERIOD_MS);
   while (1) {
     // inicia
 
@@ -371,7 +366,6 @@ void setup() {
   pinMode(led_1, OUTPUT);
   pinMode(led_2, OUTPUT);
   pinMode(ini, INPUT_PULLUP);
-  pinMode(cal, INPUT_PULLUP);
   pinMode(23, OUTPUT);
   pinMode(ledp_1, OUTPUT);
   pinMode(ledp_2, OUTPUT);
