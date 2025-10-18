@@ -62,6 +62,11 @@ int pwm_2 = 18;
 int ledp_1 = 16;
 int ledp_2 = 17;
 
+// variables del color predeterminado
+int redC = 800;
+int green = 700;
+int blue = 500;
+
 // se crean los objetos sc_1 y sc_2
 Adafruit_TCS34725 sc_1 =
     Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X);
@@ -87,10 +92,9 @@ struct MotorAccion {
 
 // se crea la variable struct de la direccion a, b y giro
 MotorAccion dir_a = {255, 255, {{1, 0}, {1, 0}}};
-
 MotorAccion dir_b = {255, 255, {{0, 1}, {0, 1}}};
-
 MotorAccion giro = {255, 255, {{0, 1}, {1, 0}}};
+Motor Accion reposo = {255, 255, {{0, 0}, {0, 0}}};
 
 // funcion para probar el funcionamiento de cosas
 void prueba(int a) {
@@ -110,6 +114,7 @@ void alto() {
   digitalWrite(mot[1][0], LOW);
   digitalWrite(mot[1][1], LOW);
 }
+
 // funcion que selecciona que sensor de color usar(no me pregunten como
 // funciona)
 void scSel(uint8_t i) {
@@ -119,6 +124,7 @@ void scSel(uint8_t i) {
   Wire.write(1 << i);
   Wire.endTransmission();
 }
+
 // logica de la calibracion
 void calCol() {
   // Acumuladores para promediar las lecturas
@@ -153,7 +159,7 @@ void robot(void *pvParameters) {
     vTaskDelay(100 / portTICK_PERIOD_MS);
   }
   vTaskDelay(5000 / portTICK_PERIOD_MS);
-  while (1) {
+  while (true) {
     // inicia
 
     // condiciones que evaluan si ya pasaron los tiempos
@@ -259,12 +265,15 @@ void robot(void *pvParameters) {
 // TAREA DE LOS MOTORES
 
 void motores(void *pvPrarmeters) {
-  for (;;) {
+  MotorAccion accion = reposo;
+  MotorAccion accionNueva;
+  while (true) {
     // se crea la variable donde se guardara la acion;
-    MotorAccion accion;
 
     // se recive la accion
-    xQueueReceive(orden, &accion, portMAX_DELAY);
+    if (xQueueReceive(orden, &accionNueva, 0) == pdPASS) {
+      accion = accionNueva;
+    }
 
     // se para todo, aplica velocidades y se encienden los que motores que se
     // necesitan
@@ -281,7 +290,7 @@ void motores(void *pvPrarmeters) {
 // TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
 
 void senColor(void *pvParameters) {
-  while (1) {
+  while (true) {
     // variables de los colores detectados
     uint16_t r, g, b, c;
     // detecta si el sensor de color funciona bien
@@ -316,10 +325,10 @@ void senColor(void *pvParameters) {
   }
 }
 
-// TAREA DE LOS SENSORES ultrasonicos
+// TAREA DE LOS SENSORES ULTRASONICOS
 
 void senUltra(void *pvParameters) {
-  while (4) {
+  while (true) {
     int dist_1 = ojos_1.ping_cm();
     int dist_2 = ojos_2.ping_cm();
     if (dist_1 != 0) {
@@ -333,7 +342,7 @@ void senUltra(void *pvParameters) {
 }
 
 void musica(void *pvParameters) {
-  while (2) {
+  while (true) {
     while (start) {
       adestes();
       vTaskDelay(10);
@@ -418,6 +427,10 @@ void loop() {
   // DESCRIPCIONES A TOMAR EN CUENTA:
   // ojos_1 y sc_1 en direccion "a"
   // ojos_2 y sc_2 en direccion "b"
+  // ojos_1 enemigo
+  // ojos_2 enemigo2
+  // sc_1 alerta
+  // sc_2 alerta2
   // eliminar todas la funciones de prueba una vez armado y soldado el circuito
   // y se verifique que este todo correcto
 }
