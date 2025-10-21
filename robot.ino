@@ -1,12 +1,12 @@
+#include "SensorLimite"
 #include <Adafruit_TCS34725.h>
 #include <Arduino.h>
 #include <Musica.h>
 #include <NewPing.h>
 #include <Wire.h>
 
-// direccion del multiplexor
-#define TCAADDR 0x70
-
+// objeto del sensor de color
+SensorLimite sc;
 // variables de la configuracion de los pines pwm
 int freq = 5000;
 int solut = 8;
@@ -25,8 +25,7 @@ unsigned long temp3 = 0;
 unsigned long temp4 = 0;
 
 // variables que definen limites
-int maxd = 40;    // limite de los sensores ultrasonicos
-int limCol = 200; // tolerancia del color
+int maxd = 40; // limite de los sensores ultrasonicos
 
 // alerta del limite
 SemaphoreHandle_t alerta;
@@ -40,8 +39,6 @@ SemaphoreHandle_t enemigo2;
 QueueHandle_t orden;
 
 // variables de control
-bool estado = false;
-bool estado2 = false;
 bool start = false;
 int modo = 6;
 bool memo1 = false;
@@ -62,26 +59,12 @@ int pwm_2 = 18;
 int ledp_1 = 16;
 int ledp_2 = 17;
 
-// variables del color predeterminado
-int redC = 800;
-int green = 700;
-int blue = 500;
-
-// se crean los objetos sc_1 y sc_2
-Adafruit_TCS34725 sc_1 =
-    Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X);
-Adafruit_TCS34725 sc_2 =
-    Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X);
-
 // arreglo de los pines de los puentes h
 int mot[2][2] = {{26, 25}, {14, 27}};
 
 // se crean objetos ojos_1 y ojos_2
 NewPing ojos_1(trig_1, echo_1, maxd);
 NewPing ojos_2(trig_2, echo_2, maxd);
-
-// valores establecidos del limite(pasar mas tarde a variables)
-uint16_t lcr = redC, lcg = green, lcb = blue;
 
 // struct con los valores de cada movimiento de los motores
 struct MotorAccion {
@@ -113,41 +96,6 @@ void alto() {
   digitalWrite(mot[0][1], LOW);
   digitalWrite(mot[1][0], LOW);
   digitalWrite(mot[1][1], LOW);
-}
-
-// funcion que selecciona que sensor de color usar(no me pregunten como
-// funciona)
-void scSel(uint8_t i) {
-  if (i > 7)
-    return;
-  Wire.beginTransmission(TCAADDR);
-  Wire.write(1 << i);
-  Wire.endTransmission();
-}
-
-// logica de la calibracion
-void calCol() {
-  // Acumuladores para promediar las lecturas
-  uint32_t t_r = 0;
-  uint32_t t_g = 0;
-  uint32_t t_b = 0;
-
-  uint16_t r, g, b, c;
-  const int NUMM = 50;
-  for (int i = 0; i < NUMM; i++) {
-    // Leer sensor 1
-    scSel(0);
-    sc_1.getRawData(&r, &g, &b, &c);
-    t_r += r;
-    t_g += g;
-    t_b += b;
-
-    delay(20);
-  }
-  // calcula el promedio de las muestras
-  lcr = t_r / NUMM;
-  lcg = t_g / NUMM;
-  lcb = t_b / NUMM;
 }
 
 // TAREA DE LA LOGICA DEL ROBOT
@@ -267,23 +215,22 @@ void robot(void *pvParameters) {
 void motores(void *pvPrarmeters) {
   MotorAccion accion = reposo;
   MotorAccion accionNueva;
+
   while (true) {
-    // se crea la variable donde se guardara la acion;
-
-    // se recive la accion
-    if (xQueueReceive(orden, &accionNueva, 0) == pdPASS) {
+    // Espera una nueva orden indefinidamente
+    if (xQueueReceive(orden, &accionNueva, portMAX_DELAY) == pdPASS) {
+      // Actualiza solo cuando llega algo nuevo
       accion = accionNueva;
-    }
 
-    // se para todo, aplica velocidades y se encienden los que motores que se
-    // necesitan
-    alto();
-    ledcWrite(pwmC_1, accion.vel_1);
-    ledcWrite(pwmC_2, accion.vel_2);
-    digitalWrite(mot[0][0], accion.e[0][0]);
-    digitalWrite(mot[0][1], accion.e[0][1]);
-    digitalWrite(mot[1][0], accion.e[1][0]);
-    digitalWrite(mot[1][1], accion.e[1][1]);
+      // Aplica el nuevo movimiento
+      alto();
+      ledcWrite(pwmC_1, accion.vel_1);
+      ledcWrite(pwmC_2, accion.vel_2);
+      digitalWrite(mot[0][0], accion.e[0][0]);
+      digitalWrite(mot[0][1], accion.e[0][1]);
+      digitalWrite(mot[1][0], accion.e[1][0]);
+      digitalWrite(mot[1][1], accion.e[1][1]);
+    }
   }
 }
 
@@ -291,36 +238,13 @@ void motores(void *pvPrarmeters) {
 
 void senColor(void *pvParameters) {
   while (true) {
-    // variables de los colores detectados
-    uint16_t r, g, b, c;
-    // detecta si el sensor de color funciona bien
-    if (estado) {
-      // selecciona sc_1
-      scSel(0);
-      // sc_1 lee el color
-      sc_1.getRawData(&r, &g, &b, &c);
-      // sc_1 determina si el color detectado es el mismo del limite
-      long difCol = abs(r - lcr) + abs(g - lcg) + abs(b - lcb);
-      if (difCol > limCol) {
-        // manda alerta para alejarse del limite
-        xSemaphoreGive(alerta);
-      }
+    if (sc.sc_1Verify()) {
+      xSemaphoreGive(alerta);
     }
 
-    // detecta si sc_2 funciona
-    if (estado2) {
-      // selecciona sc_2
-      scSel(3);
-      // sc_1 lee el color
-      sc_2.getRawData(&r, &g, &b, &c);
-      // sc_2 determina si el color detectado es el mismo del limite
-      long difCol2 = abs(r - lcr) + abs(g - lcg) + abs(b - lcb);
-      if (difCol2 > limCol) {
-        // manda alerta para alejarse del limite
-        xSemaphoreGive(alerta2);
-      }
+    if (sc.sc_2Verify()) {
+      xSemaphoreGive(alerta2);
     }
-
     vTaskDelay(5 / portTICK_PERIOD_MS);
   }
 }
@@ -364,9 +288,6 @@ void setup() {
   // se crea la la orden con la que se estara comunicando con los motores
   orden = xQueueCreate(5, sizeof(MotorAccion));
 
-  // configuaracion de pines de los sensores de color
-  Wire.begin();
-
   // se inicializan los pines
   pinMode(echo_1, INPUT);
   pinMode(echo_2, INPUT);
@@ -385,36 +306,13 @@ void setup() {
   pinMode(mot[1][0], OUTPUT);
   pinMode(mot[1][1], OUTPUT);
 
+  sc.begin();
+
   // configuracion y asignacion de los pines pwm
   ledcSetup(pwmC_1, freq, solut);
   ledcSetup(pwmC_2, freq, solut);
   ledcAttachPin(pwm_1, pwmC_1);
   ledcAttachPin(pwm_2, pwmC_2);
-
-  // selecciona sc_1
-  scSel(0);
-  // verifica el funcionamiento de sc_1
-  if (sc_1.begin()) {
-    // todo bien
-    estado = true;
-    prueba(0);
-  } else {
-    // no funciona y desantiva su funcionamiento
-    estado = false;
-  }
-
-  // selecciona sc_2
-  scSel(3);
-  // verifica el funcionamiento de sc_2
-  if (sc_2.begin()) {
-    // todo bien
-    estado2 = true;
-    prueba(1);
-  } else {
-    // no funciona y desantiva su funcionamiento
-    estado2 = false;
-  }
-  calCol();
 
   // se crean las tareas
   xTaskCreatePinnedToCore(robot, "robot", 1024, NULL, 2, NULL, 1);
