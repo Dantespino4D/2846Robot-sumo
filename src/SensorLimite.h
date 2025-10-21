@@ -1,12 +1,9 @@
 #ifndef SENSORLIMITE_H
-#define SensorLIMITE_H
+#define SENSORLIMITE_H
 
 #include <Arduino.h>
 #include <Adafruit_TCS34725.h>
 #include <Wire.h>
-
-// direccion del multiplexor
-#define TCAADDR 0x70
 
 class SensorLimite{
 	private:
@@ -40,6 +37,6 @@ class SensorLimite{
 		bool sc_2Verify();
 
 		//inicializara todo
-		bool begin();
+		void begin();
 };
 #endif

@@ -7,24 +7,30 @@
 #define TCAADDR 0x70
 
 //constructor
-SensorLimite::SensorLimite(int _limCol){
-	//se inicializan los valores
-	limCol(_limCol);
-	estado(false);
-	estado2(false);
-	redC(50);
-	green(50);
-	blue(50);
-	sc_1(Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X));
-	sc_2(Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X));
-	lcr(redC);
-	lcg(green);
-	lcb(blue);
-}
+SensorLimite::SensorLimite(int _limCol):
+	//tolerancia de color
+    limCol(_limCol),
+
+    //variables de la logica
+    estado(false),
+    estado2(false),
+
+	//variables predeterminadas
+    redC(50),
+    green(50),
+    blue(50),
+    lcr(50),
+	lcg(50),
+    lcb(50),
+
+    //se inicializa los objetos de los sensores de color
+    sc_1(Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X)),
+    sc_2(Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_4X))
+{}
 
 void SensorLimite::scSel(uint8_t i){
 	if(i > 7){
-	return:
+	return;
 	}
 	Wire.beginTransmission(TCAADDR);
 	Wire.write(1 << i);
@@ -64,7 +70,6 @@ void SensorLimite::begin(){
 	if (sc_1.begin()) {
 		// todo bien
 	    estado = true;
-	    prueba(0);
 	} else {
 	    // no funciona y desantiva su funcionamiento
     	estado = false;
@@ -76,7 +81,6 @@ void SensorLimite::begin(){
 	if (sc_2.begin()) {
 	    // todo bien
 	    estado2 = true;
-	    prueba(1);
 	} else {
 		// no funciona y desantiva su funcionamiento
 	    estado2 = false;
@@ -84,8 +88,7 @@ void SensorLimite::begin(){
 	calCol();
 }
 
-void SensorLimite::sc_1Verify(){
-
+bool SensorLimite::sc_1Verify(){
 	// variables de los colores detectados
     uint16_t r, g, b, c;
     // detecta si el sensor de color funciona bien
@@ -100,10 +103,20 @@ void SensorLimite::sc_1Verify(){
         // retorna verdadero al detectar el limite
 		return true;
 		}
+		else{
+			//retorna falso si no detencta nada
+			return false;
+		}
+	}
+	else{
+		return false;
 	}
 }
 
-void SensorLimite::sc_2Verify(){
+bool SensorLimite::sc_2Verify(){
+	// variables de los colores detectados
+    uint16_t r, g, b, c;
+
 	if (estado2) {
       	// selecciona sc_2
       	scSel(3);
@@ -112,7 +125,15 @@ void SensorLimite::sc_2Verify(){
       	// sc_2 determina si el color detectado es el mismo del limite
       	long difCol2 = abs(r - lcr) + abs(g - lcg) + abs(b - lcb);
       	if (difCol2 > limCol) {
-      		// manda alerta para alejarse del limite
+      		//retorna verdadero al detectar el limite
+			return true;
       	}
+		else{
+			//retorna falso si no detecta nada
+			return false;
+		}
     }
+	else{
+		return false;
+	}
 }
