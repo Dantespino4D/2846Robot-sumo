@@ -1,10 +1,8 @@
 #include "ControlMotores.h"
 #include "SensorLimite.h"
-#include <Adafruit_TCS34725.h>
+#include "SensorRival.h"
 #include <Arduino.h>
 #include <Musica.h>
-#include <NewPing.h>
-#include <Wire.h>
 
 // comandos de movimiento
 #define ALTO 0
@@ -62,15 +60,14 @@ int pwm_1 = 4;
 int pwm_2 = 18;
 int mot[2][2] = {{26, 25}, {14, 27}};
 
-// objeto del sensor de color
+// objeto de los sensores de color
 SensorLimite sc(limCol);
+
+// objeto de los sensores ultrasonicos
+SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
 
 // objeto del controlador de motores
 ControlMotores cm(pwm_1, pwm_2, mot[0][0], mot[0][1], mot[1][0], mot[1][1]);
-
-// se crean objetos ojos_1 y ojos_2
-NewPing ojos_1(trig_1, echo_1, maxd);
-NewPing ojos_2(trig_2, echo_2, maxd);
 
 // funcion para probar el funcionamiento de cosas
 void prueba(int a) {
@@ -242,12 +239,10 @@ void senColor(void *pvParameters) {
 
 void senUltra(void *pvParameters) {
   while (true) {
-    int dist_1 = ojos_1.ping_cm();
-    int dist_2 = ojos_2.ping_cm();
-    if (dist_1 != 0) {
+    if (su.ojos_1Verify()) {
       xSemaphoreGive(enemigo);
     }
-    if (dist_2 != 0) {
+    if (su.ojos_2Verify()) {
       xSemaphoreGive(enemigo2);
     }
     vTaskDelay(50 / portTICK_PERIOD_MS);
@@ -278,10 +273,6 @@ void setup() {
   orden = xQueueCreate(5, sizeof(int));
 
   // se inicializan los pines
-  pinMode(echo_1, INPUT);
-  pinMode(echo_2, INPUT);
-  pinMode(trig_1, OUTPUT);
-  pinMode(trig_2, OUTPUT);
   pinMode(led_1, OUTPUT);
   pinMode(led_2, OUTPUT);
   pinMode(ini, INPUT_PULLUP);
