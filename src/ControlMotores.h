@@ -1,7 +1,8 @@
+#include <Arduino.h>
 #ifndef CONTROLMOTORES_H
 #define CONTROLMOTORES_H
 
-#include <Arduino.h>
+#include "driver/ledc.h"
 
 class ControlMotores{
 	private:

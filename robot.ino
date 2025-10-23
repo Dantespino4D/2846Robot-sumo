@@ -1,25 +1,14 @@
-#include "ControlMotores.h"
-#include "SensorLimite.h"
-#include "SensorRival.h"
+#include "src/ControlMotores.h"
+#include "src/MaquinaEstados.h"
+#include "src/SensorLimite.h"
+#include "src/SensorRival.h"
 #include <Arduino.h>
 #include <Musica.h>
-
-// comandos de movimiento
-#define ALTO 0
-#define DIR_A 1
-#define DIR_B 2
-#define GIRO 3
 
 // variables que establecen el tiemṕo
 int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
                     // al rival
 int tiempo2 = 2000; // tiempo que retrocede al detectar el borde
-
-// variables que cuentan el tiempo
-unsigned long temp1 = 0;
-unsigned long temp2 = 0;
-unsigned long temp3 = 0;
-unsigned long temp4 = 0;
 
 // variables que definen limites
 int maxd = 40;    // limite de los sensores ultrasonicos
@@ -38,11 +27,6 @@ QueueHandle_t orden;
 
 // variables de control
 bool start = false;
-int modo = 6;
-bool memo1 = false;
-bool memo2 = false;
-bool memo3 = false;
-bool memo4 = false;
 
 // variables de los pines(y la de distancia maxima)
 int ini = 2;
@@ -69,6 +53,9 @@ SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
 // objeto del controlador de motores
 ControlMotores cm(pwm_1, pwm_2, mot[0][0], mot[0][1], mot[1][0], mot[1][1]);
 
+// puntero de la maquina de estados
+MaquinaEstados *me;
+
 // funcion para probar el funcionamiento de cosas
 void prueba(int a) {
   if (a == 0) {
@@ -92,112 +79,9 @@ void robot(void *pvParameters) {
   while (true) {
     // inicia
 
-    // condiciones que evaluan si ya pasaron los tiempos
-    if (millis() - temp1 >= tiempo1) {
-      memo1 = false;
-    }
-    if (millis() - temp2 >= tiempo1) {
-      memo2 = false;
-    }
-    if (millis() - temp3 >= tiempo2) {
-      memo3 = false;
-    }
-    if (millis() - temp4 >= tiempo2) {
-      memo4 = false;
-    }
-
     // MAQUINA DE ESTADOS
+    me->logica();
 
-    // selecciona el estado
-
-    // si detecta el limite por sc_1
-    if (xSemaphoreTake(alerta, 0) == pdTRUE || memo3) {
-      modo = 0;
-    }
-    // si detecta el limite por sc_2
-    else if (xSemaphoreTake(alerta2, 0) == pdTRUE || memo4) {
-      modo = 1;
-    }
-    // si deja de detectar al robot por ojos 1
-    else if (xSemaphoreTake(enemigo, 0)) {
-      modo = 2;
-    }
-    // si deja de detectar al robot por ojos 2
-    else if (xSemaphoreTake(enemigo2, 0)) {
-      modo = 3;
-    }
-    // si detecta el robot por ojos 1
-    else if (memo1) {
-      modo = 4;
-    }
-    // si detecta el robot por ojos 2
-    else if (memo2) {
-      modo = 5;
-    }
-    // si no detecta nada
-    else {
-      modo = 6;
-    }
-
-    // variable del comandos
-    int com;
-
-    // ejecuta el estado
-    switch (modo) {
-    // detiene el movimiento y retrocede en direccion b
-    case 0:
-      com = DIR_B;
-      xQueueSend(orden, &com, 0);
-      memo3 = true;
-      temp4 = millis();
-      break;
-      // detiene el movimiento y retrocede en direccion a
-    case 1:
-      com = DIR_A;
-      xQueueSend(orden, &com, 0);
-      memo4 = true;
-      temp3 = millis();
-      break;
-    // avanza por un tiempo definido de 4 segundo en direccion a
-    case 2:
-      com = DIR_A;
-      xQueueSend(orden, &com, 0);
-      memo1 = true;
-      temp1 = millis();
-      temp3 = millis();
-      temp4 = millis();
-      break;
-    // avanza por un tiempo definido de 4 segundos en direccion b
-    case 3:
-      com = DIR_B;
-      xQueueSend(orden, &com, 0);
-      memo2 = true;
-      temp2 = millis();
-      temp3 = millis();
-      temp4 = millis();
-      break;
-    // avanza en direccion a
-    case 4:
-      com = DIR_A;
-      xQueueSend(orden, &com, 0);
-      temp3 = millis();
-      temp4 = millis();
-      break;
-    // avanza en direccion b
-    case 5:
-      com = DIR_B;
-      xQueueSend(orden, &com, 0);
-      temp3 = millis();
-      temp4 = millis();
-      break;
-      // da vueltas hasta encontrar el robot
-    case 6:
-      com = GIRO;
-      xQueueSend(orden, &com, 0);
-      temp3 = millis();
-      temp4 = millis();
-      break;
-    }
     vTaskDelay(10 / portTICK_PERIOD_MS);
   }
 }
@@ -280,8 +164,13 @@ void setup() {
   pinMode(ledp_1, OUTPUT);
   pinMode(ledp_2, OUTPUT);
 
+  // configuracion de los objetos de sensores de color y ultrasonicos
   sc.begin();
   cm.begin();
+
+  // se inicializa el objeto de la maquina de estados
+  me = new MaquinaEstados(tiempo1, tiempo2, alerta, alerta2, enemigo, enemigo2,
+                          orden);
 
   // se crean las tareas
   xTaskCreatePinnedToCore(robot, "robot", 1024, NULL, 2, NULL, 1);

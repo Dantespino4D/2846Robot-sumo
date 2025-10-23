@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "driver/ledc.h"
 #include "ControlMotores.h"
 
 ControlMotores::ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, int motB_1, int motB_2):

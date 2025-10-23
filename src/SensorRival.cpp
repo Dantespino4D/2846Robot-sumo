@@ -9,7 +9,7 @@ SensorRival::SensorRival(int _maxd, int _trig_1, int _echo_1, int _trig_2, int _
 	trig_1(_trig_1),
 	trig_2(_trig_2),
 	echo_1(_echo_1),
-	echo_2(_echo_2),
+	echo_2(_echo_2)
 
 {}
 
