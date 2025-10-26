@@ -14,9 +14,11 @@ SensorRival::SensorRival(int _maxd, int _trig_1, int _echo_1, int _trig_2, int _
 {}
 
 bool SensorRival::ojos_1Verify(){
-	return (ojos_1.ping_cm() != 0);
+	unsigned int dis = ojos_1.ping_cm();
+	return (dis > 0 && dis <= maxd);
 }
 
 bool SensorRival::ojos_2Verify(){
-	return (ojos_2.ping_cm() != 0);
+	unsigned int dis = ojos_2.ping_cm();
+	return (dis > 0 && dis <= maxd);
 }

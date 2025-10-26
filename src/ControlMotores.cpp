@@ -17,35 +17,39 @@ ControlMotores::ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, i
 	mot{ {motA_1, motA_2}, {motB_1, motB_2} }
 {}
 
+//estblecer velocidad
+void ControlMotores::velocidad(int vel_1, int vel_2){
+    ledcWrite(pwmC_1, vel_1);
+    ledcWrite(pwmC_2, vel_2);
+}
+
 void ControlMotores::alto(){
 	digitalWrite(mot[0][0], LOW);
   	digitalWrite(mot[0][1], LOW);
   	digitalWrite(mot[1][0], LOW);
   	digitalWrite(mot[1][1], LOW);
+	delayMicroseconds(100);
 }
 
 void ControlMotores::dir_a(){
 	alto();
-    ledcWrite(pwmC_1, 255);
-    ledcWrite(pwmC_2, 255);
+	velocidad(255, 255);
   	digitalWrite(mot[0][0], HIGH);
   	digitalWrite(mot[1][0], HIGH);
 }
 
 void ControlMotores::dir_b(){
 	alto();
-    ledcWrite(pwmC_1, 255);
-    ledcWrite(pwmC_2, 255);
-  	digitalWrite(mot[0][1], HIGH);
+	velocidad(255, 255);
+	digitalWrite(mot[0][1], HIGH);
   	digitalWrite(mot[1][1], HIGH);
 
 }
 
 void ControlMotores::giro(){
 	alto();
-    ledcWrite(pwmC_1, 255);
-    ledcWrite(pwmC_2, 255);
-  	digitalWrite(mot[0][1], HIGH);
+	velocidad(255, 255);
+	digitalWrite(mot[0][1], HIGH);
   	digitalWrite(mot[1][0], HIGH);
 }
 

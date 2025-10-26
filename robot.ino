@@ -54,16 +54,16 @@ SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
 ControlMotores cm(pwm_1, pwm_2, mot[0][0], mot[0][1], mot[1][0], mot[1][1]);
 
 // puntero de la maquina de estados
-MaquinaEstados *me;
+MaquinaEstados *me = nullptr;
 
 // funcion para probar el funcionamiento de cosas
 void prueba(int a) {
   if (a == 0) {
     digitalWrite(ledp_1, HIGH);
-    delay(1000);
+    vTaskDelay(pdMS_TO_TICKS(1000));
   } else {
     digitalWrite(ledp_2, HIGH);
-    delay(1000);
+    vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
 
@@ -72,17 +72,17 @@ void prueba(int a) {
 void robot(void *pvParameters) {
   // prende al precionar el boton
   while (digitalRead(ini) == HIGH) {
-    start = true;
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(100));
   }
-  vTaskDelay(5000 / portTICK_PERIOD_MS);
+  start = true;
+  vTaskDelay(pdMS_TO_TICKS(5000));
   while (true) {
     // inicia
 
     // MAQUINA DE ESTADOS
     me->logica();
 
-    vTaskDelay(10 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
 
@@ -115,7 +115,7 @@ void senColor(void *pvParameters) {
     if (sc.sc_2Verify()) {
       xSemaphoreGive(alerta2);
     }
-    vTaskDelay(5 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 
@@ -129,7 +129,7 @@ void senUltra(void *pvParameters) {
     if (su.ojos_2Verify()) {
       xSemaphoreGive(enemigo2);
     }
-    vTaskDelay(50 / portTICK_PERIOD_MS);
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
 
@@ -156,6 +156,14 @@ void setup() {
   // se crea la la orden con la que se estara comunicando con los motores
   orden = xQueueCreate(5, sizeof(int));
 
+  // metodo de seguridad
+  if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
+      enemigo2 == NULL) {
+    cm.alto(); // detener motores por seguridad
+    delay(2000);
+    ESP.restart();
+  }
+
   // se inicializan los pines
   pinMode(led_1, OUTPUT);
   pinMode(led_2, OUTPUT);
@@ -169,12 +177,15 @@ void setup() {
   cm.begin();
 
   // se inicializa el objeto de la maquina de estados
-  me = new MaquinaEstados(tiempo1, tiempo2, alerta, alerta2, enemigo, enemigo2,
-                          orden);
+  static MaquinaEstados maquina(tiempo1, tiempo2, alerta, alerta2, enemigo,
+                                enemigo2, orden);
+
+  // se apunta al puntero
+  me = &maquina;
 
   // se crean las tareas
-  xTaskCreatePinnedToCore(robot, "robot", 1024, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(motores, "motores", 1024, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(robot, "robot", 2048, NULL, 2, NULL, 1);
+  xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 1, NULL, 1);
   xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 0);
   xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
   xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);

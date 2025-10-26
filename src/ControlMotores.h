@@ -15,8 +15,10 @@ class ControlMotores{
 		int pwm_2;
 		int mot[2][2];
 
+		//funcion velocidad
+		void velocidad(int vel_1, int vel_2);
+
 		//metodos de acciones
-		void alto();
 		void dir_a();
 		void dir_b();
 		void giro();
@@ -26,6 +28,8 @@ class ControlMotores{
 		ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, int motB_1, int motB_2);
 		void begin();
 		void controlador(int accion);
+		//alto
+		void alto();
 };
 
 #endif

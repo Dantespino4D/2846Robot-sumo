@@ -44,20 +44,21 @@ void SensorLimite::calCol(){
   	uint32_t t_b = 0;
 
   	uint16_t r, g, b, c;
-  	const int NUMM = 50;
+  	const int NUMM = 15;
   	for (int i = 0; i < NUMM; i++) {
   	  	// Leer sensor 1
   	  	scSel(0);
+		vTaskDelay(pdMS_TO_TICKS(2));
   	  	sc_1.getRawData(&r, &g, &b, &c);
   	  	t_r += r;
   	  	t_g += g;
   	  	t_b += b;
 
-	    delay(20);
+	    vTaskDelay(pdMS_TO_TICKS(10));
   	}
   	// calcula el promedio de las muestras
- 	 lcr = t_r / NUMM;
-  	lcg = t_g / NUMM;
+ 	lcr = t_r / NUMM;
+	lcg = t_g / NUMM;
   	lcb = t_b / NUMM;
 }
 
@@ -66,6 +67,7 @@ void SensorLimite::begin(){
 
 	// selecciona sc_1
 	scSel(0);
+	vTaskDelay(pdMS_TO_TICKS(2));
 	// verifica el funcionamiento de sc_1
 	if (sc_1.begin()) {
 		// todo bien
@@ -77,6 +79,7 @@ void SensorLimite::begin(){
 
 	// selecciona sc_2
 	scSel(3);
+	vTaskDelay(pdMS_TO_TICKS(2));
 	// verifica el funcionamiento de sc_2
 	if (sc_2.begin()) {
 	    // todo bien
@@ -95,6 +98,7 @@ bool SensorLimite::sc_1Verify(){
     if (estado) {
     	// selecciona sc_1
       	scSel(0);
+		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_1 lee el color
       	sc_1.getRawData(&r, &g, &b, &c);
       	// sc_1 determina si el color detectado es el mismo del limite
@@ -120,6 +124,7 @@ bool SensorLimite::sc_2Verify(){
 	if (estado2) {
       	// selecciona sc_2
       	scSel(3);
+		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_1 lee el color
       	sc_2.getRawData(&r, &g, &b, &c);
       	// sc_2 determina si el color detectado es el mismo del limite
