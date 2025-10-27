@@ -24,13 +24,12 @@ class SensorLimite{
 
 		//metodo que selecciona entre sc_1 y sc_2
 		void scSel(uint8_t i);
-
-		//metodo que calibra el Sensor
-		void calCol();
-
 	public:
 		//constructor
 		SensorLimite(int limCol);
+
+		//metodo que calibra el Sensor
+		void calCol();
 
 		//metodos de deteccion de limite
 		bool sc_1Verify();

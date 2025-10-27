@@ -88,7 +88,6 @@ void SensorLimite::begin(){
 		// no funciona y desantiva su funcionamiento
 	    estado2 = false;
 	}
-	calCol();
 }
 
 bool SensorLimite::sc_1Verify(){
@@ -104,8 +103,8 @@ bool SensorLimite::sc_1Verify(){
       	// sc_1 determina si el color detectado es el mismo del limite
       	long difCol = abs(r - lcr) + abs(g - lcg) + abs(b - lcb);
       	if (difCol > limCol) {
-        // retorna verdadero al detectar el limite
-		return true;
+        	// retorna verdadero al detectar el limite
+			return true;
 		}
 		else{
 			//retorna falso si no detencta nada

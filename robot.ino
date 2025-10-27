@@ -75,6 +75,7 @@ void robot(void *pvParameters) {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
   start = true;
+  sc.calCol();
   vTaskDelay(pdMS_TO_TICKS(5000));
   while (true) {
     // inicia
@@ -160,15 +161,16 @@ void setup() {
   if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
       enemigo2 == NULL) {
     cm.alto(); // detener motores por seguridad
-    delay(2000);
+    prueba(0);
     ESP.restart();
+  } else {
+    prueba(1);
   }
 
   // se inicializan los pines
   pinMode(led_1, OUTPUT);
   pinMode(led_2, OUTPUT);
   pinMode(ini, INPUT_PULLUP);
-  pinMode(23, OUTPUT);
   pinMode(ledp_1, OUTPUT);
   pinMode(ledp_2, OUTPUT);
 
@@ -198,6 +200,5 @@ void loop() {
   // ojos_2 enemigo2
   // sc_1 alerta
   // sc_2 alerta2
-  // eliminar todas la funciones de prueba una vez armado y soldado el circuito
   // y se verifique que este todo correcto
 }
