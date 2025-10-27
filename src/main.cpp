@@ -1,7 +1,7 @@
-#include "src/ControlMotores.h"
-#include "src/MaquinaEstados.h"
-#include "src/SensorLimite.h"
-#include "src/SensorRival.h"
+#include "ControlMotores.h"
+#include "MaquinaEstados.h"
+#include "SensorLimite.h"
+#include "SensorRival.h"
 #include <Arduino.h>
 #include <Musica.h>
 
