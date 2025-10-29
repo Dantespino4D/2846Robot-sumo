@@ -1,8 +1,11 @@
+#include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
 #include "ControlMotores.h"
 #include "MaquinaEstados.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
-#include <Arduino.h>
 #include <Musica.h>
 
 // variables que establecen el tiemṕo
@@ -29,20 +32,20 @@ QueueHandle_t orden;
 bool start = false;
 
 // variables de los pines(y la de distancia maxima)
-int ini = 2;
-int trig_1 = 13;
-int echo_1 = 34;
-int trig_2 = 12;
-int echo_2 = 35;
-int led_1 = 19;
-int led_2 = 5;
-int ledp_1 = 16;
-int ledp_2 = 17;
+gpio_num_t ini = GPIO_NUM_2;
+gpio_num_t trig_1 = GPIO_NUM_13;
+gpio_num_t echo_1 = GPIO_NUM_34;
+gpio_num_t trig_2 = GPIO_NUM_12;
+gpio_num_t echo_2 = GPIO_NUM_35;
+gpio_num_t led_1 = GPIO_NUM_19;
+gpio_num_t led_2 = GPIO_NUM_5;
+gpio_num_t ledp_1 = GPIO_NUM_16;
+gpio_num_t ledp_2 = GPIO_NUM_17;
 
 // variables de los pines de los motores
-int pwm_1 = 4;
-int pwm_2 = 18;
-int mot[2][2] = {{26, 25}, {14, 27}};
+gpio_num_t pwm_1 = GPIO_NUM_4;
+gpio_num_t pwm_2 = GPIO_NUM_18;
+gpio_num_t mot[2][2] = {{GPIO_NUM_26, GPIO_NUM_25}, {GPIO_NUM_14, GPIO_NUM_27}};
 
 // objeto de los sensores de color
 SensorLimite sc(limCol);
@@ -59,10 +62,10 @@ MaquinaEstados *me = nullptr;
 // funcion para probar el funcionamiento de cosas
 void prueba(int a) {
   if (a == 0) {
-    digitalWrite(ledp_1, HIGH);
+    gpio_set_level(ledp_1, 1);
     vTaskDelay(pdMS_TO_TICKS(1000));
   } else {
-    digitalWrite(ledp_2, HIGH);
+    gpio_set_level(ledp_2, 1);
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
 }
@@ -71,7 +74,7 @@ void prueba(int a) {
 
 void robot(void *pvParameters) {
   // prende al precionar el boton
-  while (digitalRead(ini) == HIGH) {
+  while (gpio_get_level(ini) == 1) {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
   start = true;
@@ -145,7 +148,7 @@ void musica(void *pvParameters) {
 }
 
 // setup
-void setup() {
+extern "C" void app_main(void){
   // se crea la alerta de deteccion del limite
   alerta = xSemaphoreCreateBinary();
   alerta2 = xSemaphoreCreateBinary();
@@ -162,17 +165,37 @@ void setup() {
       enemigo2 == NULL) {
     cm.alto(); // detener motores por seguridad
     prueba(0);
-    ESP.restart();
+    esp_restart();
   } else {
     prueba(1);
   }
 
-  // se inicializan los pines
-  pinMode(led_1, OUTPUT);
-  pinMode(led_2, OUTPUT);
-  pinMode(ini, INPUT_PULLUP);
-  pinMode(ledp_1, OUTPUT);
-  pinMode(ledp_2, OUTPUT);
+  // se inicializan los pines output
+	gpio_config_t io_conf_output;
+	io_conf_output.pin_bit_mask = (1ULL << led_1) | (1ULL << led_2) | (1ULL << ledp_1) | (1ULL << trig_1) | (1ULL << trig_2) | (1ULL << ledp_2) | (1ULL << mot[0][0]) | (1ULL << mot[0][1]) | (1ULL << mot[1][0]) | (1ULL << mot[1][1]);
+	io_conf_output.mode = GPIO_MODE_OUTPUT;
+	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
+	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf_output.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&io_conf_output);
+
+	//se inicializan pines input pullup
+	gpio_config_t io_conf_input;
+	io_conf_input.pin_bit_mask = (1ULL << ini);
+	io_conf_input.mode = GPIO_MODE_INPUT;
+	io_conf_input.pull_up_en = GPIO_PULLUP_ENABLE;
+	io_conf_input.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf_input.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&io_conf_input);
+
+	//se inicializan los pines input
+   gpio_config_t io_conf_input_simple;
+    io_conf_input_simple.pin_bit_mask = (1ULL << echo_1) | (1ULL << echo_2);
+    io_conf_input_simple.mode = GPIO_MODE_INPUT;
+    io_conf_input_simple.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf_input_simple.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
+    gpio_config(&io_conf_input_simple);
 
   // configuracion de los objetos de sensores de color y ultrasonicos
   sc.begin();
@@ -192,7 +215,6 @@ void setup() {
   xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
   xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 }
-void loop() {
   // DESCRIPCIONES A TOMAR EN CUENTA:
   // ojos_1 y sc_1 en direccion "a"
   // ojos_2 y sc_2 en direccion "b"
@@ -201,4 +223,4 @@ void loop() {
   // sc_1 alerta
   // sc_2 alerta2
   // y se verifique que este todo correcto
-}
+
