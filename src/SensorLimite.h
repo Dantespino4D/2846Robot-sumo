@@ -1,9 +1,9 @@
 #ifndef SENSORLIMITE_H
 #define SENSORLIMITE_H
 
-#include <Arduino.h>
-#include <Adafruit_TCS34725.h>
-#include <Wire.h>
+#include "driver/i2c.h"
+#include "freertos/task.h"
+#include "TCS34725.h"
 
 class SensorLimite{
 	private:
@@ -17,13 +17,16 @@ class SensorLimite{
 		int blue;
 
 		//se declaran sc_1 y sc_2
-		Adafruit_TCS34725 sc_1;
-		Adafruit_TCS34725 sc_2;
+		TCS34725 sc_1;
+		TCS34725 sc_2;
+
 		//se establecen lo valores predetermindos
 		uint16_t lcr, lcg, lcb;
 
 		//metodo que selecciona entre sc_1 y sc_2
 		void scSel(uint8_t i);
+
+		void i2c();
 	public:
 		//constructor
 		SensorLimite(int limCol);
