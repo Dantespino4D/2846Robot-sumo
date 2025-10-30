@@ -1,4 +1,4 @@
-#include <Arduino.h>
+#include "freertos/task.h"
 #include "MaquinaEstados.h"
 
 MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2,SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
@@ -24,17 +24,19 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2,SemaphoreHandle_t& _al
 
 //se cuentan kis tiempos
 void MaquinaEstados::tiempo(){
+	unsigned long temp = (xTaskgetTiksCount() * portTICK_PERIOD_MS);
+
 	// condiciones que evaluan si ya pasaron los tiempos
-    if (millis() - temp1 >= tiempo1) {
+    if (temp - temp1 >= tiempo1) {
     	memo1 = false;
     }
-    if (millis() - temp2 >= tiempo1) {
+    if (temp - temp2 >= tiempo1) {
       	memo2 = false;
     }
-    if (millis() - temp3 >= tiempo2) {
+    if (temp - temp3 >= tiempo2) {
     	memo3 = false;
     }
-    if (millis() - temp4 >= tiempo2) {
+    if (temp - temp4 >= tiempo2) {
      	memo4 = false;
     }
 }
@@ -75,6 +77,9 @@ void MaquinaEstados::ejecucion(){
 	// variable del comandos
     int com;
 
+	//se guarda el tiempo
+	unsigned long temp = (xTaskgetTiksCount() * portTICK_PERIOD_MS);
+
     // ejecuta el estado
     switch (modo) {
     // detiene el movimiento y retrocede en direccion b
@@ -82,53 +87,53 @@ void MaquinaEstados::ejecucion(){
       		com = DIR_B;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		memo3 = true;
-      		temp3 = millis();
+      		temp3 = temp;
       		break;
       	// detiene el movimiento y retrocede en direccion a
     	case 1:
     	  	com = DIR_A;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		memo4 = true;
-      		temp4 = millis();
+      		temp4 = temp;
       		break;
     	// avanza por un tiempo definido de 4 segundo en direccion a
     	case 2:
       		com = DIR_A;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		memo1 = true;
-      		temp1 = millis();
-      		temp3 = millis();
-      		temp4 = millis();
+      		temp1 = temp;
+      		temp3 = temp;
+      		temp4 = temp;
       		break;
     	// avanza por un tiempo definido de 4 segundos en direccion b
     	case 3:
       		com = DIR_B;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		memo2 = true;
-      		temp2 = millis();
-      		temp3 = millis();
-      		temp4 = millis();
+      		temp2 = temp;
+      		temp3 = temp;
+      		temp4 = temp;
       		break;
     	// avanza en direccion a
     	case 4:
       		com = DIR_A;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
-      		temp3 = millis();
-      		temp4 = millis();
+      		temp3 = temp;
+      		temp4 = temp;
       		break;
     	// avanza en direccion b
     	case 5:
       		com = DIR_B;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
-      		temp3 = millis();
-      		temp4 = millis();
+      		temp3 = temp;
+      		temp4 = temp;
       		break;
       	// da vueltas hasta encontrar el robot
     	case 6:
       		com = GIRO;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
-      		temp3 = millis();
-      		temp4 = millis();
+      		temp3 = temp;
+      		temp4 = temp;
       		break;
 	}
 }

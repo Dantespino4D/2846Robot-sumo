@@ -7,7 +7,9 @@
 #define DIR_B 2
 #define GIRO 3
 
-#include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+#include "freertos/queue.h"
 
 class MaquinaEstados{
 	private:
