@@ -1,19 +1,19 @@
-#include <Arduino.h>
 #ifndef CONTROLMOTORES_H
 #define CONTROLMOTORES_H
 
+#include "driver/gpio.h"
 #include "driver/ledc.h"
 
 class ControlMotores{
 	private:
 		//variables necesarias
 		int freq;
-		int solut;
-		int pwmC_1;
-		int pwmC_2;
-		int pwm_1;
-		int pwm_2;
-		int mot[2][2];
+		ledc_timer_t solut;
+		ledc_channel_t pwmC_1;
+		ledc_channel_t pwmC_2;
+		gpio_num_t pwm_1;
+		gpio_num_t pwm_2;
+		gpio_num_t mot[2][2];
 
 		//funcion velocidad
 		void velocidad(int vel_1, int vel_2);
@@ -25,7 +25,7 @@ class ControlMotores{
 
 	public:
 		//variables control e inicializacion
-		ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, int motB_1, int motB_2);
+		ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA_1, gpio_num_t motA_2, gpio_num_t motB_1, gpio_num_t motB_2);
 		void begin();
 		void controlador(int accion);
 		//alto

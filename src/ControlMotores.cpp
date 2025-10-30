@@ -1,13 +1,14 @@
-#include <Arduino.h>
+#include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "esp_timer.h"
 #include "ControlMotores.h"
 
-ControlMotores::ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, int motB_1, int motB_2):
+ControlMotores::ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA_1, gpio_num_t motA_2, gpio_num_t motB_1, gpio_num_t motB_2):
 // Valores de configuracion pwm
     freq(5000),
-    solut(8),
-    pwmC_1(0),
-    pwmC_2(1),
+    solut(LEDC_TIMER_8_BIT),
+    pwmC_1(LEDC_CHANNEL_0),
+    pwmC_2(LEDC_CHANNEL_1),
 
     // Pines pwm
     pwm_1(_pwm_1),
@@ -19,53 +20,79 @@ ControlMotores::ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, i
 
 //estblecer velocidad
 void ControlMotores::velocidad(int vel_1, int vel_2){
-    ledcWrite(pwmC_1, vel_1);
-    ledcWrite(pwmC_2, vel_2);
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, vel_1);
+	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_1);
+
+    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, vel_2);
+	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_2);
 }
 
 void ControlMotores::alto(){
-	digitalWrite(mot[0][0], LOW);
-  	digitalWrite(mot[0][1], LOW);
-  	digitalWrite(mot[1][0], LOW);
-  	digitalWrite(mot[1][1], LOW);
-	delayMicroseconds(100);
+	gpio_set_level(mot[0][0], 0);
+  	gpio_set_level(mot[0][1], 0);
+  	gpio_set_level(mot[1][0], 0);
+  	gpio_set_level(mot[1][1], 0);
+	ets_delay_us(100);
 }
 
 void ControlMotores::dir_a(){
 	alto();
 	velocidad(255, 255);
-  	digitalWrite(mot[0][0], HIGH);
-  	digitalWrite(mot[1][0], HIGH);
+  	gpio_set_level(mot[0][0], 1);
+  	gpio_set_level(mot[1][0], 1);
 }
 
 void ControlMotores::dir_b(){
 	alto();
 	velocidad(255, 255);
-	digitalWrite(mot[0][1], HIGH);
-  	digitalWrite(mot[1][1], HIGH);
+	gpio_set_level(mot[0][1], 1);
+  	gpio_set_level(mot[1][1], 1);
 
 }
 
 void ControlMotores::giro(){
 	alto();
 	velocidad(255, 255);
-	digitalWrite(mot[0][1], HIGH);
-  	digitalWrite(mot[1][0], HIGH);
+	gpio_set_level(mot[0][1], 1);
+  	gpio_set_level(mot[1][0], 1);
 }
 
 void ControlMotores::begin(){
-	//se inicializan los pines
-	for(int i = 0; i < 2; i++){
-		for(int j = 0; j < 2; j++){
-			pinMode(mot[i][j], OUTPUT);
-		}
-	}
-
   	// configuracion y asignacion de los pines pwm
-  	ledcSetup(pwmC_1, freq, solut);
-  	ledcSetup(pwmC_2, freq, solut);
-  	ledcAttachPin(pwm_1, pwmC_1);
-  	ledcAttachPin(pwm_2, pwmC_2);
+
+	//configuracion del timer
+	ledc_timer_config_t ledc_timer = {
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.duty_resolution = solut,
+		.timer_num = LEDC_TIMER_0,
+		.freq_hz = freq,
+		.clk_cfg = LEDC_AUTO_CLK
+	};
+	ledc_timer_config(&ledc_timer);
+
+	//configuracion canal 1
+	ledc_channel_config_t ledc_channel_1 = {
+		.gpio_num = pwm_1,
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.channel = pwmC_1,
+		.intr_type = LEDC_INTR_DISABLE,
+		.timer_sel = LEDC_TIMER_0,
+		.duty = 0,
+		.hpoint = 0
+	};
+	ledc_channel_config(&ledc_channel_1);
+
+	//configuracion canal 2
+	ledc_channel_config_t ledc_channel_2 = {
+		.gpio_num = pwm_2,
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.channel = pwmC_2,
+		.intr_type = LEDC_INTR_DISABLE,
+		.timer_sel = LEDC_TIMER_0,
+		.duty = 0,
+		.hpoint = 0
+	};
+	ledc_channel_config(&ledc_channel_2);
 }
 
 void ControlMotores::controlador(int accion){
@@ -74,7 +101,7 @@ void ControlMotores::controlador(int accion){
 			alto();
 			break;
 		case 1:
-			dir_a();
+			dir_a();jjj
 			break;
 		case 2:
 			dir_b();
