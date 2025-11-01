@@ -1,7 +1,7 @@
 #ifndef Musica_h
 #define Musica_h
 
-#include "Arduino.h"
+#include "driver/gpio.h"
 
 const int NEG = 500;
 const float BPUNT = NEG * 3;
@@ -84,7 +84,7 @@ const float Notas[] = {
   C5, DB5, D5, EB5, E5, F5, GB5, G5, AB5, L5, BB5, B5
 };
 
-void pinMus(int pin);
+void pinMus(gpio_num_t pin);
 void nota(float no, float dur);
 void sil(float dur);
 void adestes();

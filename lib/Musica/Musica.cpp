@@ -1,20 +1,49 @@
-#include "Arduino.h"
 #include "Musica.h"
+#include "driver/ledc.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-int buz;
+#define LEDC_TIMER              LEDC_TIMER_0
+#define LEDC_MODE               LEDC_LOW_SPEED_MODE
+#define LEDC_CHANNEL            LEDC_CHANNEL_0
+#define LEDC_DUTY_RES           LEDC_TIMER_10_BIT
+#define LEDC_DUTY_50_PERCENT    (512)
+
+gpio_num_t buz;
 int tt = 5000;
-void pinMus(int pin){
-	buz = pin;
-	pinMode(buz, OUTPUT);
+void pinMus(gpio_num_t pin){
+// Configurar el Timer
+    ledc_timer_config_t ledc_timer = {};
+	ledc_timer.speed_mode       = LEDC_MODE;
+    ledc_timer.timer_num        = LEDC_TIMER;
+    ledc_timer.freq_hz          = 5000; // Frecuencia inicial (ej. 5kHz)
+    ledc_timer.duty_resolution  = LEDC_DUTY_RES;
+    ledc_timer.clk_cfg          = LEDC_AUTO_CLK;
+    ledc_timer_config(&ledc_timer);
+
+    // Configurar el Canal
+    ledc_channel_config_t ledc_channel = {};
+
+	ledc_channel.speed_mode     = LEDC_MODE;
+    ledc_channel.channel        = LEDC_CHANNEL;
+    ledc_channel.timer_sel      = LEDC_TIMER;
+    ledc_channel.intr_type      = LEDC_INTR_DISABLE;
+    ledc_channel.gpio_num       = pin;
+	ledc_channel.duty           = 0;
+	ledc_channel.hpoint         = 0;
+    ledc_channel_config(&ledc_channel);
 }
 void nota(float no, float dur) {
-  tone(buz, no);
-  vTaskDelay(dur / portTICK_PERIOD_MS);
-  noTone(buz);
-  vTaskDelay(ESPA / portTICK_PERIOD_MS);
+	ledc_set_freq(LEDC_MODE, LEDC_TIMER, (uint32_t)no);
+    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, LEDC_DUTY_50_PERCENT);
+    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL);
+
+    vTaskDelay((TickType_t)(dur / portTICK_PERIOD_MS));
+
+    ledc_stop(LEDC_MODE, LEDC_CHANNEL, 0);  vTaskDelay(ESPA / portTICK_PERIOD_MS);
 }
 void sil(float dur){
-	noTone(buz);
+	ledc_stop(LEDC_MODE, LEDC_CHANNEL, 0);
 	vTaskDelay(dur / portTICK_PERIOD_MS);
 }
 

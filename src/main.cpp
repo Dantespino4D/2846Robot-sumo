@@ -6,7 +6,7 @@
 #include "MaquinaEstados.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
-//#include <Musica.h>
+#include <Musica.h>
 
 // variables que establecen el tiemṕo
 int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
@@ -31,7 +31,8 @@ QueueHandle_t orden;
 // variables de control
 bool start = false;
 
-// variables de los pines(y la de distancia maxima)
+// variables de los pines
+gpio_num_t mus = GPIO_NUM_4;
 gpio_num_t ini = GPIO_NUM_2;
 gpio_num_t trig_1 = GPIO_NUM_13;
 gpio_num_t echo_1 = GPIO_NUM_34;
@@ -140,7 +141,7 @@ void senUltra(void *pvParameters) {
 void musica(void *pvParameters) {
   while (true) {
     while (start) {
-      //adestes();
+      adestes();
       vTaskDelay(10);
     }
     vTaskDelay(10);
@@ -169,6 +170,9 @@ extern "C" void app_main(void){
   } else {
     prueba(1);
   }
+
+  //pin de la musica
+  pinMus(mus);
 
   // se inicializan los pines output
 	gpio_config_t io_conf_output;
