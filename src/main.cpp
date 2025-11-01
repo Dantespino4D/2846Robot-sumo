@@ -46,7 +46,7 @@ gpio_num_t ledp_2 = GPIO_NUM_17;
 // variables de los pines de los motores
 gpio_num_t pwm_1 = GPIO_NUM_4;
 gpio_num_t pwm_2 = GPIO_NUM_18;
-gpio_num_t mot[2][2] = {{GPIO_NUM_26, GPIO_NUM_25}, {GPIO_NUM_14, GPIO_NUM_27}};
+gpio_num_t mot[2] = {GPIO_NUM_26, GPIO_NUM_25};
 
 // objeto de los sensores de color
 SensorLimite sc(limCol);
@@ -55,7 +55,7 @@ SensorLimite sc(limCol);
 SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
 
 // objeto del controlador de motores
-ControlMotores cm(pwm_1, pwm_2, mot[0][0], mot[0][1], mot[1][0], mot[1][1]);
+ControlMotores cm(pwm_1, pwm_2, mot[0], mot[1]);
 
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
@@ -176,7 +176,7 @@ extern "C" void app_main(void){
 
   // se inicializan los pines output
 	gpio_config_t io_conf_output;
-	io_conf_output.pin_bit_mask = (1ULL << led_1) | (1ULL << led_2) | (1ULL << ledp_1) | (1ULL << trig_1) | (1ULL << trig_2) | (1ULL << ledp_2) | (1ULL << mot[0][0]) | (1ULL << mot[0][1]) | (1ULL << mot[1][0]) | (1ULL << mot[1][1]);
+	io_conf_output.pin_bit_mask = (1ULL << led_1) | (1ULL << led_2) | (1ULL << ledp_1) | (1ULL << trig_1) | (1ULL << trig_2) | (1ULL << ledp_2) | (1ULL << mot[0]) | (1ULL << mot[1]);
 	io_conf_output.mode = GPIO_MODE_OUTPUT;
 	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
 	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;

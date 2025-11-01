@@ -4,7 +4,7 @@
 #include "ControlMotores.h"
 #include "rom/ets_sys.h"
 
-ControlMotores::ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA_1, gpio_num_t motA_2, gpio_num_t motB_1, gpio_num_t motB_2):
+ControlMotores::ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA, gpio_num_t motB):
 // Valores de configuracion pwm
     freq(5000),
     solut(LEDC_TIMER_8_BIT),
@@ -16,7 +16,7 @@ ControlMotores::ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t 
     pwm_2(_pwm_2),
 
 	//pines de los motores
-	mot{ {motA_1, motA_2}, {motB_1, motB_2} }
+	mot{motA, motB}
 {}
 
 //estblecer velocidad
@@ -29,33 +29,32 @@ void ControlMotores::velocidad(int vel_1, int vel_2){
 }
 
 void ControlMotores::alto(){
-	gpio_set_level(mot[0][0], 0);
-  	gpio_set_level(mot[0][1], 0);
-  	gpio_set_level(mot[1][0], 0);
-  	gpio_set_level(mot[1][1], 0);
+	gpio_set_level(mot[0], 0);
+  	gpio_set_level(mot[1], 0);
+	velocidad(0, 0);
 	ets_delay_us(100);
 }
 
 void ControlMotores::dir_a(){
 	alto();
 	velocidad(255, 255);
-  	gpio_set_level(mot[0][0], 1);
-  	gpio_set_level(mot[1][0], 1);
+  	gpio_set_level(mot[0], 1);
+  	gpio_set_level(mot[1], 1);
 }
 
 void ControlMotores::dir_b(){
 	alto();
 	velocidad(255, 255);
-	gpio_set_level(mot[0][1], 1);
-  	gpio_set_level(mot[1][1], 1);
+	gpio_set_level(mot[0], 0);
+  	gpio_set_level(mot[1], 0);
 
 }
 
 void ControlMotores::giro(){
 	alto();
 	velocidad(255, 255);
-	gpio_set_level(mot[0][1], 1);
-  	gpio_set_level(mot[1][0], 1);
+	gpio_set_level(mot[0], 0);
+  	gpio_set_level(mot[1], 1);
 }
 
 void ControlMotores::begin(){

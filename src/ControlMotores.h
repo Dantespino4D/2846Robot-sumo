@@ -13,7 +13,7 @@ class ControlMotores{
 		ledc_channel_t pwmC_2;
 		gpio_num_t pwm_1;
 		gpio_num_t pwm_2;
-		gpio_num_t mot[2][2];
+		gpio_num_t mot[2];
 
 		//funcion velocidad
 		void velocidad(int vel_1, int vel_2);
@@ -25,7 +25,7 @@ class ControlMotores{
 
 	public:
 		//variables control e inicializacion
-		ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA_1, gpio_num_t motA_2, gpio_num_t motB_1, gpio_num_t motB_2);
+		ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA, gpio_num_t motB);
 		void begin();
 		void controlador(int accion);
 		//alto
