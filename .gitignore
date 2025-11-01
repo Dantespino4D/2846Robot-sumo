@@ -1,1 +1,7 @@
-lib/
+.pio/
+.cache
+.clangd
+CMakeLists.txt
+compile_commands.json
+.git
+sdkconfig.esp32dev

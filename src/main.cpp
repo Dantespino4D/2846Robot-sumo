@@ -42,7 +42,7 @@ int ledp_2 = 17;
 // variables de los pines de los motores
 int pwm_1 = 4;
 int pwm_2 = 18;
-int mot[2][2] = {{26, 25}, {14, 27}};
+int mot[2] = {26, 25};
 
 // objeto de los sensores de color
 SensorLimite sc(limCol);
@@ -51,7 +51,7 @@ SensorLimite sc(limCol);
 SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
 
 // objeto del controlador de motores
-ControlMotores cm(pwm_1, pwm_2, mot[0][0], mot[0][1], mot[1][0], mot[1][1]);
+ControlMotores cm(pwm_1, pwm_2, mot[0], mot[1]);
 
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;

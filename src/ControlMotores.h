@@ -13,7 +13,7 @@ class ControlMotores{
 		int pwmC_2;
 		int pwm_1;
 		int pwm_2;
-		int mot[2][2];
+		int mot[2];
 
 		//funcion velocidad
 		void velocidad(int vel_1, int vel_2);
@@ -25,7 +25,7 @@ class ControlMotores{
 
 	public:
 		//variables control e inicializacion
-		ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, int motB_1, int motB_2);
+		ControlMotores(int _pwm_1, int _pwm_2, int motA, int motB);
 		void begin();
 		void controlador(int accion);
 		//alto

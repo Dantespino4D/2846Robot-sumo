@@ -2,7 +2,7 @@
 #include "driver/ledc.h"
 #include "ControlMotores.h"
 
-ControlMotores::ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, int motB_1, int motB_2):
+ControlMotores::ControlMotores(int _pwm_1, int _pwm_2, int motA, int motB):
 // Valores de configuracion pwm
     freq(5000),
     solut(8),
@@ -14,7 +14,7 @@ ControlMotores::ControlMotores(int _pwm_1, int _pwm_2, int motA_1, int motA_2, i
     pwm_2(_pwm_2),
 
 	//pines de los motores
-	mot{ {motA_1, motA_2}, {motB_1, motB_2} }
+	mot{motA, motB}
 {}
 
 //estblecer velocidad
@@ -24,41 +24,38 @@ void ControlMotores::velocidad(int vel_1, int vel_2){
 }
 
 void ControlMotores::alto(){
-	digitalWrite(mot[0][0], LOW);
-  	digitalWrite(mot[0][1], LOW);
-  	digitalWrite(mot[1][0], LOW);
-  	digitalWrite(mot[1][1], LOW);
+	digitalWrite(mot[0], LOW);
+  	digitalWrite(mot[1], LOW);
+	velocidad(0, 0);
 	delayMicroseconds(100);
 }
 
 void ControlMotores::dir_a(){
 	alto();
+  	digitalWrite(mot[1], HIGH);
+  	digitalWrite(mot[1], HIGH);
 	velocidad(255, 255);
-  	digitalWrite(mot[0][0], HIGH);
-  	digitalWrite(mot[1][0], HIGH);
 }
 
 void ControlMotores::dir_b(){
 	alto();
+	digitalWrite(mot[0], HIGH);
+  	digitalWrite(mot[0], HIGH);
 	velocidad(255, 255);
-	digitalWrite(mot[0][1], HIGH);
-  	digitalWrite(mot[1][1], HIGH);
 
 }
 
 void ControlMotores::giro(){
 	alto();
+	digitalWrite(mot[0], HIGH);
+  	digitalWrite(mot[1], HIGH);
 	velocidad(255, 255);
-	digitalWrite(mot[0][1], HIGH);
-  	digitalWrite(mot[1][0], HIGH);
 }
 
 void ControlMotores::begin(){
 	//se inicializan los pines
 	for(int i = 0; i < 2; i++){
-		for(int j = 0; j < 2; j++){
-			pinMode(mot[i][j], OUTPUT);
-		}
+		pinMode(mot[i], OUTPUT);
 	}
 
   	// configuracion y asignacion de los pines pwm
