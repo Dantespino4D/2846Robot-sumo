@@ -6,7 +6,7 @@
 #include "MaquinaEstados.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
-#include <Musica.h>
+//#include <Musica.h>
 
 // variables que establecen el tiemṕo
 int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
@@ -140,7 +140,7 @@ void senUltra(void *pvParameters) {
 void musica(void *pvParameters) {
   while (true) {
     while (start) {
-      adestes();
+      //adestes();
       vTaskDelay(10);
     }
     vTaskDelay(10);

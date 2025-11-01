@@ -1,5 +1,5 @@
-#include "freertos/task.h"
 #include "MaquinaEstados.h"
+#include "freertos/task.h"
 
 MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2,SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
                    SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
@@ -15,16 +15,16 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2,SemaphoreHandle_t& _al
 	enemigo(_enemigo),
 	enemigo2(_enemigo2),
 	orden(_orden),
+	modo(6),
 	memo1(false),
 	memo2(false),
 	memo3(false),
-	memo4(false),
-	modo(6)
+	memo4(false)
 {}
 
 //se cuentan kis tiempos
 void MaquinaEstados::tiempo(){
-	unsigned long temp = (xTaskgetTiksCount() * portTICK_PERIOD_MS);
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
 	// condiciones que evaluan si ya pasaron los tiempos
     if (temp - temp1 >= tiempo1) {
@@ -78,7 +78,7 @@ void MaquinaEstados::ejecucion(){
     int com;
 
 	//se guarda el tiempo
-	unsigned long temp = (xTaskgetTiksCount() * portTICK_PERIOD_MS);
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
     // ejecuta el estado
     switch (modo) {

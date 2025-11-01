@@ -1,14 +1,14 @@
 #include "esp_timer.h"
-#include "freertos/task.h"
 #include "SensorRival.h"
 #include "driver/gpio.h"
+#include "rom/ets_sys.h"
 
 SensorRival::SensorRival(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
-	maxd(_maxd),
-	trig_1(_trig_1),
-	trig_2(_trig_2),
-	echo_1(_echo_1),
-	echo_2(_echo_2)
+	trig_1(_trig_1),  // <-- Mover antes de maxd
+    trig_2(_trig_2),  // <-- Mover antes de maxd
+    echo_1(_echo_1),  // <-- Mover antes de maxd
+    echo_2(_echo_2),  // <-- Mover antes de maxd
+    maxd(_maxd)       // <-- 'maxd' debe ir al final
 
 {}
 

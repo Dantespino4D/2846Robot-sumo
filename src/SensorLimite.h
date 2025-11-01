@@ -3,7 +3,6 @@
 
 #include "driver/i2c.h"
 #include "freertos/task.h"
-#include "TCS34725.h"
 
 class SensorLimite{
 	private:
@@ -16,17 +15,17 @@ class SensorLimite{
 		int green;
 		int blue;
 
-		//se declaran sc_1 y sc_2
-		TCS34725 sc_1;
-		TCS34725 sc_2;
-
 		//se establecen lo valores predetermindos
 		uint16_t lcr, lcg, lcb;
 
 		//metodo que selecciona entre sc_1 y sc_2
 		void scSel(uint8_t i);
 
+		//metodo de la comunicacion i2c
 		void i2c();
+
+		//metodo para leer color
+		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
 	public:
 		//constructor
 		SensorLimite(int limCol);

@@ -2,6 +2,7 @@
 #include "driver/ledc.h"
 #include "esp_timer.h"
 #include "ControlMotores.h"
+#include "rom/ets_sys.h"
 
 ControlMotores::ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA_1, gpio_num_t motA_2, gpio_num_t motB_1, gpio_num_t motB_2):
 // Valores de configuracion pwm
@@ -65,8 +66,9 @@ void ControlMotores::begin(){
 		.speed_mode = LEDC_HIGH_SPEED_MODE,
 		.duty_resolution = solut,
 		.timer_num = LEDC_TIMER_0,
-		.freq_hz = freq,
-		.clk_cfg = LEDC_AUTO_CLK
+		.freq_hz = (uint32_t)freq,
+		.clk_cfg = LEDC_AUTO_CLK,
+		.deconfigure = false
 	};
 	ledc_timer_config(&ledc_timer);
 
@@ -78,7 +80,8 @@ void ControlMotores::begin(){
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
 		.duty = 0,
-		.hpoint = 0
+		.hpoint = 0,
+		.flags = 0
 	};
 	ledc_channel_config(&ledc_channel_1);
 
@@ -90,7 +93,8 @@ void ControlMotores::begin(){
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
 		.duty = 0,
-		.hpoint = 0
+		.hpoint = 0,
+		.flags = 0
 	};
 	ledc_channel_config(&ledc_channel_2);
 }
@@ -101,7 +105,7 @@ void ControlMotores::controlador(int accion){
 			alto();
 			break;
 		case 1:
-			dir_a();jjj
+			dir_a();
 			break;
 		case 2:
 			dir_b();

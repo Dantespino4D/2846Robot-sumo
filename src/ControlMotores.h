@@ -8,7 +8,7 @@ class ControlMotores{
 	private:
 		//variables necesarias
 		int freq;
-		ledc_timer_t solut;
+		ledc_timer_bit_t solut;
 		ledc_channel_t pwmC_1;
 		ledc_channel_t pwmC_2;
 		gpio_num_t pwm_1;

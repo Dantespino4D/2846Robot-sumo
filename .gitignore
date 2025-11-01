@@ -4,6 +4,5 @@ CMakeLists.txt
 compile_commands.json
 .git/
 .pio/
-platformio.ini
 sdkconfig.esp32dev
 .gitignore
