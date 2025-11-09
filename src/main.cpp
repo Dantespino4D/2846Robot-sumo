@@ -11,7 +11,7 @@
 // variables que establecen el tiemṕo
 int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
                     // al rival
-int tiempo2 = 2000; // tiempo que retrocede al detectar el borde
+int tiempo2 = 400; // tiempo que retrocede al detectar el borde
 
 // variables que definen limites
 int maxd = 40;    // limite de los sensores ultrasonicos
@@ -134,7 +134,7 @@ void senUltra(void *pvParameters) {
     if (su.ojos_2Verify()) {
       xSemaphoreGive(enemigo2);
     }
-    vTaskDelay(pdMS_TO_TICKS(50));
+    vTaskDelay(pdMS_TO_TICKS(30));
   }
 }
 

@@ -43,30 +43,30 @@ void MaquinaEstados::tiempo(){
 
 // selecciona el estado
 void MaquinaEstados::seleccion(){
-	// si detecta el limite por sc_1
-    if (xSemaphoreTake(alerta, 0) == pdTRUE) {
-  		modo = 0;
-	}
-	// si detecta el limite por sc_2
-	else if (xSemaphoreTake(alerta2, 0) == pdTRUE) {
-	 	 modo = 1;
-	}
-	// si deja de detectar al robot por ojos 1
-	else if (memo3) {
-  		modo = 2;
-	}
-	// si deja de detectar al robot por ojos 2
-	else if (memo4) {
-		modo = 3;
-    }
 	// si detecta el robot por ojos 1
-	else if (xSemaphoreTake(enemigo, 0) == pdTRUE) {
-  		modo = 4;
+	if (xSemaphoreTake(enemigo, 0) == pdTRUE) {
+  		modo = 0;
 	}
     // si detecta el robot por ojos 2
 	else if (xSemaphoreTake(enemigo2, 0) == pdTRUE) {
-		modo = 5;
+		modo = 1;
 	}
+	// si detecta el limite por sc_1
+	else if (xSemaphoreTake(alerta, 0) == pdTRUE) {
+  		modo = 2;
+	}
+	// si detecta el limite por sc_2
+	else if (xSemaphoreTake(alerta2, 0) == pdTRUE) {
+	 	 modo = 3;
+	}
+	// si deja de detectar al robot por ojos 1
+	else if (memo3) {
+  		modo = 4;
+	}
+	// si deja de detectar al robot por ojos 2
+	else if (memo4) {
+		modo = 5;
+    }
 	// si deja de detectar al robot por ojos 1
 	else if (memo1) {
   		modo = 6;
@@ -90,44 +90,43 @@ void MaquinaEstados::ejecucion(){
 
     // ejecuta el estado
     switch (modo) {
-    // detiene el movimiento y retrocede en direccion b
-    	case 0:
-      		com = DIR_B;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
-      		memo3 = true;
-      		temp3 = temp;
-      		break;
-      	// detiene el movimiento y retrocede en direccion a
-    	case 1:
-    	  	com = DIR_A;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
-      		memo4 = true;
-      		temp4 = temp;
-      		break;
-		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
-    	case 2:
-      		com = DIR_B;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
-      		break;
-    	// continua avanzando en direccion a por un tiempo definido para alejarse del borde
-    	case 3:
-      		com = DIR_A;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
-      		break;
-
     	// avanza en direccion a
-    	case 4:
+    	case 0:
       		com = DIR_A;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		memo1 = true;
       		temp1 = temp;
       		break;
     	// avanza en direccion b
-    	case 5:
+    	case 1:
       		com = DIR_B;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		memo2 = true;
       		temp2 = temp;
+      		break;
+		// detiene el movimiento y retrocede en direccion b
+    	case 2:
+      		com = DIR_B;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		memo3 = true;
+      		temp3 = temp;
+      		break;
+      	// detiene el movimiento y retrocede en direccion a
+    	case 3:
+    	  	com = DIR_A;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		memo4 = true;
+      		temp4 = temp;
+      		break;
+		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
+    	case 4:
+      		com = DIR_B;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		break;
+    	// continua avanzando en direccion a por un tiempo definido para alejarse del borde
+    	case 5:
+      		com = DIR_A;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		break;
     	// avanza por un tiempo definido de 4 segundo en direccion a
     	case 6:

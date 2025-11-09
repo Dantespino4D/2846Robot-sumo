@@ -54,7 +54,7 @@ void ControlMotores::giro(){
 	alto();
 	gpio_set_level(mot[0], 0);
   	gpio_set_level(mot[1], 1);
-	velocidad(255, 255);
+	velocidad(200, 200);
 }
 
 void ControlMotores::begin(){
