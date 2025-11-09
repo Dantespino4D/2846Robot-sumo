@@ -37,24 +37,24 @@ void ControlMotores::alto(){
 
 void ControlMotores::dir_a(){
 	alto();
-	velocidad(255, 255);
   	gpio_set_level(mot[0], 1);
   	gpio_set_level(mot[1], 1);
+	velocidad(255, 255);
 }
 
 void ControlMotores::dir_b(){
 	alto();
-	velocidad(255, 255);
 	gpio_set_level(mot[0], 0);
   	gpio_set_level(mot[1], 0);
+	velocidad(255, 255);
 
 }
 
 void ControlMotores::giro(){
 	alto();
-	velocidad(255, 255);
 	gpio_set_level(mot[0], 0);
   	gpio_set_level(mot[1], 1);
+	velocidad(255, 255);
 }
 
 void ControlMotores::begin(){
