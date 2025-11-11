@@ -1,6 +1,7 @@
 #include "SensorLimite.h"
 #include "esp_log.h"
 #include "freertos/task.h"
+#include "rgb.h"
 
 //pines ic2
 #define I2C_MASTER_SCL_IO GPIO_NUM_22
@@ -52,6 +53,7 @@ void SensorLimite::i2c(){
 	esp_err_t err = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
 	if (err != ESP_OK){
 		ESP_LOGE(TAG, "fallo al instalar i2c %s", esp_err_to_name(err));
+		rgb(0, 1023);
 	}
 }
 void SensorLimite::scSel(uint8_t i){
@@ -63,6 +65,7 @@ void SensorLimite::scSel(uint8_t i){
 	esp_err_t err = i2c_master_write_to_device(I2C_MASTER_NUM, TCAADDR, &data, 1, pdMS_TO_TICKS(1000));
 	if (err != ESP_OK) {
         ESP_LOGE(TAG, "Fallo al seleccionar canal del MUX I2C: %s", esp_err_to_name(err));
+		rgb(0, 1023);
     }
 }
 
@@ -140,6 +143,7 @@ void SensorLimite::begin(){
     } else {
 	    estado = false;
 		ESP_LOGE(TAG, "No se pudo inicializar sc_1 (TCS34725)");
+		rgb(0, 1023);
 	}
 
 	scSel(3);
@@ -153,6 +157,7 @@ void SensorLimite::begin(){
 	} else {
 	    estado2 = false;
 		ESP_LOGE(TAG, "No se pudo inicializar sc_2 (TCS34725)");
+		rgb(0, 1023);
 	}
 }
 
@@ -183,6 +188,7 @@ bool SensorLimite::sc_1Verify(){
 	}
 	else{
 		return false;
+		rgb(0, 1023);
 	}
 }
 
@@ -213,5 +219,6 @@ bool SensorLimite::sc_2Verify(){
     }
 	else{
 		return false;
+		rgb(0, 1023);
 	}
 }

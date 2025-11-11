@@ -6,6 +6,7 @@
 #include "MaquinaEstados.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
+#include "rgb.h"
 #include <Musica.h>
 
 // variables que establecen el tiemṕo
@@ -40,8 +41,7 @@ gpio_num_t trig_2 = GPIO_NUM_12;
 gpio_num_t echo_2 = GPIO_NUM_35;
 gpio_num_t led_1 = GPIO_NUM_19;
 gpio_num_t led_2 = GPIO_NUM_5;
-gpio_num_t ledp_1 = GPIO_NUM_16;
-gpio_num_t ledp_2 = GPIO_NUM_17;
+
 
 // variables de los pines de los motores
 gpio_num_t pwm_1 = GPIO_NUM_4;
@@ -60,16 +60,6 @@ ControlMotores cm(pwm_1, pwm_2, mot[0], mot[1]);
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
 
-// funcion para probar el funcionamiento de cosas
-void prueba(int a) {
-  if (a == 0) {
-    gpio_set_level(ledp_1, 1);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  } else {
-    gpio_set_level(ledp_2, 1);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
-}
 
 // TAREA DE LA LOGICA DEL ROBOT
 
@@ -81,6 +71,7 @@ void robot(void *pvParameters) {
   start = true;
   sc.calCol();
   vTaskDelay(pdMS_TO_TICKS(5000));
+  rgb(1023, 0);
   while (true) {
     // inicia
 
@@ -150,6 +141,7 @@ void musica(void *pvParameters) {
 
 // setup
 extern "C" void app_main(void){
+  rgb(1023, 512);
   // se crea la alerta de deteccion del limite
   alerta = xSemaphoreCreateBinary();
   alerta2 = xSemaphoreCreateBinary();
@@ -165,10 +157,8 @@ extern "C" void app_main(void){
   if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
       enemigo2 == NULL) {
     cm.alto(); // detener motores por seguridad
-    prueba(0);
     esp_restart();
-  } else {
-    prueba(1);
+    rgb(0, 1023);
   }
 
   //pin de la musica
@@ -176,7 +166,7 @@ extern "C" void app_main(void){
 
   // se inicializan los pines output
 	gpio_config_t io_conf_output;
-	io_conf_output.pin_bit_mask = (1ULL << led_1) | (1ULL << led_2) | (1ULL << ledp_1) | (1ULL << trig_1) | (1ULL << trig_2) | (1ULL << ledp_2) | (1ULL << mot[0]) | (1ULL << mot[1]);
+	io_conf_output.pin_bit_mask = (1ULL << led_1) | (1ULL << led_2) | (1ULL << trig_1) | (1ULL << trig_2) | (1ULL << mot[0]) | (1ULL << mot[1]);
 	io_conf_output.mode = GPIO_MODE_OUTPUT;
 	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
 	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;
