@@ -57,28 +57,28 @@ void ControlMotores::alto(){
 
 void ControlMotores::dir_a(){
 	alto();
-	velocidad(255, 255);
+	velocidad(180, 180);
 }
 
 void ControlMotores::dir_b(){
 	alto();
-	velocidad(-255, -255);
+	velocidad(-180, -180);
 
 }
 
 void ControlMotores::ataque_a(){
 	alto();
-	velocidad(255, 220);
+	velocidad(240, 215);
 }
 
 void ControlMotores::ataque_b(){
 	alto();
-	velocidad(-220, -255);
+	velocidad(-215, -240);
 }
 
 void ControlMotores::giro(){
 	alto();
-	velocidad(220, -220);
+	velocidad(200, -150);
 }
 
 void ControlMotores::begin(){
