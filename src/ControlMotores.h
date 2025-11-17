@@ -11,8 +11,10 @@ class ControlMotores{
 		ledc_timer_bit_t solut;
 		ledc_channel_t pwmC_1;
 		ledc_channel_t pwmC_2;
-		gpio_num_t pwm_1;
-		gpio_num_t pwm_2;
+		ledc_channel_t pwmC_3;
+		ledc_channel_t pwmC_4;
+
+		gpio_num_t mot2[2];
 		gpio_num_t mot[2];
 
 		//funcion velocidad
@@ -21,11 +23,13 @@ class ControlMotores{
 		//metodos de acciones
 		void dir_a();
 		void dir_b();
+		void ataque_a();
+		void ataque_b();
 		void giro();
 
 	public:
 		//variables control e inicializacion
-		ControlMotores(gpio_num_t _pwm_1, gpio_num_t _pwm_2, gpio_num_t motA, gpio_num_t motB);
+		ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1);
 		void begin();
 		void controlador(int accion);
 		//alto

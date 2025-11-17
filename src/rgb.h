@@ -11,13 +11,13 @@
 
 // --- Configuración Pin 16 ---
 #define LEDC_PIN_16             GPIO_NUM_16
-#define LEDC_CHANNEL_16         LEDC_CHANNEL_2
+#define LEDC_CHANNEL_16         LEDC_CHANNEL_4
 
 // --- Configuración Pin 17 ---
 #define LEDC_PIN_17             GPIO_NUM_17
-#define LEDC_CHANNEL_17         LEDC_CHANNEL_3
+#define LEDC_CHANNEL_17         LEDC_CHANNEL_5
 
-static inline void setup_pwm() {
+static inline void pwm_rgb() {
     // 1. Configurar el Timer (Solo se hace una vez)
     // Este timer será compartido por ambos pines
     ledc_timer_config_t ledc_timer = {

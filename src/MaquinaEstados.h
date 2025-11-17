@@ -5,7 +5,9 @@
 #define ALTO 0
 #define DIR_A 1
 #define DIR_B 2
-#define GIRO 3
+#define ATAQUE_A 3
+#define ATAQUE_B 4
+#define GIRO 5
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

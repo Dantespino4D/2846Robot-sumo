@@ -23,7 +23,7 @@ uint32_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo){
 	gpio_set_level(trig, 0);
 
 	//detectar por echo
-	uint32_t timeout_us = 50000;
+	uint32_t timeout_us = 25000;
 	int64_t startT = esp_timer_get_time();
 	while(gpio_get_level(echo) == 0){
 		if((esp_timer_get_time() - startT) > timeout_us){
