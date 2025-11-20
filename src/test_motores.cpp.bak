@@ -1,0 +1,53 @@
+#include "esp_system.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "ControlMotores.h" //
+#include "rgb.h"            //
+
+// Etiqueta para el monitor serie
+static const char* TAG = "TestMotoresIndependiente";
+
+// Definición de pines (Copiados de tu configuración original)
+// mot[0] = Izquierda?, mot[1] = Derecha? (Según tu array original)
+gpio_num_t mot_pins[2][2] = {{GPIO_NUM_12, GPIO_NUM_13}, {GPIO_NUM_18, GPIO_NUM_27}};
+
+// Instancia del objeto (Global para este archivo)
+ControlMotores cm_test(mot_pins[0][1], mot_pins[1][1], mot_pins[0][0], mot_pins[1][0]);
+
+// Tarea de prueba
+void tareaPruebaMotores(void *pvParameters) {
+    ESP_LOGI(TAG, ">>> INICIO DE TEST DE MOTORES <<<");
+
+    while(true) {
+        ESP_LOGI(TAG, "Moviendo: DIRECCION A (Adelante)");
+        //cm_test.controlador(0);
+		vTaskDelay(pdMS_TO_TICKS(1000));
+
+        ESP_LOGI(TAG, "Moviendo: ");
+        cm_test.controlador(0);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGI(TAG, "Moviendo: ");
+        cm_test.controlador(1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        ESP_LOGI(TAG, "Moviendo: ");
+        cm_test.controlador(2);
+        vTaskDelay(pdMS_TO_TICKS(1000));
+
+
+    }
+}
+
+// ¡IMPORTANTE! Este archivo tiene su propio app_main
+extern "C" void app_main(void){
+    // Inicializar RGB (Opcional, visual)
+    pwm_rgb();
+    rgb(1023, 0); // Rojo para indicar "MODO PRUEBA"
+
+    // Inicializar Motores
+    ESP_LOGI(TAG, "Inicializando hardware de motores...");
+    cm_test.begin();
+
+    // Crear la tarea
+    xTaskCreatePinnedToCore(tareaPruebaMotores, "TestTask", 2048, NULL, 1, NULL, 1);
+}

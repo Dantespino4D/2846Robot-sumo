@@ -1,15 +1,19 @@
 #include "MaquinaEstados.h"
 #include "freertos/task.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2,SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
                    SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
                    QueueHandle_t& _orden):
 	temp1(0),
 	temp2(0),
 	temp3(0),
 	temp4(0),
+	temp5(0),
+	temp6(0),
 	tiempo1(_tiempo1),
 	tiempo2(_tiempo2),
+	tiempo3(_tiempo3),
+	tiempo4(_tiempo4),
 	alerta(_alerta),
 	alerta2(_alerta2),
 	enemigo(_enemigo),
@@ -19,7 +23,8 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2,SemaphoreHandle_t& _al
 	memo1(false),
 	memo2(false),
 	memo3(false),
-	memo4(false)
+	memo4(false),
+	memo5(false)
 {}
 
 //se cuentan kis tiempos
@@ -39,6 +44,12 @@ void MaquinaEstados::tiempo(){
     if (temp - temp4 >= tiempo2) {
      	memo4 = false;
     }
+	if (temp - temp5 >= tiempo3){
+		memo5 = false;
+	}
+	if (temp - temp6 >= tiempo4){
+		memo5 = true;
+	}
 }
 
 // selecciona el estado
@@ -76,9 +87,12 @@ void MaquinaEstados::seleccion(){
 		modo = 7;
     }
     // si no detecta nada
-	else {
+	else if(memo5){
 		modo = 8;
     }
+	else{
+		modo = 9;
+	}
 }
 
 void MaquinaEstados::ejecucion(){
@@ -140,9 +154,23 @@ void MaquinaEstados::ejecucion(){
       		break;
       	// da vueltas hasta encontrar el robot
     	case 8:
-      		com = GIRO;
+			//aqui pondre la logica para que avanze formando la estrella
+			if(temp - temp5 < tiempo3){
+				temp5 = temp;
+				memo5 = false;
+			}
+      		com = DIR_A;
       		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		break;
+		case 9:
+			//aqui pondre la logica del giro de 144 grados
+			if(temp - temp > tiempo4){
+				temp6 = temp;
+				memo5 = true;
+			}
+			com = GIRO;
+            xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+            break;
 	}
 }
 

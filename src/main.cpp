@@ -14,6 +14,9 @@ int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
                     // al rival
 int tiempo2 = 400; // tiempo que retrocede al detectar el borde
 
+int tiempo3 = 2000;//tiempo que avanza en linea recta para buscar al oponente
+
+int tiempo4 = 500; //tiempo en el que gira para buscar al oponente
 // variables que definen limites
 int maxd = 40;    // limite de los sensores ultrasonicos
 int limCol = 200; // tolerancia del sendor de color
@@ -194,7 +197,7 @@ extern "C" void app_main(void){
   cm.begin();
 
   // se inicializa el objeto de la maquina de estados
-  static MaquinaEstados maquina(tiempo1, tiempo2, alerta, alerta2, enemigo,
+  static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, alerta, alerta2, enemigo,
                                 enemigo2, orden);
 
   // se apunta al puntero

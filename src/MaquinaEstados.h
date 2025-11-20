@@ -21,10 +21,14 @@ class MaquinaEstados{
 		unsigned long temp2;
 		unsigned long temp3;
 		unsigned long temp4;
+		unsigned long temp5;
+		unsigned long temp6;
 
 		//tiempos establecidos
 		int tiempo1;
 		int tiempo2;
+		int tiempo3;
+		int tiempo4;
 
 		// alerta del limite
 		SemaphoreHandle_t& alerta;
@@ -43,6 +47,7 @@ class MaquinaEstados{
 		bool memo2;
 		bool memo3;
 		bool memo4;
+		bool memo5;
 
 		//metodo de validacion del tiempo
 		void tiempo();
@@ -54,7 +59,7 @@ class MaquinaEstados{
 		void ejecucion();
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2,SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
                    SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
             		QueueHandle_t& _orden);
 

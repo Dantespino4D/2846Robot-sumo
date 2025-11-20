@@ -7,7 +7,7 @@
 ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
 // Valores de configuracion pwm
     freq(5000),
-    solut(LEDC_TIMER_8_BIT),
+    solut(LEDC_TIMER_10_BIT),
     pwmC_1(LEDC_CHANNEL_0),
     pwmC_2(LEDC_CHANNEL_1),
     pwmC_3(LEDC_CHANNEL_2),
@@ -28,9 +28,9 @@ void ControlMotores::velocidad(int vel_1, int vel_2){
 	}else if(vel_1 < 0){
     	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 0);
 		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, abs(vel_1));
-	}else{
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 0);
+	}else if(vel_1 == 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 1023);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 1023);
 	}
 
 	if(vel_2 > 0){
@@ -39,9 +39,9 @@ void ControlMotores::velocidad(int vel_1, int vel_2){
 	}else if(vel_2 < 0){
     	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 0);
 		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, abs(vel_2));
-	}else{
-	    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 0);
+	}else if(vel_2 == 0){
+	    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 1023);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 1023);
 	}
 
 	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_1);
@@ -56,29 +56,29 @@ void ControlMotores::alto(){
 }
 
 void ControlMotores::dir_a(){
-	alto();
-	velocidad(180, 180);
+	//alto();
+	velocidad(700, 700);
 }
 
 void ControlMotores::dir_b(){
-	alto();
-	velocidad(-180, -180);
+	//alto();
+	velocidad(-700, -700);
 
 }
 
 void ControlMotores::ataque_a(){
-	alto();
-	velocidad(240, 215);
+	//alto();
+	velocidad(950, 800);
 }
 
 void ControlMotores::ataque_b(){
-	alto();
-	velocidad(-215, -240);
+	//alto();
+	velocidad(-950, -800);
 }
 
 void ControlMotores::giro(){
-	alto();
-	velocidad(200, -150);
+	//alto();
+	velocidad(950, -800);
 }
 
 void ControlMotores::begin(){

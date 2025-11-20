@@ -4,7 +4,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
-#define LEDC_TIMER              LEDC_TIMER_0
+#define LEDC_TIMER              LEDC_TIMER_3
 #define LEDC_MODE               LEDC_LOW_SPEED_MODE
 #define LEDC_DUTY_RES           LEDC_TIMER_10_BIT   // Resolución (0-1023)
 #define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
