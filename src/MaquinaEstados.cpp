@@ -44,12 +44,6 @@ void MaquinaEstados::tiempo(){
     if (temp - temp4 >= tiempo2) {
      	memo4 = false;
     }
-	if (temp - temp5 >= tiempo3){
-		memo5 = false;
-	}
-	if (temp - temp6 >= tiempo4){
-		memo5 = true;
-	}
 }
 
 // selecciona el estado
@@ -154,22 +148,23 @@ void MaquinaEstados::ejecucion(){
       		break;
       	// da vueltas hasta encontrar el robot
     	case 8:
-			//aqui pondre la logica para que avanze formando la estrella
-			if(temp - temp5 < tiempo3){
-				temp5 = temp;
-				memo5 = false;
+      		//aqui pondre la logica para que avanze formando la estrella
+			if (temp - temp5 >= tiempo3) {
+    			memo5 = false;        // ir a girar
+    			temp6 = temp;         // inicia tiempo del giro
+			}else{
+      			com = DIR_A;
+      			xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
 			}
-      		com = DIR_A;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
       		break;
 		case 9:
-			//aqui pondre la logica del giro de 144 grados
-			if(temp - temp > tiempo4){
-				temp6 = temp;
-				memo5 = true;
-			}
-			com = GIRO;
-            xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+    		if(temp - temp6 >= tiempo4){
+    		    memo5 = true;      // Termina giro → pasará a estado 8
+    		    temp5 = temp;      // Reiniciar timer del avance
+    		} else {
+    		    com = GIRO;
+    		    xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+    		}
             break;
 	}
 }

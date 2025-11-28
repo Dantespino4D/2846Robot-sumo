@@ -3,16 +3,6 @@
 #include "freertos/task.h"
 #include "rgb.h"
 
-//pines ic2
-#define I2C_MASTER_SCL_IO GPIO_NUM_22
-#define I2C_MASTER_SDA_IO GPIO_NUM_21
-#define I2C_MASTER_NUM I2C_NUM_0
-#define I2C_MASTER_FREQ_HZ 400000
-#define I2C_MASTER_TX_BUF_DISABLE 0
-#define I2C_MASTER_RX_BUF_DISABLE 0
-
-// direccion del multiplexor y sensor
-#define TCAADDR 0x70
 #define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
 #define TAG "SensorLimite"
 
@@ -22,9 +12,10 @@
 #define TCS_CDATAL 0x80 | 0x14
 
 //constructor
-SensorLimite::SensorLimite(int _limCol):
+SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu):
 	//tolerancia de color
     limCol(_limCol),
+	mu(_mu),
 
     //variables de la logica
     estado(false),
@@ -39,42 +30,12 @@ SensorLimite::SensorLimite(int _limCol):
     lcb(50)
 {}
 
-void SensorLimite::i2c(){
-	//configuracion del i2c
-	i2c_config_t conf = {};
-	conf.mode = I2C_MODE_MASTER;
-	conf.sda_io_num = I2C_MASTER_SDA_IO;
-	conf.scl_io_num = I2C_MASTER_SCL_IO;
-	conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-	conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-	conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
-	i2c_param_config(I2C_MASTER_NUM, &conf);
-
-	esp_err_t err = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-	if (err != ESP_OK){
-		ESP_LOGE(TAG, "fallo al instalar i2c %s", esp_err_to_name(err));
-		rgb(0, 1023);
-	}
-}
-void SensorLimite::scSel(uint8_t i){
-	if(i > 7){
-	return;
-	}
-	//selecciona el sensor de color a utilizar
-    uint8_t data = 1 << i;
-	esp_err_t err = i2c_master_write_to_device(I2C_MASTER_NUM, TCAADDR, &data, 1, pdMS_TO_TICKS(1000));
-	if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Fallo al seleccionar canal del MUX I2C: %s", esp_err_to_name(err));
-		rgb(0, 1023);
-    }
-}
-
 bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	uint8_t write_buf[1] = {TCS_CDATAL};
 	uint8_t read_buf[8];
 
 	//definir donde empezar a escribir los datos leidos
-	esp_err_t err = i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf, 1, pdMS_TO_TICKS(1000));
+	esp_err_t err = i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(1000));
     if (err != ESP_OK) {
         return false;
     }
@@ -104,7 +65,7 @@ void SensorLimite::calCol(){
   	const int NUMM = 15;
   	for (int i = 0; i < NUMM; i++) {
   	  	// Leer sensor 1
-  	  	scSel(0);
+  	  	mu->scSel(0);
 		vTaskDelay(pdMS_TO_TICKS(10));
   	  	if(read(&r, &g, &b, &c)){
 			t_r += r;
@@ -122,9 +83,6 @@ void SensorLimite::calCol(){
 }
 
 void SensorLimite::begin(){
-	//se configura la comunicacion i2c
-	i2c();
-
 	uint8_t write_buf[2];
 
     write_buf[0] = TCS_ATIME;
@@ -133,7 +91,7 @@ void SensorLimite::begin(){
 	uint8_t write_buf_enable[2] = {TCS_ENABLE, 0x03};
 
 	// selecciona sc_1
-	scSel(0);
+	mu->scSel(0);
 	vTaskDelay(pdMS_TO_TICKS(2));
 	// verifica el funcionamiento de sc_1
 	if (i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
@@ -146,7 +104,8 @@ void SensorLimite::begin(){
 		rgb(0, 1023);
 	}
 
-	scSel(3);
+	mu->scSel(3);
+
 	vTaskDelay(pdMS_TO_TICKS(2));
 
     // Intentamos escribir la configuración
@@ -167,7 +126,7 @@ bool SensorLimite::sc_1Verify(){
     // detecta si el sensor de color funciona bien
     if (estado) {
     	// selecciona sc_1
-      	scSel(0);
+      	mu->scSel(0);
 		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_1 lee el color
       	if(read(&r, &g, &b, &c)){
@@ -176,17 +135,14 @@ bool SensorLimite::sc_1Verify(){
       		if (difCol > limCol) {
         		// retorna verdadero al detectar el limite
 				return true;
-			}
-			else{
+			}else{
 					//retorna falso si no detencta nada
 			return false;
 			}
-		}
-		else{
+		}else{
 			return false;
 		}
-	}
-	else{
+	}else{
 		return false;
 		rgb(0, 1023);
 	}
@@ -198,7 +154,7 @@ bool SensorLimite::sc_2Verify(){
 
 	if (estado2) {
       	// selecciona sc_2
-      	scSel(3);
+      	mu->scSel(3);
 		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_2 lee el color
       	if(read(&r, &g, &b, &c)){
@@ -207,13 +163,11 @@ bool SensorLimite::sc_2Verify(){
       		if (difCol > limCol) {
         		// retorna verdadero al detectar el limite
 				return true;
-			}
-			else{
+			}else{
 					//retorna falso si no detencta nada
 			return false;
 			}
-		}
-		else{
+		}else{
 			return false;
 		}
     }

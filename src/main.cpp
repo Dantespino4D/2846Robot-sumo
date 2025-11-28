@@ -4,6 +4,7 @@
 #include "driver/gpio.h"
 #include "ControlMotores.h"
 #include "MaquinaEstados.h"
+#include "Multiplexor.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
 #include "rgb.h"
@@ -33,7 +34,7 @@ SemaphoreHandle_t enemigo2;
 QueueHandle_t orden;
 
 // variables de control
-bool start = false;
+ volatile bool start = false;
 
 // variables de los pines
 gpio_num_t mus = GPIO_NUM_4;
@@ -46,8 +47,11 @@ gpio_num_t echo_2 = GPIO_NUM_35;
 // variables de los pines de los motores
 gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
 
+//objeto del Multiplexor
+Multiplexor mu;
+
 // objeto de los sensores de color
-SensorLimite sc(limCol);
+SensorLimite sc(limCol, &mu);
 
 // objeto de los sensores ultrasonicos
 SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
@@ -66,10 +70,10 @@ void robot(void *pvParameters) {
   while (gpio_get_level(ini) == 1) {
     vTaskDelay(pdMS_TO_TICKS(100));
   }
-  start = true;
   sc.calCol();
   vTaskDelay(pdMS_TO_TICKS(5000));
   rgb(1023, 0);
+  start = true;
   while (true) {
     // inicia
 
@@ -101,30 +105,34 @@ void motores(void *pvPrarmeters) {
 // TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
 
 void senColor(void *pvParameters) {
-  while (true) {
-    if (sc.sc_1Verify()) {
-      xSemaphoreGive(alerta);
-    }
+	while (true) {
+		if (start) {
+			if (sc.sc_1Verify()) {
+     	 		xSemaphoreGive(alerta);
+    		}
 
-    if (sc.sc_2Verify()) {
-      xSemaphoreGive(alerta2);
-    }
-    vTaskDelay(pdMS_TO_TICKS(30));
-  }
+    		if (sc.sc_2Verify()) {
+      			xSemaphoreGive(alerta2);
+    		}
+		}
+   	 	vTaskDelay(pdMS_TO_TICKS(30));
+  	}
 }
 
 // TAREA DE LOS SENSORES ULTRASONICOS
 
 void senUltra(void *pvParameters) {
-  while (true) {
-    if (su.ojos_1Verify()) {
-      xSemaphoreGive(enemigo);
-    }
-    if (su.ojos_2Verify()) {
-      xSemaphoreGive(enemigo2);
-    }
-    vTaskDelay(pdMS_TO_TICKS(30));
-  }
+	while (true) {
+		if(start){
+    		if (su.ojos_1Verify()) {
+     			xSemaphoreGive(enemigo);
+    		}
+    		if (su.ojos_2Verify()) {
+      			xSemaphoreGive(enemigo2);
+    		}
+		}
+    	vTaskDelay(pdMS_TO_TICKS(30));
+  	}
 }
 
 void musica(void *pvParameters) {
@@ -139,6 +147,8 @@ void musica(void *pvParameters) {
 
 // setup
 extern "C" void app_main(void){
+  //se inicializan los canales y pines del led rgb
+  pwm_rgb();
   rgb(1023, 512);
   // se crea la alerta de deteccion del limite
   alerta = xSemaphoreCreateBinary();
@@ -151,6 +161,11 @@ extern "C" void app_main(void){
   // se crea la la orden con la que se estara comunicando con los motores
   orden = xQueueCreate(5, sizeof(int));
 
+  //ajustes iniciales
+  mu.begin();
+  cm.begin();
+  cm.alto();
+
   // metodo de seguridad
   if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
       enemigo2 == NULL) {
@@ -159,11 +174,11 @@ extern "C" void app_main(void){
     rgb(0, 1023);
   }
 
+
   //pin de la musica
   pinMus(mus);
 
-  //se inicializan los canales y pines del led rgb
-  pwm_rgb();
+
 
   // se inicializan los pines output
 	gpio_config_t io_conf_output;
@@ -194,7 +209,7 @@ extern "C" void app_main(void){
 
   // configuracion de los objetos de sensores de color y ultrasonicos
   sc.begin();
-  cm.begin();
+
 
   // se inicializa el objeto de la maquina de estados
   static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, alerta, alerta2, enemigo,
