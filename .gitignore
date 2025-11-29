@@ -6,3 +6,6 @@ compile_commands.json
 .pio/
 sdkconfig.esp32dev
 .gitignore
+managed_components/
+sdkconfig.esp32dev
+sdkconfig.test_motores

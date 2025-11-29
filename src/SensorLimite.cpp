@@ -15,11 +15,11 @@
 SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu):
 	//tolerancia de color
     limCol(_limCol),
-	mu(_mu),
 
     //variables de la logica
     estado(false),
     estado2(false),
+	mu(_mu),
 
 	//variables predeterminadas
     redC(50),
@@ -41,7 +41,7 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
     }
 
 	//leer datos del color
-	err = i2c_master_read_from_device(I2C_MASTER_NUM, TCSADDR, read_buf, 8, pdMS_TO_TICKS(1000));
+	err = i2c_master_read_from_device(mu->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(1000));
     if (err != ESP_OK) {
         return false;
     }
@@ -65,7 +65,7 @@ void SensorLimite::calCol(){
   	const int NUMM = 15;
   	for (int i = 0; i < NUMM; i++) {
   	  	// Leer sensor 1
-  	  	mu->scSel(0);
+  	  	mu->sel(0);
 		vTaskDelay(pdMS_TO_TICKS(10));
   	  	if(read(&r, &g, &b, &c)){
 			t_r += r;
@@ -91,12 +91,12 @@ void SensorLimite::begin(){
 	uint8_t write_buf_enable[2] = {TCS_ENABLE, 0x03};
 
 	// selecciona sc_1
-	mu->scSel(0);
+	mu->sel(0);
 	vTaskDelay(pdMS_TO_TICKS(2));
 	// verifica el funcionamiento de sc_1
-	if (i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+	if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
         estado = true;
     } else {
 	    estado = false;
@@ -104,14 +104,14 @@ void SensorLimite::begin(){
 		rgb(0, 1023);
 	}
 
-	mu->scSel(3);
+	mu->sel(3);
 
 	vTaskDelay(pdMS_TO_TICKS(2));
 
     // Intentamos escribir la configuración
-    if (i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(I2C_MASTER_NUM, TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+    if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
 	    estado2 = true;
 	} else {
 	    estado2 = false;
@@ -126,7 +126,7 @@ bool SensorLimite::sc_1Verify(){
     // detecta si el sensor de color funciona bien
     if (estado) {
     	// selecciona sc_1
-      	mu->scSel(0);
+      	mu->sel(0);
 		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_1 lee el color
       	if(read(&r, &g, &b, &c)){
@@ -154,7 +154,7 @@ bool SensorLimite::sc_2Verify(){
 
 	if (estado2) {
       	// selecciona sc_2
-      	mu->scSel(3);
+      	mu->sel(3);
 		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_2 lee el color
       	if(read(&r, &g, &b, &c)){

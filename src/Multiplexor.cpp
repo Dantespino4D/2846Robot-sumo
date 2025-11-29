@@ -41,7 +41,7 @@ void Multiplexor::begin(){
 }
 
 
-void Multiplexor::scSel(uint8_t i){
+void Multiplexor::sel(uint8_t i){
 	if(i > 7){
 	return;
 	}
@@ -54,7 +54,7 @@ void Multiplexor::scSel(uint8_t i){
     }
 }
 
- i2c_port_tMultiplexor::port(){
+ i2c_port_t Multiplexor::port(){
 	return I2C_MASTER_NUM;
 }
 

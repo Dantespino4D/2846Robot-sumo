@@ -7,7 +7,7 @@
 class Multiplexor{
 	public:
 		void begin();
-		void scSel(uint8_t i);
+		void sel(uint8_t i);
 		i2c_port_t port();
 };
 

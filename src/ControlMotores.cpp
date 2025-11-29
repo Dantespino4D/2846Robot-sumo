@@ -104,6 +104,7 @@ void ControlMotores::begin(){
 		.timer_sel = LEDC_TIMER_0,
 		.duty = 0,
 		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
 		.flags = 0
 	};
 	ledc_channel_config(&ledc_channel_1);
@@ -117,6 +118,7 @@ void ControlMotores::begin(){
 		.timer_sel = LEDC_TIMER_0,
 		.duty = 0,
 		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
 		.flags = 0
 	};
 	ledc_channel_config(&ledc_channel_2);
@@ -130,6 +132,7 @@ void ControlMotores::begin(){
 		.timer_sel = LEDC_TIMER_0,
 		.duty = 0,
 		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
 		.flags = 0
 	};
 	ledc_channel_config(&ledc_channel_3);
@@ -143,6 +146,7 @@ void ControlMotores::begin(){
 		.timer_sel = LEDC_TIMER_0,
 		.duty = 0,
 		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
 		.flags = 0
 	};
 	ledc_channel_config(&ledc_channel_4);

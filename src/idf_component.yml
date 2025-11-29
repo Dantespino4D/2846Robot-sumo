@@ -1,0 +1,3 @@
+dependencies:
+  # Esta es la sintaxis para pedirle la librería al registro de Espressif
+  espp/vl53l: "^1.0"

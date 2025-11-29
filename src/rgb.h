@@ -25,7 +25,8 @@ static inline void pwm_rgb() {
         .duty_resolution  = LEDC_DUTY_RES,
         .timer_num        = LEDC_TIMER,
         .freq_hz          = LEDC_FREQUENCY,
-        .clk_cfg          = LEDC_AUTO_CLK
+        .clk_cfg          = LEDC_AUTO_CLK,
+		.deconfigure = false
     };
     ledc_timer_config(&ledc_timer);
 
@@ -35,9 +36,12 @@ static inline void pwm_rgb() {
         .gpio_num       = LEDC_PIN_16,
         .speed_mode     = LEDC_MODE,
         .channel        = LEDC_CHANNEL_16,
+		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
         .timer_sel      = LEDC_TIMER, // <-- Vinculado al Timer 0
         .duty           = 0,
-        .hpoint         = 0
+        .hpoint         = 0,
+    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
+    	.flags = 0
     };
     ledc_channel_config(&ledc_channel_16);
 
@@ -47,9 +51,12 @@ static inline void pwm_rgb() {
         .gpio_num       = LEDC_PIN_17,
         .speed_mode     = LEDC_MODE,
         .channel        = LEDC_CHANNEL_17,
+		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
         .timer_sel      = LEDC_TIMER, // <-- Vinculado al mismo Timer 0
         .duty           = 0,
-        .hpoint         = 0
+        .hpoint         = 0,
+    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
+    	.flags = 0
     };
     ledc_channel_config(&ledc_channel_17);
 }
