@@ -1,4 +1,39 @@
 #include "Musica.h"
+
+
+
+
+#ifdef ARDUINO
+
+//ARDUINO
+
+#include <Arduino.h>
+
+
+int buz;
+int tt = 5000;
+
+void pinMus(int pin){
+	buz = pin;
+	pinMode(buz, OUTPUT);
+}
+
+void nota(float no, float dur) {
+  tone(buz, no);
+  delay(dur);
+  noTone(buz);
+  delay(ESPA);
+}
+void sil(float dur){
+	noTone(buz);
+	delay(dur);
+}
+
+#else
+
+//ESP32
+
+#include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -10,8 +45,8 @@
 #define LEDC_DUTY_50_PERCENT    (512)
 
 gpio_num_t buz;
-int tt = 5000;
-void pinMus(gpio_num_t pin){
+
+void pinMus(int pin){
 // Configurar el Timer
     ledc_timer_config_t ledc_timer = {};
 	ledc_timer.speed_mode       = LEDC_MODE;
@@ -28,11 +63,12 @@ void pinMus(gpio_num_t pin){
     ledc_channel.channel        = LEDC_CHANNEL;
     ledc_channel.timer_sel      = LEDC_TIMER;
     ledc_channel.intr_type      = LEDC_INTR_DISABLE;
-    ledc_channel.gpio_num       = pin;
+    ledc_channel.gpio_num       = (gpio_num_t)pin;
 	ledc_channel.duty           = 0;
 	ledc_channel.hpoint         = 0;
     ledc_channel_config(&ledc_channel);
 }
+
 void nota(float no, float dur) {
 	ledc_set_freq(LEDC_MODE, LEDC_TIMER, (uint32_t)no);
     ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, LEDC_DUTY_50_PERCENT);
@@ -46,6 +82,12 @@ void sil(float dur){
 	ledc_stop(LEDC_MODE, LEDC_CHANNEL, 0);
 	vTaskDelay(dur / portTICK_PERIOD_MS);
 }
+
+
+#endif
+
+
+//COMUN
 
 void adestes() {
   for (int x = 0; x < 2; x++) {
@@ -114,7 +156,7 @@ void adestes() {
       nota(AB4, RED);
     }
   }
-  vTaskDelay(2000 / portTICK_PERIOD_MS);
+  sil(2000);
 }
 
 void martinillo() {
@@ -432,6 +474,11 @@ void funky() {
   nota(F4, COR);
   sil(BLA);
 }
+
+void vals2(){
+
+}
+
 void prueba(){
 	for(int i = 0; i < 60; i++){
 		for(int j = 0; j < 8; j++){
