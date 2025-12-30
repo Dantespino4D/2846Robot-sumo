@@ -1,7 +1,5 @@
-#include "esp_system.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/gpio.h"
+#include "Wifi.h"
+#include "Mqtt.h"
 #include "ControlMotores.h"
 #include "MaquinaEstados.h"
 #include "Multiplexor.h"
@@ -9,6 +7,14 @@
 #include "SensorRival.h"
 #include "rgb.h"
 #include <Musica.h>
+#include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_netif.h"
+
 
 // variables que establecen el tiemṕo
 int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
@@ -46,6 +52,12 @@ gpio_num_t echo_2 = GPIO_NUM_35;
 
 // variables de los pines de los motores
 gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
+
+//objeto de Wifi
+Wifi wi;
+
+//objeto del protocolo MQTT
+Mqtt mq;
 
 //objeto del Multiplexor
 Multiplexor mu;
@@ -147,6 +159,18 @@ void musica(void *pvParameters) {
 
 // setup
 extern "C" void app_main(void){
+	//inicializar la memoria nvs
+	esp_err_t err = nvs_flash_init();
+	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
+		ESP_ERROR_CHECK(nvs_flash_erase());
+      err = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(err);
+
+	//inicializar el tcp/ip
+	esp_netif_init();
+	esp_event_loop_create_default();
+
   //se inicializan los canales y pines del led rgb
   pwm_rgb();
   rgb(1023, 512);
@@ -162,6 +186,9 @@ extern "C" void app_main(void){
   orden = xQueueCreate(5, sizeof(int));
 
   //ajustes iniciales
+  wi.begin();
+  wi.espera();
+  mq.begin();
   mu.begin();
   cm.begin();
   cm.alto();
