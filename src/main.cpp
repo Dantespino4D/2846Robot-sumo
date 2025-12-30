@@ -14,6 +14,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
+#include <string>
 
 
 // variables que establecen el tiemṕo
@@ -204,7 +205,6 @@ extern "C" void app_main(void){
 
   //pin de la musica
   pinMus(mus);
-
 
 
   // se inicializan los pines output

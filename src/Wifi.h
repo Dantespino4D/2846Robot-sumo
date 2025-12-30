@@ -6,7 +6,7 @@
 #include "esp_event.h"
 #include "esp_bit_defs.h"
 
-#define WIFI "INFINITUM288C_5"
+#define WIFI "INFINITUM288C_2.4"
 #define CONTRASEÑA "2465364457"
 #define WIFI_CONNECTED BIT0
 

@@ -4,6 +4,7 @@
 #include "mqtt_client.h"
 #include "esp_log.h"
 #include <cstdint>
+#include <string>
 
 static const char *TAG = "MQTT";
 
@@ -34,6 +35,7 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 		case MQTT_EVENT_CONNECTED:
 			ESP_LOGI(TAG, "mqtt exitoso");
 			esp_mqtt_client_subscribe(self->cliente, "ota", 1);
+			self->pub("funciona", "ota", 1, 0);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			ESP_LOGE(TAG, "mqtt se desconecto");
@@ -61,4 +63,10 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 		default:
 			break;
 	}
+
+
 }
+void Mqtt::pub(const std::string& men, const std::string& top, int q, int r){
+	esp_mqtt_client_publish(cliente, top.c_str(), men.c_str(), 0, q, r);
+}
+

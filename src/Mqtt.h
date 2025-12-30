@@ -4,8 +4,9 @@
 #include "esp_event_base.h"
 #include "mqtt_client.h"
 #include <cstdint>
+#include <string>
 
-#define BROKER "192.168.1.66"
+#define BROKER "mqtt://192.168.1.69"
 
 class Mqtt{
 	private:
@@ -15,6 +16,7 @@ class Mqtt{
 
 	public:
 		void begin();
+		void pub(const std::string& men, const std::string& top, int q, int r);
 };
 
 #endif

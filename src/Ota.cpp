@@ -12,8 +12,36 @@ static const char *TAG = "OTA";
 void Ota::ota(const char* url){
 	char *urlC = strdup(url);
 	if(urlC != NULL){
-		xTaskCreate(Ota::tareaOta, "tarea ota", 8192, (void*)urlC, 5, NULL);
+		size_t len = strlen(urlC);
+        while(len > 0 && (isspace((unsigned char)urlC[len - 1]) || urlC[len - 1] == '\r' || urlC[len - 1] == '\n')) {
+            urlC[len - 1] = '\0';
+            len--;
+        }
+
+        // 2. Eliminar comillas dobles al final (SI EXISTEN)
+        if(len > 0 && urlC[len - 1] == '\"') {
+            urlC[len - 1] = '\0';
+            len--;
+        }
+
+        char* urlF = urlC;
+
+        // 3. Eliminar espacios al inicio
+        while(*urlF && isspace((unsigned char)*urlF)) {
+            urlF++;
+        }
+
+        // 4. Eliminar comillas dobles al inicio (SI EXISTEN)
+        if(*urlF == '\"') {
+            urlF++;
+        }
+
+		char *urlT = strdup(urlF);
+
+        // Log para ver EXACTAMENTE qué estamos enviando (entre corchetes)
+        ESP_LOGI(TAG, "URL Limpia: [%s]", urlT);
 		ESP_LOGI(TAG, "iniciando ota");
+		xTaskCreate(Ota::tareaOta, "tarea ota", 8192, (void*)urlT, 5, NULL);
 	}else{
 		ESP_LOGE(TAG, "error al iniciar la ota");
 	}
@@ -24,7 +52,8 @@ void Ota::tareaOta(void *pvParameter){
 	esp_http_client_config_t confH = {
 		.url = url,
 		.cert_pem = NULL,
-		.skip_cert_common_name_check = true,
+		.crt_bundle_attach = NULL,
+		//.skip_cert_common_name_check = true,
 		.keep_alive_enable = true
 	};
 
