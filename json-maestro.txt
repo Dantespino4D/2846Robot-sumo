@@ -1,0 +1,21 @@
+{
+  "motores": {
+    "normal": { "frente": 700, "atras": 700 },
+    "ataque": { "izq": 950, "der": 800 },
+    "giro": { "izq": 950, "der": -800 }
+  },
+  "tiempos": {
+    "ataque_Ciego": 2000,
+    "retroceso": 400,
+    "recta_star": 2000,
+    "giro_star": 500
+  },
+  "sensores": {
+    "dist_max": 40,
+    "umbral_color": 200
+  },
+  "sistema": {
+    "modo": "combate",
+    "monitor": 1
+  }
+}

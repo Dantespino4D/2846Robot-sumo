@@ -5,7 +5,9 @@
 #include "Multiplexor.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
+#include "esp_log.h"
 #include "rgb.h"
+#include "Nvs.h"
 #include <Musica.h>
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -14,6 +16,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
+#include <cstdint>
 #include <string>
 
 
@@ -168,46 +171,82 @@ extern "C" void app_main(void){
 	}
 	ESP_ERROR_CHECK(err);
 
-	//inicializar el tcp/ip
-	esp_netif_init();
-	esp_event_loop_create_default();
+	//se lee las instrucciones del monitor serial
+	Nvs sys("sistema");
+	int32_t val = sys.leer("monitor", 2);
 
-  //se inicializan los canales y pines del led rgb
-  pwm_rgb();
-  rgb(1023, 512);
-  // se crea la alerta de deteccion del limite
-  alerta = xSemaphoreCreateBinary();
-  alerta2 = xSemaphoreCreateBinary();
+	//se aplica el valor elegido
+	switch(val){
+		case 0:
+			esp_log_level_set("*", ESP_LOG_NONE);
+			break;
+		case 1:
+			esp_log_level_set("*", ESP_LOG_ERROR);
+			break;
+		case 2:
+			esp_log_level_set("*", ESP_LOG_INFO);
+			break;
+		case 3:
+			esp_log_level_set("*", ESP_LOG_VERBOSE);
+			break;
+		default:
+			esp_log_level_set("*", ESP_LOG_INFO);
+			break;
+	}
 
-  // se crean las alertas de deteccion de enemigos
-  enemigo = xSemaphoreCreateBinary();
-  enemigo2 = xSemaphoreCreateBinary();
+	//se le el modo en el que va a entrar
+	int32_t mode = sys.("modo", 1);
 
-  // se crea la la orden con la que se estara comunicando con los motores
-  orden = xQueueCreate(5, sizeof(int));
+	if(mode == 0){
+		//modo de prueba
 
-  //ajustes iniciales
-  wi.begin();
-  wi.espera();
-  mq.begin();
-  mu.begin();
-  cm.begin();
-  cm.alto();
+		//inicializar el tcp/ip
+		esp_netif_init();
+		esp_event_loop_create_default();
 
-  // metodo de seguridad
-  if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
-      enemigo2 == NULL) {
-    cm.alto(); // detener motores por seguridad
-    esp_restart();
-    rgb(0, 1023);
-  }
+		//se inicializa el wifi y el MQTT
+ 		wi.begin();
+		wi.espera();
+ 		mq.begin();
+
+		//futura tarea de telemetria
+	}
 
 
-  //pin de la musica
-  pinMus(mus);
+  	//se inicializan los canales y pines del led rgb
+  	pwm_rgb();
+  	rgb(1023, 512);
+  	// se crea la alerta de deteccion del limite
+  	alerta = xSemaphoreCreateBinary();
+  	alerta2 = xSemaphoreCreateBinary();
+
+  	// se crean las alertas de deteccion de enemigos
+  	enemigo = xSemaphoreCreateBinary();
+  	enemigo2 = xSemaphoreCreateBinary();
+
+  	// se crea la la orden con la que se estara comunicando con los motores
+  	orden = xQueueCreate(5, sizeof(int));
+
+  	//ajustes iniciales
+
+  	mu.begin();
+  	cm.begin();
+  	cm.alto();
+
+  	// metodo de seguridad
+  	if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
+  		enemigo2 == NULL) {
+    	cm.alto(); // detener motores por seguridad
+    	esp_restart();
+    	rgb(0, 1023);
+  	}
 
 
-  // se inicializan los pines output
+  	//pin de la musica
+  	pinMus(mus);
+
+
+  	// se inicializan los pines output
 	gpio_config_t io_conf_output;
 	io_conf_output.pin_bit_mask = (1ULL << trig_1) | (1ULL << trig_2);
 	io_conf_output.mode = GPIO_MODE_OUTPUT;
@@ -226,7 +265,7 @@ extern "C" void app_main(void){
 	gpio_config(&io_conf_input);
 
 	//se inicializan los pines input
-   gpio_config_t io_conf_input_simple;
+   	gpio_config_t io_conf_input_simple;
     io_conf_input_simple.pin_bit_mask = (1ULL << echo_1) | (1ULL << echo_2);
     io_conf_input_simple.mode = GPIO_MODE_INPUT;
     io_conf_input_simple.pull_up_en = GPIO_PULLUP_DISABLE;
@@ -234,30 +273,30 @@ extern "C" void app_main(void){
     io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
     gpio_config(&io_conf_input_simple);
 
-  // configuracion de los objetos de sensores de color y ultrasonicos
-  sc.begin();
+  	// configuracion de los objetos de sensores de color y ultrasonicos
+  	sc.begin();
 
 
-  // se inicializa el objeto de la maquina de estados
-  static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, alerta, alerta2, enemigo,
+  	// se inicializa el objeto de la maquina de estados
+  	static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, alerta, alerta2, enemigo,
                                 enemigo2, orden);
 
-  // se apunta al puntero
-  me = &maquina;
+  	// se apunta al puntero
+  	me = &maquina;
 
-  // se crean las tareas
-  xTaskCreatePinnedToCore(robot, "robot", 2048, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 1, NULL, 1);
-  xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 0);
-  xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
-  xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
+  	// se crean las tareas
+  	xTaskCreatePinnedToCore(robot, "robot", 2048, NULL, 2, NULL, 1);
+  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 1, NULL, 1);
+  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 }
-  // DESCRIPCIONES A TOMAR EN CUENTA:
-  // ojos_1 y sc_1 en direccion "a"
-  // ojos_2 y sc_2 en direccion "b"
-  // ojos_1 enemigo
-  // ojos_2 enemigo2
-  // sc_1 alerta
-  // sc_2 alerta2
-  // y se verifique que este todo correcto
+   // DESCRIPCIONES A TOMAR EN CUENTA:
+  	// ojos_1 y sc_1 en direccion "a"
+  	// ojos_2 y sc_2 en direccion "b"
+  	// ojos_1 enemigo
+  	// ojos_2 enemigo2
+  	// sc_1 alerta
+  	// sc_2 alerta2
+  	// y se verifique que este todo correcto
 
