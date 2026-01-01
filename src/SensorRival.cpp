@@ -1,5 +1,6 @@
 #include "esp_timer.h"
 #include "SensorRival.h"
+#include "Nvs.h"
 #include "driver/gpio.h"
 #include "rom/ets_sys.h"
 
@@ -84,4 +85,9 @@ bool SensorRival::ojos_1Verify(){
 bool SensorRival::ojos_2Verify(){
 	unsigned int dis = filtro(trig_2, echo_2, mem2, ind2, total2);
 	return (dis > 0 && dis <= maxd);
+}
+
+void SensorRival::nvsLeer(){
+	Nvs nvs("sensores");
+	maxd = nvs.leer("dist_max", maxd);
 }

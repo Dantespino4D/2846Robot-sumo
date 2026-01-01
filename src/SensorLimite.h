@@ -24,6 +24,7 @@ class SensorLimite{
 
 		//metodo para leer color
 		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
+		void nvsLeer();
 	public:
 		//constructor
 		SensorLimite(int limCol, Multiplexor* _mu);

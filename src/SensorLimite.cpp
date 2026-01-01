@@ -1,4 +1,6 @@
 #include "SensorLimite.h"
+#include "Nvs.h"
+#include "rgb.h"
 #include "esp_log.h"
 #include "freertos/task.h"
 #include "rgb.h"
@@ -29,6 +31,7 @@ SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu):
 	lcg(50),
     lcb(50)
 {}
+
 
 bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	uint8_t write_buf[1] = {TCS_CDATAL};
@@ -83,6 +86,7 @@ void SensorLimite::calCol(){
 }
 
 void SensorLimite::begin(){
+	nvsLeer();
 	uint8_t write_buf[2];
 
     write_buf[0] = TCS_ATIME;
@@ -175,4 +179,9 @@ bool SensorLimite::sc_2Verify(){
 		return false;
 		rgb(0, 1023);
 	}
+}
+
+void SensorLimite::nvsLeer(){
+	Nvs nvs("sensores");
+	limCol = nvs.leer("umbral_color", limCol);
 }

@@ -195,7 +195,7 @@ extern "C" void app_main(void){
 	}
 
 	//se le el modo en el que va a entrar
-	int32_t mode = sys.("modo", 1);
+	int32_t mode = sys.leer("modo", 1);
 
 	if(mode == 0){
 		//modo de prueba
@@ -275,6 +275,7 @@ extern "C" void app_main(void){
 
   	// configuracion de los objetos de sensores de color y ultrasonicos
   	sc.begin();
+	su.nvsLeer();
 
 
   	// se inicializa el objeto de la maquina de estados

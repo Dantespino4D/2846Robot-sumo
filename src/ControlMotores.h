@@ -20,6 +20,15 @@ class ControlMotores{
 		//funcion velocidad
 		void velocidad(int vel_1, int vel_2);
 
+		//variables que definien las velocidades
+		int vel_nI;
+		int vel_nD;
+		int vel_aI;
+		int vel_aD;
+		int vel_gI;
+		int vel_gD;
+
+
 		//metodos de acciones
 		void dir_a();
 		void dir_b();
@@ -27,6 +36,8 @@ class ControlMotores{
 		void ataque_b();
 		void giro();
 
+		//metodo para leer y aplicar los valores de la nvs
+		void nvsLeer();
 	public:
 		//variables control e inicializacion
 		ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1);

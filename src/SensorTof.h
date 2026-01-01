@@ -18,6 +18,8 @@ class SensorTof{
 		uint8_t can[NUM_TOF];
 		//distancia maxima
 		int maxd;
+		//metodo que lee si hay una distancia maxima en nvs
+		void nvsLeer();
 	public:
 		//constructor
 		SensorTof(Multiplexor* _mu, const uint8_t* _can, int _maxd);

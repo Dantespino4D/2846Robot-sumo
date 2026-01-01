@@ -31,9 +31,13 @@ class SensorRival{
 
 		uint32_t filtro(gpio_num_t trig, gpio_num_t echo, int* mem, int& ind, long& total);
 
+
 	public:
 		//costructor
 		SensorRival(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2);
+
+		//metodo para leer los valores del nvs
+		void nvsLeer();
 
 		//metodos de verificacion
 		bool ojos_1Verify();

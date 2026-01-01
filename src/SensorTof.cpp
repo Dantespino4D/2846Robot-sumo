@@ -1,4 +1,5 @@
 #include "SensorTof.h"
+#include "Nvs.h"
 #include "esp_log.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
@@ -17,6 +18,9 @@ SensorTof::SensorTof(Multiplexor* _mu, const uint8_t* _can, int _maxd):
 }
 
 bool SensorTof::begin(){
+	//carga los datos del nvs
+	nvsLeer();
+
 	//configuracion necesaria para la libreria
 	bool b = true;
 	espp::Vl53l::Config config;
@@ -89,4 +93,10 @@ bool SensorTof::verify(int n){
 	}else{
 		return false;
 	}
+}
+
+//metodo que lee la Nvs
+void SensorTof::nvsLeer(){
+	Nvs nvs("sensores");
+	maxd = nvs.leer("dist_max", maxd);
 }

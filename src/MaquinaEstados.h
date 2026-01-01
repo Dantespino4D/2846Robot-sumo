@@ -2,6 +2,7 @@
 #define MAQUINAESTADOS_H
 
 // comandos de movimiento
+#include <cstdint>
 #define ALTO 0
 #define DIR_A 1
 #define DIR_B 2
@@ -44,6 +45,7 @@ class MaquinaEstados{
 		//variables de control
 		int modo;
 		bool memo1;
+
 		bool memo2;
 		bool memo3;
 		bool memo4;
@@ -57,6 +59,9 @@ class MaquinaEstados{
 
 		//sejecuta el estado
 		void ejecucion();
+
+		//lee los datos de la nvs
+		void nvsLeer();
 	public:
 		//constructor
 		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,

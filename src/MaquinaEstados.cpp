@@ -1,5 +1,8 @@
 #include "MaquinaEstados.h"
+#include "Nvs.h"
 #include "freertos/task.h"
+#include "nvs.h"
+#include <cstdint>
 
 MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
                    SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
@@ -25,7 +28,9 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	memo3(false),
 	memo4(false),
 	memo5(false)
-{}
+{
+	nvsLeer();
+}
 
 //se cuentan kis tiempos
 void MaquinaEstados::tiempo(){
@@ -178,4 +183,12 @@ void MaquinaEstados::logica(){
 
 	//ejecucion del estado
 	ejecucion();
+}
+
+void MaquinaEstados::nvsLeer(){
+	Nvs nvs("tiempos");
+	tiempo1 = nvs.leer("ataque_ciego",tiempo1);
+	tiempo2 = nvs.leer("retroceso",tiempo2);
+	tiempo3 = nvs.leer("recta_star",tiempo3);
+	tiempo4 = nvs.leer("giro_star",tiempo4);
 }

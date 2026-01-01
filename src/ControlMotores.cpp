@@ -2,6 +2,7 @@
 #include "driver/ledc.h"
 #include "esp_timer.h"
 #include "ControlMotores.h"
+#include "Nvs.h"
 #include "rom/ets_sys.h"
 
 ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
@@ -13,12 +14,21 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
     pwmC_3(LEDC_CHANNEL_2),
     pwmC_4(LEDC_CHANNEL_3),
 
-    // Pines pwm
-	mot2{motA2, motB2},
-
+	//velocidades por defecto
+	vel_nI(700),
+	vel_nD(700),
+	vel_aI(950),
+	vel_aD(800),
+	vel_gI(950),
+	vel_gD(800)
+{
+	//pines pwm
+	mot2[0] = motA2;
+    mot2[1] = motB2;
 	//pines de los motores
-	mot{motA1, motB1}
-{}
+    mot[0]  = motA1;
+    mot[1]  = motB1;
+}
 
 //estblecer velocidad
 void ControlMotores::velocidad(int vel_1, int vel_2){
@@ -57,31 +67,34 @@ void ControlMotores::alto(){
 
 void ControlMotores::dir_a(){
 	//alto();
-	velocidad(700, 700);
+	velocidad(vel_nI, vel_nD);
 }
 
 void ControlMotores::dir_b(){
 	//alto();
-	velocidad(-700, -700);
+	velocidad(-vel_nI, -vel_nD);
 
 }
 
 void ControlMotores::ataque_a(){
 	//alto();
-	velocidad(950, 800);
+	velocidad(vel_aI, vel_aD);
 }
 
 void ControlMotores::ataque_b(){
 	//alto();
-	velocidad(-950, -800);
+	velocidad(-vel_aI, -vel_aD);
 }
 
 void ControlMotores::giro(){
 	//alto();
-	velocidad(950, -800);
+	velocidad(vel_gI, -vel_gD);
 }
 
 void ControlMotores::begin(){
+	//se aplican datos de nvs
+	nvsLeer();
+
   	// configuracion y asignacion de los pines pwm
 
 	//configuracion del timer
@@ -174,4 +187,17 @@ void ControlMotores::controlador(int accion){
 			giro();
 			break;
 	}
+}
+
+void ControlMotores::nvsLeer(){
+	//constructor de nvs con el namespace de motores
+	Nvs nvs("motores");
+
+	//se aplica cada variable
+	vel_nI = nvs.leer("velocidad_nI", vel_nI);
+	vel_nD = nvs.leer("velocidad_nD", vel_nD);
+	vel_aI = nvs.leer("velocidad_aI", vel_aI);
+	vel_aD = nvs.leer("velocidad_aD", vel_aD);
+	vel_gI = nvs.leer("velocidad_gI", vel_gI);
+	vel_gD = nvs.leer("velocidad_gD", vel_gD);
 }
