@@ -15,7 +15,7 @@
     "umbral_color": 200
   },
   "sistema": {
-    "modo": "combate",
+    "modo": "0",
     "monitor": 1
   }
 }
