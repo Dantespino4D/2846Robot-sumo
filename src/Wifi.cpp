@@ -13,6 +13,9 @@
 #include <cstring>
 #include "freertos/event_groups.h"
 #include "esp_log.h"
+#include "mdns.h"
+
+const char* TAG = "wifi";
 
 void Wifi::begin(){
 	//crear un grupo de eventos
@@ -50,6 +53,7 @@ void Wifi::wifi(){
 
 	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &w));
 	esp_wifi_start();
+	//mobjeto del wifimanager
 	esp_wifi_set_ps(WIFI_PS_NONE);
 }
 
@@ -60,10 +64,21 @@ void Wifi::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 	}else if(base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED){
 		esp_wifi_connect();
 	}else if(base == IP_EVENT && id == IP_EVENT_STA_GOT_IP){
+		mdns();
 		xEventGroupSetBits(self->e, WIFI_CONNECTED);
 	}
 }
 
 void Wifi::espera(){
 	xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
+}
+
+//metodo para inicializar el mDNS
+void Wifi::mdns(){
+	if (mdns_init() == ESP_OK) {
+        mdns_hostname_set("robot-sumo");
+        ESP_LOGI("MDNS", "Servicio iniciado: robot-sumo.local");
+    } else {
+        ESP_LOGE("MDNS", "Fallo al iniciar mDNS");
+    }
 }

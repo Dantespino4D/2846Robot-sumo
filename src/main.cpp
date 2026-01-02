@@ -6,6 +6,7 @@
 #include "SensorLimite.h"
 #include "SensorRival.h"
 #include "esp_log.h"
+#include "freertos/projdefs.h"
 #include "rgb.h"
 #include "Nvs.h"
 #include <Musica.h>
@@ -18,6 +19,8 @@
 #include "esp_netif.h"
 #include <cstdint>
 #include <string>
+
+static const char* TAG = "main";
 
 
 // variables que establecen el tiemṕo
@@ -173,6 +176,19 @@ extern "C" void app_main(void){
 
 	//se lee las instrucciones del monitor serial
 	Nvs sys("sistema");
+	gpio_reset_pin(ini);
+    gpio_set_direction(ini, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(ini, GPIO_PULLUP_ONLY);
+	vTaskDelay(pdMS_TO_TICKS(100));
+
+	int32_t modo;
+	if(gpio_get_level(ini) == 0){
+		ESP_LOGI(TAG, "modo de prueba activado");
+		sys.guardar("modo", 0);
+		modo = 0;
+	}else{
+		modo = sys.leer("modo", 0);
+	}
 	int32_t val = sys.leer("monitor", 2);
 
 	//se aplica el valor elegido
@@ -194,10 +210,7 @@ extern "C" void app_main(void){
 			break;
 	}
 
-	//se le el modo en el que va a entrar
-	int32_t mode = sys.leer("modo", 1);
-
-	if(mode == 0){
+	if(modo == 0){
 		//modo de prueba
 
 		//inicializar el tcp/ip

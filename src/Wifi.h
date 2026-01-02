@@ -15,6 +15,8 @@ class Wifi{
 		EventGroupHandle_t e;
 		void wifi();
 		static void evento(void* arg, esp_event_base_t base, int32_t id, void* data);
+		//metodo para el mDNS
+		static void mdns();
 	public:
 		void begin();
 		void espera();

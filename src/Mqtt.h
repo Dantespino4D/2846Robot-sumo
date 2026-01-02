@@ -7,7 +7,7 @@
 #include <string>
 #include "cJSON.h"
 
-#define BROKER "mqtt://192.168.1.69"
+#define BROKER "mqtt://dante-arch.local:1883"
 
 class Mqtt{
 	private:
