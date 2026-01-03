@@ -10,10 +10,12 @@
 #include "freertos/projdefs.h"
 #include "nvs.h"
 #include "nvs_flash.h"
+#include <cstdint>
 #include <cstring>
 #include "freertos/event_groups.h"
 #include "esp_log.h"
 #include "mdns.h"
+#include "esp_smartconfig.h"
 
 const char* TAG = "wifi";
 
@@ -22,6 +24,8 @@ void Wifi::begin(){
 	e = xEventGroupCreate();
 
 	esp_netif_create_default_wifi_sta();
+
+	intentos = 0;
 
 	wifi();
 }
@@ -35,6 +39,7 @@ void Wifi::wifi(){
 
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &Wifi::evento, this, NULL));
 	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &Wifi::evento, this, NULL));
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(SC_EVENT, ESP_EVENT_ANY_ID, &Wifi::evento, this, NULL));
 
 	//se establece en modo sta
 	esp_wifi_set_mode(WIFI_MODE_STA);
@@ -48,10 +53,6 @@ void Wifi::wifi(){
 		}
 	};
 
-	strncpy((char*)w.sta.ssid, WIFI, 32);
-	strncpy((char*)w.sta.password, CONTRASEÑA, 64);
-
-	ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &w));
 	esp_wifi_start();
 	//mobjeto del wifimanager
 	esp_wifi_set_ps(WIFI_PS_NONE);
@@ -60,13 +61,55 @@ void Wifi::wifi(){
 void Wifi::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 	Wifi* self = (Wifi*) arg;
 	if(base == WIFI_EVENT && id == WIFI_EVENT_STA_START){
-		esp_wifi_connect();
+    	// INTENTAR CONECTAR Y VERIFICAR SI FALLA INMEDIATAMENTE
+    	esp_err_t err = esp_wifi_connect();
+    	if (err == ESP_ERR_WIFI_SSID) {
+        	// Si no hay SSID guardado, ir directo a SmartConfig
+        	ESP_LOGW("WIFI", "No hay credenciales guardadas. Iniciando SmartConfig...");
+        	self->smart();
+    	}
 	}else if(base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED){
-		esp_wifi_connect();
+		if(self->intentos < 5){
+			esp_wifi_connect();
+			self->intentos++;
+		}else{
+			self->smart();
+		}
 	}else if(base == IP_EVENT && id == IP_EVENT_STA_GOT_IP){
-		mdns();
+		self->intentos = 0;
+		self->mdns();
 		xEventGroupSetBits(self->e, WIFI_CONNECTED);
+	}else if(base == SC_EVENT && id == SC_EVENT_SCAN_DONE){
+
+	}else if(base == SC_EVENT && id == SC_EVENT_FOUND_CHANNEL){
+
+	}else if(base == SC_EVENT && id == SC_EVENT_GOT_SSID_PSWD){
+		smartconfig_event_got_ssid_pswd_t* smartC = (smartconfig_event_got_ssid_pswd_t*) data;
+		wifi_config_t wi = {
+			.sta = {
+				.ssid = 0,
+				.password = 0,
+				.threshold = {
+					.authmode = WIFI_AUTH_WPA2_PSK,
+				},
+			}
+		};
+		memcpy(&wi.sta.ssid, smartC->ssid, sizeof(wi.sta.ssid));
+		memcpy(&wi.sta.password, smartC->password, sizeof(wi.sta.password));
+
+		wi.sta.bssid_set = smartC->bssid_set;
+		if (wi.sta.bssid_set == true) {
+	    	memcpy(wi.sta.bssid, smartC->bssid, sizeof(wi.sta.bssid));
+		}
+
+		esp_wifi_disconnect();
+		esp_wifi_set_config(WIFI_IF_STA, &wi);
+		esp_wifi_connect();
+	}else if(base == SC_EVENT && id == SC_EVENT_SEND_ACK_DONE){
+		esp_smartconfig_stop();
+
 	}
+
 }
 
 void Wifi::espera(){
@@ -81,4 +124,17 @@ void Wifi::mdns(){
     } else {
         ESP_LOGE("MDNS", "Fallo al iniciar mDNS");
     }
+}
+
+//funcion que gestiona las contraseñas y redes para poder conectarse a multiples redes
+void Wifi::smart(){
+	//se elige el protocologo que va a usa
+	esp_smartconfig_set_type(SC_TYPE_ESPTOUCH);
+	//se establece la configuracion
+	smartconfig_start_config_t con = SMARTCONFIG_START_CONFIG_DEFAULT();
+	//inicializar smart config
+	esp_err_t sm = esp_smartconfig_start(&con);
+	if(sm == ESP_OK){
+		ESP_LOGI("smartconfig", "funciono");
+	}
 }
