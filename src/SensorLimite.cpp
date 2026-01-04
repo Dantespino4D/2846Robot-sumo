@@ -125,17 +125,17 @@ void SensorLimite::begin(){
 }
 
 bool SensorLimite::sc_1Verify(){
-	// variables de los colores detectados
-    uint16_t r, g, b, c;
+	//variable de clear
+	uint16_t c;
     // detecta si el sensor de color funciona bien
     if (estado) {
     	// selecciona sc_1
       	mu->sel(0);
 		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_1 lee el color
-      	if(read(&r, &g, &b, &c)){
+      	if(read(&r1, &g1, &b1, &c)){
       		// sc_1 determina si el color detectado es el mismo del limite
-      		long difCol = labs(r - lcr) + labs(g - lcg) + labs(b - lcb);
+      		long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
       		if (difCol > limCol) {
         		// retorna verdadero al detectar el limite
 				return true;
@@ -153,17 +153,16 @@ bool SensorLimite::sc_1Verify(){
 }
 
 bool SensorLimite::sc_2Verify(){
-	// variables de los colores detectados
-    uint16_t r, g, b, c;
-
+	//variable de clear
+	uint16_t c;
 	if (estado2) {
       	// selecciona sc_2
       	mu->sel(3);
 		vTaskDelay(pdMS_TO_TICKS(2));
       	// sc_2 lee el color
-      	if(read(&r, &g, &b, &c)){
+      	if(read(&r2, &g2, &b2, &c)){
       		// sc_2 determina si el color detectado es el mismo del limite
-      		long difCol = labs(r - lcr) + labs(g - lcg) + labs(b - lcb);
+      		long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
       		if (difCol > limCol) {
         		// retorna verdadero al detectar el limite
 				return true;
@@ -184,4 +183,16 @@ bool SensorLimite::sc_2Verify(){
 void SensorLimite::nvsLeer(){
 	Nvs nvs("sensores");
 	limCol = nvs.leer("umbral_color", limCol);
+}
+
+void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2){
+	*rc = lcr;
+	*gc = lcg;
+	*bc = lcb;
+	*red1 = r1;
+	*green1 = g1;
+	*blue1 = b1;
+	*red2 = r2;
+	*green2 = g2;
+	*blue2 = b2;
 }

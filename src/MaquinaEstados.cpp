@@ -192,3 +192,8 @@ void MaquinaEstados::nvsLeer(){
 	tiempo3 = nvs.leer("recta_star",tiempo3);
 	tiempo4 = nvs.leer("giro_star",tiempo4);
 }
+
+//metodo que entrega el estado actual
+int MaquinaEstados::estado(){
+	return modo;
+}

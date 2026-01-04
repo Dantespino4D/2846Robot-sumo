@@ -25,6 +25,14 @@ class SensorLimite{
 		//metodo para leer color
 		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
 		void nvsLeer();
+
+		//valores de los colores leidos
+		uint16_t r1;
+		uint16_t g1;
+		uint16_t b1;
+		uint16_t r2;
+		uint16_t g2;
+		uint16_t b2;
 	public:
 		//constructor
 		SensorLimite(int limCol, Multiplexor* _mu);
@@ -38,5 +46,8 @@ class SensorLimite{
 
 		//inicializara todo
 		void begin();
+
+		//metodo que devuelve las lecturas de los colores
+		void colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2);
 };
 #endif

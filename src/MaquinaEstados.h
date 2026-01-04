@@ -70,5 +70,8 @@ class MaquinaEstados{
 
 		//maquina de estados
 		void logica();
+
+		//metodo que entrega el estado actual
+		int estado();
 };
 #endif // !DEBUG

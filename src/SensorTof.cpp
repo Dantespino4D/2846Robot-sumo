@@ -74,14 +74,14 @@ uint16_t SensorTof::dist(int n){
 	//variable de error
 	std::error_code ec;
 
-	uint16_t distancia = tof[n]->get_distance_mm(ec);
+	dis[n] = tof[n]->get_distance_mm(ec);
 
 	//detecta si hubo algun error
 	if (ec) {
         return 8190;
     }
 
-    return distancia;
+    return dis[n];
 }
 
 bool SensorTof::verify(int n){
@@ -99,4 +99,14 @@ bool SensorTof::verify(int n){
 void SensorTof::nvsLeer(){
 	Nvs nvs("sensores");
 	maxd = nvs.leer("dist_max", maxd);
+}
+
+//metodo de la telemetria
+void SensorTof::distancias(uint16_t* t1, uint16_t* t2, uint16_t* t3, uint16_t* t4, uint16_t* t5, uint16_t* t6 ){
+	*t1 = dis[0];
+	*t2 = dis[1];
+	*t3 = dis[2];
+	*t4 = dis[3];
+	*t5 = dis[4];
+	*t6 = dis[5];
 }

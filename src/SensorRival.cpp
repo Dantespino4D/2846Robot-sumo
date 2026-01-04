@@ -21,7 +21,7 @@ for(int i = 0; i < N_MUESTRAS; i++) {
     }
 }
 
-uint32_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo){
+uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo){
 	//configuracion inicial
 	gpio_set_level(trig, 0);
 	ets_delay_us(2);
@@ -54,7 +54,7 @@ uint32_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo){
 	return dis;
 }
 
-uint32_t SensorRival::filtro(gpio_num_t trig, gpio_num_t echo, int* mem, int& ind, long& total){
+uint16_t SensorRival::filtro(gpio_num_t trig, gpio_num_t echo, uint16_t* mem, int& ind, long& total){
 	//se eliminaba del total la lectura mas vieja
 	total = total - mem[ind];
 
@@ -77,17 +77,26 @@ uint32_t SensorRival::filtro(gpio_num_t trig, gpio_num_t echo, int* mem, int& in
 	return total / N_MUESTRAS;
 }
 
+//metodo que verifica ojos 1
 bool SensorRival::ojos_1Verify(){
-	unsigned int dis = filtro(trig_1, echo_1, mem1, ind1, total1);
-	return (dis > 0 && dis <= maxd);
+	dis2 = filtro(trig_1, echo_1, mem1, ind1, total1);
+	return (dis2 > 0 && dis2 <= maxd);
 }
 
+//metodo que verifica ojos 2
 bool SensorRival::ojos_2Verify(){
-	unsigned int dis = filtro(trig_2, echo_2, mem2, ind2, total2);
-	return (dis > 0 && dis <= maxd);
+	dis1 = filtro(trig_2, echo_2, mem2, ind2, total2);
+	return (dis1 > 0 && dis1 <= maxd);
 }
 
+//metodo que lee de la nvs la distancia maxima guardada
 void SensorRival::nvsLeer(){
 	Nvs nvs("sensores");
 	maxd = nvs.leer("dist_max", maxd);
+}
+
+//metodo que da las distancias para telemetria
+void SensorRival::distancias(uint16_t* d1, uint16_t* d2){
+			*d1 = dis1;
+			*d2 = dis2;
 }

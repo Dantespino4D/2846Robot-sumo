@@ -11,12 +11,16 @@ class SensorRival{
 		gpio_num_t echo_1;
 		gpio_num_t echo_2;
 
+		//vaiables de las distancias leidas
+		uint16_t dis1;
+		uint16_t dis2;
+
 		//limite de distancia
 		int maxd;
 
 		//variables que almacenan muestas
-		int mem1[N_MUESTRAS];
-		int mem2[N_MUESTRAS];
+		uint16_t mem1[N_MUESTRAS];
+		uint16_t mem2[N_MUESTRAS];
 
 		//variables que de los indices
 		int ind1;
@@ -27,9 +31,9 @@ class SensorRival{
 		long total2;
 
 		//metodo para medir distancia
-		uint32_t dist_cm(gpio_num_t trig_pin, gpio_num_t echo_pin);
+		uint16_t dist_cm(gpio_num_t trig_pin, gpio_num_t echo_pin);
 
-		uint32_t filtro(gpio_num_t trig, gpio_num_t echo, int* mem, int& ind, long& total);
+		uint16_t filtro(gpio_num_t trig, gpio_num_t echo, uint16_t* mem, int& ind, long& total);
 
 
 	public:
@@ -42,6 +46,9 @@ class SensorRival{
 		//metodos de verificacion
 		bool ojos_1Verify();
 		bool ojos_2Verify();
+
+		//metodo para devolver las distancias
+		void distancias(uint16_t* d1, uint16_t* d2);
 };
 
 #endif // !SENSORRIVAL_H
