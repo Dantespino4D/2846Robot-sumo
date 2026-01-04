@@ -20,7 +20,7 @@ class Mqtt{
 
 	public:
 		void begin();
-		void pub(const std::string& men, const std::string& top, int q, int r);
+		void pub(const char* men, const char* top, int q, int r);
 	};
 
 #endif

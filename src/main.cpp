@@ -5,6 +5,7 @@
 #include "Multiplexor.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
+#include "Telemetria.h"
 #include "esp_log.h"
 #include "freertos/projdefs.h"
 #include "rgb.h"
@@ -17,6 +18,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -81,6 +83,9 @@ ControlMotores cm(mot[0][1], mot[1][1], mot[0][0], mot[1][0]);
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
 
+// objeto de la telemetria
+Telemetria* tm = nullptr;
+
 
 // TAREA DE LA LOGICA DEL ROBOT
 
@@ -105,7 +110,7 @@ void robot(void *pvParameters) {
 
 // TAREA DE LOS MOTORES
 
-void motores(void *pvPrarmeters) {
+void motores(void *pvParameters) {
   int accion = 0;
   int accionNueva;
 
@@ -154,6 +159,8 @@ void senUltra(void *pvParameters) {
   	}
 }
 
+//TAREA DE LA MUSICA
+
 void musica(void *pvParameters) {
   while (true) {
     while (start) {
@@ -162,6 +169,15 @@ void musica(void *pvParameters) {
     }
     vTaskDelay(10);
   }
+}
+
+//TAREA DE LA TELEMETRIA
+
+void telemetria(void *pvParameters){
+	while(true){
+		tm->enviar();
+		vTaskDelay(pdMS_TO_TICKS(100));
+	}
 }
 
 // setup
@@ -187,7 +203,7 @@ extern "C" void app_main(void){
 		sys.guardar("modo", 0);
 		modo = 0;
 	}else{
-		modo = sys.leer("modo", 0);
+		modo = sys.leer("modo", 1);
 	}
 	int32_t val = sys.leer("monitor", 2);
 
@@ -209,22 +225,6 @@ extern "C" void app_main(void){
 			esp_log_level_set("*", ESP_LOG_INFO);
 			break;
 	}
-
-	if(modo == 0){
-		//modo de prueba
-
-		//inicializar el tcp/ip
-		esp_netif_init();
-		esp_event_loop_create_default();
-
-		//se inicializa el wifi y el MQTT
- 		wi.begin();
-		wi.espera();
- 		mq.begin();
-
-		//futura tarea de telemetria
-	}
-
 
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
@@ -298,11 +298,30 @@ extern "C" void app_main(void){
   	// se apunta al puntero
   	me = &maquina;
 
+	//se inicializa el objeto de telemetria
+	tm = new Telemetria(me, &cm, &sc, &su, &mq);
+
+	if(modo == 0){
+		//modo de prueba
+
+		//inicializar el tcp/ip
+		esp_netif_init();
+		esp_event_loop_create_default();
+
+		//se inicializa el wifi y el MQTT
+ 		wi.begin();
+		wi.espera();
+ 		mq.begin();
+
+		//tarea de telemetria
+		xTaskCreatePinnedToCore(telemetria, "telemetria", 4096, NULL, 1, NULL, 0);
+	}
+
   	// se crean las tareas
   	xTaskCreatePinnedToCore(robot, "robot", 2048, NULL, 2, NULL, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 1, NULL, 1);
-  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 0);
-	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
+  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 1);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 }
    // DESCRIPCIONES A TOMAR EN CUENTA:

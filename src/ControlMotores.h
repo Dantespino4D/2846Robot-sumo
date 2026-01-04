@@ -28,6 +28,9 @@ class ControlMotores{
 		int vel_gI;
 		int vel_gD;
 
+		//variables que guardan la velocidad actual
+		int16_t vel1;
+		int16_t vel2;
 
 		//metodos de acciones
 		void dir_a();
@@ -45,6 +48,8 @@ class ControlMotores{
 		void controlador(int accion);
 		//alto
 		void alto();
+		//envia los datos a telemetria
+		void velocidades(int16_t* v1, int16_t* v2);
 };
 
 #endif

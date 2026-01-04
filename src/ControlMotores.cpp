@@ -32,6 +32,8 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 //estblecer velocidad
 void ControlMotores::velocidad(int vel_1, int vel_2){
+	vel1 = vel_1;
+	vel2 = vel_2;
 	if(vel_1 > 0){
     	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, vel_1);
 		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 0);
@@ -200,4 +202,10 @@ void ControlMotores::nvsLeer(){
 	vel_aD = nvs.leer("velocidad_aD", vel_aD);
 	vel_gI = nvs.leer("velocidad_gI", vel_gI);
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
+}
+
+//envia los datos a la telemetria
+void ControlMotores::velocidades(int16_t* v1, int16_t* v2){
+	*v1 = vel1;
+	*v2 = vel2;
 }

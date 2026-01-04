@@ -42,7 +42,7 @@ struct Datos{
 	int16_t pwm2;
 
 	//variables del sistema
-	uint32_t LoopT;
+	uint32_t tiempo;
 	uint32_t heap;
 };
 

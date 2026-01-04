@@ -39,6 +39,7 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 			ESP_LOGI(TAG, "mqtt exitoso");
 			esp_mqtt_client_subscribe(self->cliente, "robot/ota", 1);
 			esp_mqtt_client_subscribe(self->cliente, "robot/conf", 1);
+			esp_mqtt_client_subscribe(self->cliente, "robot/telemetria", 0);
 			self->pub("funciona", "ota/log", 1, 0);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
@@ -73,8 +74,8 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 
 
 }
-void Mqtt::pub(const std::string& men, const std::string& top, int q, int r){
-	esp_mqtt_client_publish(cliente, top.c_str(), men.c_str(), 0, q, r);
+void Mqtt::pub(const char* men, const char* top, int q, int r){
+	esp_mqtt_client_publish(cliente, top, men, 0, q, r);
 }
 
 //metodo para extraer el resto de configuraciones del json para guardarlas en la Nvs
