@@ -37,6 +37,9 @@ int tiempo4 = 500; //tiempo en el que gira para buscar al oponente
 int maxd = 40;    // limite de los sensores ultrasonicos
 int limCol = 200; // tolerancia del sendor de color
 
+//creamos el mutex
+SemaphoreHandle_t mutex = NULL;
+
 // alerta del limite
 SemaphoreHandle_t alerta;
 SemaphoreHandle_t alerta2;
@@ -72,7 +75,7 @@ Mqtt mq;
 Multiplexor mu;
 
 // objeto de los sensores de color
-SensorLimite sc(limCol, &mu);
+SensorLimite* sc = nullptr;
 
 // objeto de los sensores ultrasonicos
 SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
@@ -90,16 +93,18 @@ Telemetria* tm = nullptr;
 // TAREA DE LA LOGICA DEL ROBOT
 
 void robot(void *pvParameters) {
-  // prende al precionar el boton
-  while (gpio_get_level(ini) == 1) {
-    vTaskDelay(pdMS_TO_TICKS(100));
-  }
-  sc.calCol();
-  vTaskDelay(pdMS_TO_TICKS(5000));
-  rgb(1023, 0);
-  start = true;
+  	// prende al precionar el boton
+  	while (gpio_get_level(ini) == 1) {
+    	vTaskDelay(pdMS_TO_TICKS(100));
+  	}
+  	ESP_LOGI(TAG, "boton precionado");
+  	sc->calCol();
+  	vTaskDelay(pdMS_TO_TICKS(5000));
+	rgb(1023, 0);
+	ESP_LOGI(TAG,"iniciando combate");
+  	start = true;
   while (true) {
-    // inicia
+	// inicia
 
     // MAQUINA DE ESTADOS
     me->logica();
@@ -111,19 +116,20 @@ void robot(void *pvParameters) {
 // TAREA DE LOS MOTORES
 
 void motores(void *pvParameters) {
-  int accion = 0;
-  int accionNueva;
+  	int accion = 0;
+  	int accionNueva;
 
-  while (true) {
-    // Espera una nueva orden indefinidamente
-    if (xQueueReceive(orden, &accionNueva, portMAX_DELAY) == pdPASS) {
-      // Actualiza solo cuando llega algo nuevo
-      accion = accionNueva;
+  	while (true) {
+    	// Espera una nueva orden indefinidamente
+    	if (xQueueReceive(orden, &accionNueva, portMAX_DELAY) == pdPASS) {
+      		// Actualiza solo cuando llega algo nuevo
+      		accion = accionNueva;
 
-      // Aplica el nuevo movimiento
-      cm.controlador(accion);
-    }
-  }
+      		// Aplica el nuevo movimiento
+
+      		cm.controlador(accion);
+  		}
+	}
 }
 
 // TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
@@ -131,15 +137,15 @@ void motores(void *pvParameters) {
 void senColor(void *pvParameters) {
 	while (true) {
 		if (start) {
-			if (sc.sc_1Verify()) {
+			if (sc->sc_1Verify()) {
      	 		xSemaphoreGive(alerta);
     		}
 
-    		if (sc.sc_2Verify()) {
+    		if (sc->sc_2Verify()) {
       			xSemaphoreGive(alerta2);
     		}
 		}
-   	 	vTaskDelay(pdMS_TO_TICKS(30));
+   	 	vTaskDelay(pdMS_TO_TICKS(10));
   	}
 }
 
@@ -155,20 +161,20 @@ void senUltra(void *pvParameters) {
       			xSemaphoreGive(enemigo2);
     		}
 		}
-    	vTaskDelay(pdMS_TO_TICKS(30));
+    	vTaskDelay(pdMS_TO_TICKS(20));
   	}
 }
 
 //TAREA DE LA MUSICA
 
 void musica(void *pvParameters) {
-  while (true) {
-    while (start) {
-      adestes();
-      vTaskDelay(10);
-    }
-    vTaskDelay(10);
-  }
+  	while (true) {
+    	while (start) {
+    		adestes();
+      		vTaskDelay(10);
+    	}
+    	vTaskDelay(10);
+  	}
 }
 
 //TAREA DE LA TELEMETRIA
@@ -186,7 +192,7 @@ extern "C" void app_main(void){
 	esp_err_t err = nvs_flash_init();
 	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
 		ESP_ERROR_CHECK(nvs_flash_erase());
-      err = nvs_flash_init();
+      	err = nvs_flash_init();
 	}
 	ESP_ERROR_CHECK(err);
 
@@ -229,6 +235,10 @@ extern "C" void app_main(void){
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
   	rgb(1023, 512);
+
+	//inicializamos el mutex
+	mutex = xSemaphoreCreateMutex();
+
   	// se crea la alerta de deteccion del limite
   	alerta = xSemaphoreCreateBinary();
   	alerta2 = xSemaphoreCreateBinary();
@@ -287,8 +297,11 @@ extern "C" void app_main(void){
     gpio_config(&io_conf_input_simple);
 
   	// configuracion de los objetos de sensores de color y ultrasonicos
-  	sc.begin();
+  	sc->begin();
 	su.nvsLeer();
+
+	//se le asigna al puntero los el objeto correspondiente
+	sc = new SensorLimite(limCol, &mu, &mutex);
 
 
   	// se inicializa el objeto de la maquina de estados
@@ -299,7 +312,7 @@ extern "C" void app_main(void){
   	me = &maquina;
 
 	//se inicializa el objeto de telemetria
-	tm = new Telemetria(me, &cm, &sc, &su, &mq);
+	tm = new Telemetria(me, &cm, sc, &su, &mq);
 
 	if(modo == 0){
 		//modo de prueba
@@ -315,13 +328,15 @@ extern "C" void app_main(void){
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 4096, NULL, 1, NULL, 0);
+	}else{
+		esp_log_level_set("*", ESP_LOG_NONE);
 	}
 
   	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 2048, NULL, 2, NULL, 1);
-  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 1, NULL, 1);
-  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
-	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 1);
+  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
+  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, NULL, 1);
+  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 }
    // DESCRIPCIONES A TOMAR EN CUENTA:

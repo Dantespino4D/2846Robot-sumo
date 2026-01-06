@@ -1,0 +1,3083 @@
+
+
+==========================================
+FILE PATH: ./lib/Musica/Musica.cpp
+==========================================
+
+#include "Musica.h"
+
+
+
+
+#ifdef ARDUINO
+
+//ARDUINO
+
+#include <Arduino.h>
+
+
+int buz;
+int tt = 5000;
+
+void pinMus(int pin){
+	buz = pin;
+	pinMode(buz, OUTPUT);
+}
+
+void nota(float no, float dur) {
+  tone(buz, no);
+  delay(dur);
+  noTone(buz);
+  delay(ESPA);
+}
+void sil(float dur){
+	noTone(buz);
+	delay(dur);
+}
+
+#else
+
+//ESP32
+
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#define LEDC_TIMER              LEDC_TIMER_1
+#define LEDC_MODE               LEDC_LOW_SPEED_MODE
+#define LEDC_CHANNEL            LEDC_CHANNEL_6
+#define LEDC_DUTY_RES           LEDC_TIMER_10_BIT
+#define LEDC_DUTY_50_PERCENT    (512)
+
+gpio_num_t buz;
+
+void pinMus(int pin){
+// Configurar el Timer
+    ledc_timer_config_t ledc_timer = {};
+	ledc_timer.speed_mode       = LEDC_MODE;
+    ledc_timer.timer_num        = LEDC_TIMER;
+    ledc_timer.freq_hz          = 5000; // Frecuencia inicial (ej. 5kHz)
+    ledc_timer.duty_resolution  = LEDC_DUTY_RES;
+    ledc_timer.clk_cfg          = LEDC_AUTO_CLK;
+    ledc_timer_config(&ledc_timer);
+
+    // Configurar el Canal
+    ledc_channel_config_t ledc_channel = {};
+
+	ledc_channel.speed_mode     = LEDC_MODE;
+    ledc_channel.channel        = LEDC_CHANNEL;
+    ledc_channel.timer_sel      = LEDC_TIMER;
+    ledc_channel.intr_type      = LEDC_INTR_DISABLE;
+    ledc_channel.gpio_num       = (gpio_num_t)pin;
+	ledc_channel.duty           = 0;
+	ledc_channel.hpoint         = 0;
+    ledc_channel_config(&ledc_channel);
+}
+
+void nota(float no, float dur) {
+	ledc_set_freq(LEDC_MODE, LEDC_TIMER, (uint32_t)no);
+    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, LEDC_DUTY_50_PERCENT);
+    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL);
+
+    vTaskDelay((TickType_t)(dur / portTICK_PERIOD_MS));
+
+    ledc_stop(LEDC_MODE, LEDC_CHANNEL, 0);  vTaskDelay(ESPA / portTICK_PERIOD_MS);
+}
+void sil(float dur){
+	ledc_stop(LEDC_MODE, LEDC_CHANNEL, 0);
+	vTaskDelay(dur / portTICK_PERIOD_MS);
+}
+
+
+#endif
+
+
+//COMUN
+
+void adestes() {
+  for (int x = 0; x < 2; x++) {
+    nota(AB4, NEG);
+    nota(AB4, BLA);
+    nota(EB4, NEG);
+    nota(AB4, NEG);
+    nota(BB4, BLA);
+    nota(EB4, BLA);
+    nota(C5, NEG);
+    nota(BB4, NEG);
+    nota(C5, NEG);
+    nota(DB5, NEG);
+    nota(C5, BLA);
+    nota(BB4, NEG);
+    nota(AB4, NEG);
+    nota(AB4, BLA);
+    nota(G4, NEG);
+    nota(F4, NEG);
+    nota(G4, NEG);
+    nota(AB4, NEG);
+    nota(BB4, NEG);
+    nota(C5, NEG);
+    nota(G4, BLA);
+    nota(F4, PUNT);
+    nota(EB4, COR);
+    nota(EB4, RED);
+    for (int y = 0; y < 2; y++) {
+      nota(EB5, BLA);
+      nota(DB5, NEG);
+      nota(C5, NEG);
+      nota(DB5, BLA);
+      nota(C5, BLA);
+      nota(BB4, NEG);
+      nota(C5, NEG);
+      nota(AB4, NEG);
+      nota(BB4, NEG);
+      nota(G4, PUNT);
+      nota(F4, COR);
+      nota(EB4, NEG);
+      nota(AB4, NEG);
+      nota(AB4, NEG);
+      nota(G4, NEG);
+      nota(AB4, NEG);
+      nota(BB4, NEG);
+      nota(AB4, BLA);
+      nota(EB4, NEG);
+      nota(C5, NEG);
+      nota(C5, NEG);
+      nota(BB4, NEG);
+      nota(C5, NEG);
+      nota(DB5, NEG);
+      nota(C5, BLA);
+      nota(BB4, NEG);
+      nota(C5, NEG);
+      nota(DB5, NEG);
+      nota(C5, NEG);
+      nota(BB4, NEG);
+      nota(AB4, NEG);
+      nota(G4, BLA);
+      nota(AB4, NEG);
+      nota(DB5, NEG);
+      nota(C5, BLA);
+      nota(BB4, PUNT);
+      nota(AB4, COR);
+      nota(AB4, RED);
+    }
+  }
+  sil(2000);
+}
+
+void martinillo() {
+  for (int x = 0; x < 2; x++) {
+    nota(BB3, NEG);
+    nota(C4, NEG);
+    nota(D4, NEG);
+    nota(BB3, NEG);
+  }
+  for (int x = 0; x < 2; x++) {
+    nota(D4, NEG);
+    nota(EB4, NEG);
+    nota(F4, BLA);
+  }
+  for (int x = 0; x < 2; x++) {
+    nota(F4, COR);
+    nota(G4, COR);
+    nota(F4, COR);
+    nota(EB4, COR);
+    nota(D4, NEG);
+    nota(BB3, NEG);
+  }
+  for (int x = 0; x < 2; x++) {
+    nota(C4, NEG);
+    nota(F4, NEG);
+    nota(BB3, BLA);
+  }
+}
+
+void plantera() {
+  for (int i = 0; i < 4; i++) {
+    nota(E5, SEMI);
+    nota(E5, SEMI);
+    nota(E5, SEMI);
+    nota(B4, SEMI);
+    nota(C5, SEMI);
+    nota(D5, COR);
+    nota(D5, SEMI);
+    nota(D5, SEMI);
+    nota(D5, SEMI);
+    nota(L4, SEMI);
+    nota(B4, SEMI);
+    nota(C5, COR);
+    nota(C5, SEMI);
+    nota(C5, SEMI);
+    nota(C5, SEMI);
+    nota(G4, SEMI);
+    nota(L4, SEMI);
+    nota(B4, COR);
+    nota(B4, SEMI);
+    nota(B4, SEMI);
+    nota(B4, SEMI);
+    nota(GB4, SEMI);
+    nota(G4, SEMI);
+    nota(L4, COR);
+  }
+}
+
+void boss1() {
+	nota(BB3, COR);
+	sil(COR);
+	nota(BB5, PUNT);
+	nota(L5, PUNT);
+	nota(AB5, BPUNT);
+	nota(B5, NEG);
+	nota(BB3, COR);
+	nota(BB5, PUNT);
+	nota(L5, PUNT);
+	nota(BB3, COR);
+	nota(BB4, COR);
+	nota(L4, COR);
+	nota(EB4, COR);
+	nota(E4, COR);
+	nota(DB4, COR);
+	nota(D4, COR);
+	nota(C4, COR);
+	nota(BB3, COR);
+	sil(COR);
+	nota(BB5, PUNT);
+	nota(L5, PUNT);
+	nota(AB5, BPUNT);
+	nota(G5, NEG);
+	nota(BB3, COR);
+	sil(COR);
+	nota(BB5, PUNT);
+	nota(L5, PUNT);
+	nota(AB5, NEG);
+	nota(G5, NEG);
+	nota(L5, NEG);
+	nota(B5, PUNT);
+	for(int i = 0; i < 2; i++){
+		nota(BB3, COR);
+		nota(BB3, NEG);
+		nota(BB3, COR);
+		nota(C4, COR);
+		nota(C4, NEG);
+		nota(C4, COR);
+		nota(DB4, COR);
+		nota(DB4, NEG);
+		nota(DB4, COR);
+		nota(GB4, COR);
+		nota(GB4, NEG);
+		nota(G4, COR);
+	}
+	nota(F2, COR);
+	nota(F2, COR);
+	nota(DB3, SEMI);
+	nota(C3, SEMI);
+	nota(F3, SEMI);
+	sil(SEMI);
+	nota(C3, SEMI);
+	nota(F3, SEMI);
+	nota(GB4, SEMI);
+	nota(F4, SEMI);
+	sil(COR);
+	nota(DB4, SEMI);
+	nota(GB4, SEMI);
+	nota(F4, CPPUNT);
+	nota(C4, SEMI);
+	nota(C3, SEMI);
+	nota(F2, SEMI);
+	sil(SPUNT);
+	nota(F3, NEG);
+	nota(BB3, NEG);
+	nota(EB4, NEG);
+	nota(AB4, NEG);
+	nota(DB5, NEG);
+	nota(GB5, PUNT);
+	sil(COR);
+	nota(G4, SEMI);
+	nota(C5, SEMI);
+	nota(F5, SEMI);
+	nota(B5, SEMI);
+	nota(BB5, NEG);
+	for(int i = 0; i < 2; i++){
+		nota(F4, COR);
+		sil(COR);
+	}
+	for(int i = 0; i < 2; i++){
+		nota(GB4, COR);
+		sil(COR);
+	}
+	for(int i = 0; i < 3; i++){
+		nota(E4, COR);
+		sil(COR);
+	}
+	nota(BB1, COR);
+	nota(BB1, COR);
+	nota(DB2, COR);
+	nota(BB1, COR);
+	nota(BB3, COR);
+	nota(F3, COR);
+	nota(EB3, COR);
+	nota(E3, COR);
+	nota(BB1, COR);
+	nota(F1, COR);
+	nota(BB2, COR);
+	nota(DB2, COR);
+	nota(E2, COR);
+	nota(C2, COR);
+	nota(EB2, COR);
+	nota(S1, COR);
+	nota(BB1, COR);
+	nota(BB1, COR);
+	nota(DB2, COR);
+	nota(BB1, COR);
+	nota(BB4, COR);
+	nota(F4, COR);
+	nota(EB4, COR);
+	nota(E4, COR);
+	nota(BB3, COR);
+	nota(DB4, COR);
+	sil(NEG);
+	nota(DB4, COR);
+	nota(E4, COR);
+	sil(NEG);
+	nota(BB2, COR);
+	nota(BB2, COR);
+	nota(F3, COR);
+	nota(BB2, COR);
+	nota(BB3, COR);
+	nota(F3, COR);
+	nota(EB3, COR);
+	nota(E3, COR);
+	nota(BB2, COR);
+	nota(F2, COR);
+	nota(BB3, COR);
+	nota(DB3, COR);
+	nota(E3, COR);
+	nota(C3, COR);
+	nota(EB3, COR);
+	nota(B2, COR);
+	nota(BB3, COR);
+	nota(BB3, COR);
+	nota(DB4, COR);
+	nota(BB3, COR);
+	nota(BB4, COR);
+	nota(F4, COR);
+	nota(EB4, COR);
+	nota(E4, COR);
+	nota(BB2, RED);
+
+}
+
+void funp1() {
+  nota(C5, COR);
+  nota(C5, COR);
+  nota(BB4, COR);
+  nota(C5, COR);
+  sil(COR);
+  nota(G4, COR);
+  sil(COR);
+  nota(G4, COR);
+  nota(C5, COR);
+  nota(F5, COR);
+  nota(E5, COR);
+  nota(C5, COR);
+  sil(BLA);
+}
+
+void funky() {
+  funp1();
+  funp1();
+  for (int i = 0; i < 4; i++) {
+    nota(C4, COR);
+  }
+  nota(E4, NEG);
+  nota(E4, COR);
+  nota(E4, COR);
+  nota(G4, COR);
+  nota(G4, NEG);
+  nota(E5, PUNT);
+  nota(D5, COR);
+  nota(C5, NEG);
+  funp1();
+  for (int i = 0; i < 4; i++) {
+    nota(C4, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(E4, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(G4, COR);
+  }
+  nota(E5, COR);
+  nota(D5, COR);
+  nota(C5, NEG);
+  funp1();
+  for (int i = 0; i < 4; i++) {
+    nota(C5, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(BB4, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(L4, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(G4, COR);
+  }
+  nota(C4, COR);
+  nota(C4, COR);
+  nota(BB3, COR);
+  nota(C4, COR);
+  sil(COR);
+  nota(G3, COR);
+  sil(COR);
+  nota(G3, COR);
+  nota(C4, COR);
+  nota(F4, COR);
+  nota(E4, COR);
+  nota(C4, COR);
+  sil(BLA);
+  nota(G4, COR);
+  nota(G4, COR);
+  nota(G4, NEG);
+  nota(F4, COR);
+  nota(F4, COR);
+  nota(F4, NEG);
+  nota(E4, COR);
+  nota(E4, COR);
+  nota(E4, NEG);
+  nota(E4, NEG);
+  nota(E4, NEG);
+  funp1();
+  funp1();
+  for (int i = 0; i < 4; i++) {
+    nota(C4, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(BB3, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(L3, COR);
+  }
+  for (int i = 0; i < 4; i++) {
+    nota(G3, COR);
+  }
+  nota(F3, NEG);
+  sil(NEG);
+  sil(BLA);
+  funp1();
+  funp1();
+  nota(F4, COR);
+  nota(F4, COR);
+  nota(EB4, COR);
+  nota(F4, COR);
+  sil(COR);
+  nota(C4, COR);
+  sil(COR);
+  nota(C4, COR);
+  nota(F4, COR);
+  nota(BB4, COR);
+  nota(L4, COR);
+  nota(F4, COR);
+  sil(BLA);
+}
+
+void vals2(){
+
+}
+
+void prueba(){
+	for(int i = 0; i < 60; i++){
+		for(int j = 0; j < 8; j++){
+			nota(Notas[i], COR);
+		}
+	}
+}
+
+
+==========================================
+FILE PATH: ./lib/Musica/Musica.h
+==========================================
+
+#ifndef Musica_h
+#define Musica_h
+
+
+#include <stdint.h>
+
+// ================= TIEMPOS (Corregidos con precisión) =================
+constexpr int NEG_INT = 500; // Valor base
+
+// Usamos .0 para asegurar división flotante correcta
+constexpr float NEG    = 500.0;
+constexpr float BLA    = NEG * 2.0;
+constexpr float RED    = NEG * 4.0;
+constexpr float PUNT   = NEG * 1.5;      // Equivalente a 3/2
+constexpr float BPUNT  = NEG * 3.0;
+constexpr float CPUNT  = 375.0 * 0.75;   // Equivalente a 3/4
+constexpr float CPPUNT = NEG * (7.0/8.0);
+constexpr float COR    = NEG / 2.0;
+constexpr float SEMI   = NEG / 4.0;
+constexpr float SPUNT  = NEG / 8.0;
+
+constexpr int ESPA = 20; // Espacio de silencio entre notas
+
+// ================= NOTAS (Frecuencias) =================
+constexpr float C1 = 32.70;
+constexpr float DB1 = 34.65;
+constexpr float D1 = 36.71;
+constexpr float EB1 = 38.89;
+constexpr float E1 = 41.20;
+constexpr float F1 = 43.65;
+constexpr float GB1 = 44.25;
+constexpr float G1 = 49.00;
+constexpr float AB1 = 51.91;
+constexpr float L1 = 55.00;
+constexpr float BB1 = 58.27;
+constexpr float S1 = 61.74; // Asumo que S1 es B1 en otra notación
+constexpr float C2 = 65.41;
+constexpr float DB2 = 69.30;
+constexpr float D2 = 73.42;
+constexpr float EB2 = 77.78;
+constexpr float E2 = 82.41;
+constexpr float F2 = 87.31;
+constexpr float GB2 = 92.50;
+constexpr float G2 = 98.00;
+constexpr float AB2 = 103.83;
+constexpr float L2 = 110.00;
+constexpr float BB2 = 116.54;
+constexpr float B2 = 123.47;
+constexpr float C3 = 130.81;
+constexpr float DB3 = 138.59;
+constexpr float D3 = 146.83;
+constexpr float EB3 = 155.56;
+constexpr float E3 = 164.81;
+constexpr float F3 = 174.61;
+constexpr float GB3 = 185.00;
+constexpr float G3 = 196.00;
+constexpr float AB3 = 207.65;
+constexpr float L3 = 221.00;
+constexpr float BB3 = 233.08;
+constexpr float B3 = 246.94;
+constexpr float C4 = 261.63;
+constexpr float DB4 = 277.18;
+constexpr float D4 = 293.66;
+constexpr float EB4 = 311.13;
+constexpr float E4 = 329.63;
+constexpr float F4 = 349.23;
+constexpr float GB4 = 369.99;
+constexpr float G4 = 392.00;
+constexpr float AB4 = 415.30;
+constexpr float L4 = 441.00;
+constexpr float BB4 = 466.16;
+constexpr float B4 = 493.88;
+constexpr float C5 = 523.25;
+constexpr float DB5 = 554.37;
+constexpr float D5 = 587.33;
+constexpr float EB5 = 622.25;
+constexpr float E5 = 659.25;
+constexpr float F5 = 698.46;
+constexpr float GB5 = 739.99;
+constexpr float G5 = 783.99;
+constexpr float AB5 = 830.61;
+constexpr float L5 = 881.00;
+constexpr float BB5 = 932.33;
+constexpr float B5 = 987.77;
+
+// Arreglo de notas (static constexpr para eficiencia)
+static constexpr float Notas[] = {
+  C1, DB1, D1, EB1, E1, F1, GB1, G1, AB1, L1, BB1, S1,
+  C2, DB2, D2, EB2, E2, F2, GB2, G2, AB2, L2, BB2, B2,
+  C3, DB3, D3, EB3, E3, F3, GB3, G3, AB3, L3, BB3, B3,
+  C4, DB4, D4, EB4, E4, F4, GB4, G4, AB4, L4, BB4, B4,
+  C5, DB5, D5, EB5, E5, F5, GB5, G5, AB5, L5, BB5, B5
+};
+
+void pinMus(int pin);
+void nota(float no, float dur);
+void sil(float dur);
+void adestes();
+void martinillo();
+void auxilio();
+void plantera();
+void boss1();
+void funky();
+void vals2();
+void prueba();
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/ControlMotores.cpp
+==========================================
+
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+#include "esp_timer.h"
+#include "ControlMotores.h"
+#include "Nvs.h"
+#include "rom/ets_sys.h"
+
+ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
+// Valores de configuracion pwm
+    freq(20000),
+    solut(LEDC_TIMER_10_BIT),
+    pwmC_1(LEDC_CHANNEL_0),
+    pwmC_2(LEDC_CHANNEL_1),
+    pwmC_3(LEDC_CHANNEL_2),
+    pwmC_4(LEDC_CHANNEL_3),
+
+	//velocidades por defecto
+	vel_nI(700),
+	vel_nD(700),
+	vel_aI(950),
+	vel_aD(800),
+	vel_gI(950),
+	vel_gD(-800)
+{
+	//pines pwm
+	mot2[0] = motA2;
+    mot2[1] = motB2;
+	//pines de los motores
+    mot[0]  = motA1;
+    mot[1]  = motB1;
+}
+
+//estblecer velocidad
+void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2){
+	vel1 = vel_1;
+	vel2 = vel_2;
+	if(vel_1 > 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, vel_1);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 0);
+	}else if(vel_1 < 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 0);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, abs(vel_1));
+	}else if(vel_1 == 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 1023);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 1023);
+	}
+
+	if(vel_2 > 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, vel_2);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 0);
+	}else if(vel_2 < 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 0);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, abs(vel_2));
+	}else if(vel_2 == 0){
+	    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 1023);
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 1023);
+	}
+
+	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_1);
+	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_2);
+	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_3);
+	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_4);
+}
+
+void ControlMotores::alto(){
+	velocidad(0, 0);
+	ets_delay_us(100);
+}
+
+void ControlMotores::dir_a(){
+	//alto();
+	velocidad(vel_nI, vel_nD);
+}
+
+void ControlMotores::dir_b(){
+	//alto();
+	velocidad(-vel_nI, -vel_nD);
+
+}
+
+void ControlMotores::ataque_a(){
+	//alto();
+	velocidad(vel_aI, vel_aD);
+}
+
+void ControlMotores::ataque_b(){
+	//alto();
+	velocidad(-vel_aI, -vel_aD);
+}
+
+void ControlMotores::giro(){
+	//alto();
+	velocidad(vel_gI, vel_gD);
+}
+
+void ControlMotores::begin(){
+	//se aplican datos de nvs
+	nvsLeer();
+
+  	// configuracion y asignacion de los pines pwm
+
+	//configuracion del timer
+	ledc_timer_config_t ledc_timer = {
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.duty_resolution = solut,
+		.timer_num = LEDC_TIMER_0,
+		.freq_hz = (uint32_t)freq,
+		.clk_cfg = LEDC_AUTO_CLK,
+		.deconfigure = false
+	};
+	ledc_timer_config(&ledc_timer);
+
+	//configuracion canal 1
+	ledc_channel_config_t ledc_channel_1 = {
+		.gpio_num = mot2[0],
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.channel = pwmC_1,
+		.intr_type = LEDC_INTR_DISABLE,
+		.timer_sel = LEDC_TIMER_0,
+		.duty = 0,
+		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
+		.flags = 0
+	};
+	ledc_channel_config(&ledc_channel_1);
+
+	//configuracion canal 2
+	ledc_channel_config_t ledc_channel_2 = {
+		.gpio_num = mot2[1],
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.channel = pwmC_2,
+		.intr_type = LEDC_INTR_DISABLE,
+		.timer_sel = LEDC_TIMER_0,
+		.duty = 0,
+		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
+		.flags = 0
+	};
+	ledc_channel_config(&ledc_channel_2);
+
+	//configuracion canal 3
+	ledc_channel_config_t ledc_channel_3 = {
+		.gpio_num = mot[0],
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.channel = pwmC_3,
+		.intr_type = LEDC_INTR_DISABLE,
+		.timer_sel = LEDC_TIMER_0,
+		.duty = 0,
+		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
+		.flags = 0
+	};
+	ledc_channel_config(&ledc_channel_3);
+
+	//configuracion canal 4
+	ledc_channel_config_t ledc_channel_4 = {
+		.gpio_num = mot[1],
+		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.channel = pwmC_4,
+		.intr_type = LEDC_INTR_DISABLE,
+		.timer_sel = LEDC_TIMER_0,
+		.duty = 0,
+		.hpoint = 0,
+		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
+		.flags = 0
+	};
+	ledc_channel_config(&ledc_channel_4);
+	alto();
+}
+
+void ControlMotores::controlador(int accion){
+	switch(accion){
+		case 0:
+			alto();
+			break;
+		case 1:
+			dir_a();
+			break;
+		case 2:
+			dir_b();
+			break;
+		case 3:
+			ataque_a();
+			break;
+		case 4:
+			ataque_b();
+			break;
+		case 5:
+			giro();
+			break;
+	}
+}
+
+void ControlMotores::nvsLeer(){
+	//constructor de nvs con el namespace de motores
+	Nvs nvs("motores");
+
+	//se aplica cada variable
+	vel_nI = nvs.leer("velocidad_nI", vel_nI);
+	vel_nD = nvs.leer("velocidad_nD", vel_nD);
+	vel_aI = nvs.leer("velocidad_aI", vel_aI);
+	vel_aD = nvs.leer("velocidad_aD", vel_aD);
+	vel_gI = nvs.leer("velocidad_gI", vel_gI);
+	vel_gD = nvs.leer("velocidad_gD", vel_gD);
+}
+
+//envia los datos a la telemetria
+void ControlMotores::velocidades(int16_t* v1, int16_t* v2){
+	*v1 = vel1;
+	*v2 = vel2;
+}
+
+
+==========================================
+FILE PATH: ./src/ControlMotores.h
+==========================================
+
+#ifndef CONTROLMOTORES_H
+#define CONTROLMOTORES_H
+
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+
+class ControlMotores{
+	private:
+		//variables necesarias
+		int freq;
+		ledc_timer_bit_t solut;
+		ledc_channel_t pwmC_1;
+		ledc_channel_t pwmC_2;
+		ledc_channel_t pwmC_3;
+		ledc_channel_t pwmC_4;
+
+		gpio_num_t mot2[2];
+		gpio_num_t mot[2];
+
+		//funcion velocidad
+		void velocidad(int16_t vel_1, int16_t vel_2);
+
+		//variables que definien las velocidades
+		int16_t vel_nI;
+		int16_t vel_nD;
+		int16_t vel_aI;
+		int16_t vel_aD;
+		int16_t vel_gI;
+		int16_t vel_gD;
+
+		//variables que guardan la velocidad actual
+		int16_t vel1;
+		int16_t vel2;
+
+		//metodos de acciones
+		void dir_a();
+		void dir_b();
+		void ataque_a();
+		void ataque_b();
+		void giro();
+
+		//metodo para leer y aplicar los valores de la nvs
+		void nvsLeer();
+	public:
+		//variables control e inicializacion
+		ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1);
+		void begin();
+		void controlador(int accion);
+		//alto
+		void alto();
+		//envia los datos a telemetria
+		void velocidades(int16_t* v1, int16_t* v2);
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/DatosT.h
+==========================================
+
+#ifndef DATOS_H
+#define DATOS_H
+
+#include <cstdint>
+
+struct Datos{
+	//variabel del estado actual
+	int estado;
+
+	//variables de los sensores ultrasonicos
+	uint16_t ojos1;
+	uint16_t ojos2;
+
+	//variable de los sensores ToF
+	uint16_t ToF1;
+	uint16_t ToF2;
+	uint16_t ToF3;
+	uint16_t ToF4;
+	uint16_t ToF5;
+	uint16_t ToF6;
+
+	//variables de la calibracion de los sensores de color
+	uint16_t scR;
+	uint16_t scG;
+	uint16_t scB;
+
+	//variables del primero sensor de color
+	uint16_t scR1;
+	uint16_t scG1;
+	uint16_t scB1;
+
+	//variables del segundo sensor de color
+	uint16_t scR2;
+	uint16_t scG2;
+	uint16_t scB2;
+
+	//variable de la pila
+	float pila;
+
+	//variables de los motores
+	int16_t pwm1;
+	int16_t pwm2;
+
+	//variables del sistema
+	uint32_t tiempo;
+	uint32_t heap;
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/main.cpp
+==========================================
+
+#include "Wifi.h"
+#include "Mqtt.h"
+#include "ControlMotores.h"
+#include "MaquinaEstados.h"
+#include "Multiplexor.h"
+#include "SensorLimite.h"
+#include "SensorRival.h"
+#include "Telemetria.h"
+#include "esp_log.h"
+#include "freertos/projdefs.h"
+#include "rgb.h"
+#include "Nvs.h"
+#include <Musica.h>
+#include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_netif.h"
+#include <cstddef>
+#include <cstdint>
+#include <string>
+
+static const char* TAG = "main";
+
+
+// variables que establecen el tiemṕo
+int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
+                    // al rival
+int tiempo2 = 400; // tiempo que retrocede al detectar el borde
+
+int tiempo3 = 2000;//tiempo que avanza en linea recta para buscar al oponente
+
+int tiempo4 = 500; //tiempo en el que gira para buscar al oponente
+// variables que definen limites
+int maxd = 40;    // limite de los sensores ultrasonicos
+int limCol = 200; // tolerancia del sendor de color
+
+//creamos el mutex
+SemaphoreHandle_t mutex = NULL;
+
+// alerta del limite
+SemaphoreHandle_t alerta;
+SemaphoreHandle_t alerta2;
+
+// alerta de deteccion del rival
+SemaphoreHandle_t enemigo;
+SemaphoreHandle_t enemigo2;
+
+// orden de una accion
+QueueHandle_t orden;
+
+// variables de control
+ volatile bool start = false;
+
+// variables de los pines
+gpio_num_t mus = GPIO_NUM_4;
+gpio_num_t ini = GPIO_NUM_2;
+gpio_num_t trig_1 = GPIO_NUM_19;
+gpio_num_t echo_1 = GPIO_NUM_34;
+gpio_num_t trig_2 = GPIO_NUM_18;
+gpio_num_t echo_2 = GPIO_NUM_35;
+
+// variables de los pines de los motores
+gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
+
+//objeto de Wifi
+Wifi wi;
+
+//objeto del protocolo MQTT
+Mqtt mq;
+
+//objeto del Multiplexor
+Multiplexor mu;
+
+// objeto de los sensores de color
+SensorLimite* sc = nullptr;
+
+// objeto de los sensores ultrasonicos
+SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
+
+// objeto del controlador de motores
+ControlMotores cm(mot[0][1], mot[1][1], mot[0][0], mot[1][0]);
+
+// puntero de la maquina de estados
+MaquinaEstados *me = nullptr;
+
+// objeto de la telemetria
+Telemetria* tm = nullptr;
+
+
+// TAREA DE LA LOGICA DEL ROBOT
+
+void robot(void *pvParameters) {
+  	// prende al precionar el boton
+  	while (gpio_get_level(ini) == 1) {
+    	vTaskDelay(pdMS_TO_TICKS(100));
+  	}
+  	ESP_LOGI(TAG, "boton precionado");
+  	sc->calCol();
+  	vTaskDelay(pdMS_TO_TICKS(5000));
+	rgb(1023, 0);
+	ESP_LOGI(TAG,"iniciando combate");
+  	start = true;
+  while (true) {
+	// inicia
+
+    // MAQUINA DE ESTADOS
+    me->logica();
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+
+// TAREA DE LOS MOTORES
+
+void motores(void *pvParameters) {
+  	int accion = 0;
+  	int accionNueva;
+
+  	while (true) {
+    	// Espera una nueva orden indefinidamente
+    	if (xQueueReceive(orden, &accionNueva, portMAX_DELAY) == pdPASS) {
+      		// Actualiza solo cuando llega algo nuevo
+      		accion = accionNueva;
+
+      		// Aplica el nuevo movimiento
+
+      		cm.controlador(accion);
+  		}
+	}
+}
+
+// TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
+
+void senColor(void *pvParameters) {
+	while (true) {
+		if (start) {
+			if (sc->sc_1Verify()) {
+     	 		xSemaphoreGive(alerta);
+    		}
+
+    		if (sc->sc_2Verify()) {
+      			xSemaphoreGive(alerta2);
+    		}
+		}
+   	 	vTaskDelay(pdMS_TO_TICKS(10));
+  	}
+}
+
+// TAREA DE LOS SENSORES ULTRASONICOS
+
+void senUltra(void *pvParameters) {
+	while (true) {
+		if(start){
+    		if (su.ojos_1Verify()) {
+     			xSemaphoreGive(enemigo);
+    		}
+    		if (su.ojos_2Verify()) {
+      			xSemaphoreGive(enemigo2);
+    		}
+		}
+    	vTaskDelay(pdMS_TO_TICKS(20));
+  	}
+}
+
+//TAREA DE LA MUSICA
+
+void musica(void *pvParameters) {
+  	while (true) {
+    	while (start) {
+    		adestes();
+      		vTaskDelay(10);
+    	}
+    	vTaskDelay(10);
+  	}
+}
+
+//TAREA DE LA TELEMETRIA
+
+void telemetria(void *pvParameters){
+	while(true){
+		tm->enviar();
+		vTaskDelay(pdMS_TO_TICKS(100));
+	}
+}
+
+// setup
+extern "C" void app_main(void){
+	//inicializar la memoria nvs
+	esp_err_t err = nvs_flash_init();
+	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
+		ESP_ERROR_CHECK(nvs_flash_erase());
+      	err = nvs_flash_init();
+	}
+	ESP_ERROR_CHECK(err);
+
+	//se lee las instrucciones del monitor serial
+	Nvs sys("sistema");
+	gpio_reset_pin(ini);
+    gpio_set_direction(ini, GPIO_MODE_INPUT);
+    gpio_set_pull_mode(ini, GPIO_PULLUP_ONLY);
+	vTaskDelay(pdMS_TO_TICKS(100));
+
+	int32_t modo;
+	if(gpio_get_level(ini) == 0){
+		ESP_LOGI(TAG, "modo de prueba activado");
+		sys.guardar("modo", 0);
+		modo = 0;
+	}else{
+		modo = sys.leer("modo", 1);
+	}
+	int32_t val = sys.leer("monitor", 2);
+
+	//se aplica el valor elegido
+	switch(val){
+		case 0:
+			esp_log_level_set("*", ESP_LOG_NONE);
+			break;
+		case 1:
+			esp_log_level_set("*", ESP_LOG_ERROR);
+			break;
+		case 2:
+			esp_log_level_set("*", ESP_LOG_INFO);
+			break;
+		case 3:
+			esp_log_level_set("*", ESP_LOG_VERBOSE);
+			break;
+		default:
+			esp_log_level_set("*", ESP_LOG_INFO);
+			break;
+	}
+
+  	//se inicializan los canales y pines del led rgb
+  	pwm_rgb();
+  	rgb(1023, 512);
+
+	//inicializamos el mutex
+	mutex = xSemaphoreCreateMutex();
+
+  	// se crea la alerta de deteccion del limite
+  	alerta = xSemaphoreCreateBinary();
+  	alerta2 = xSemaphoreCreateBinary();
+
+  	// se crean las alertas de deteccion de enemigos
+  	enemigo = xSemaphoreCreateBinary();
+  	enemigo2 = xSemaphoreCreateBinary();
+
+  	// se crea la la orden con la que se estara comunicando con los motores
+  	orden = xQueueCreate(5, sizeof(int));
+
+  	//ajustes iniciales
+
+  	mu.begin();
+  	cm.begin();
+  	cm.alto();
+
+  	// metodo de seguridad
+  	if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
+  		enemigo2 == NULL) {
+    	cm.alto(); // detener motores por seguridad
+    	esp_restart();
+    	rgb(0, 1023);
+  	}
+
+
+  	//pin de la musica
+  	pinMus(mus);
+
+
+  	// se inicializan los pines output
+	gpio_config_t io_conf_output;
+	io_conf_output.pin_bit_mask = (1ULL << trig_1) | (1ULL << trig_2);
+	io_conf_output.mode = GPIO_MODE_OUTPUT;
+	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
+	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf_output.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&io_conf_output);
+
+	//se inicializan pines input pullup
+	gpio_config_t io_conf_input;
+	io_conf_input.pin_bit_mask = (1ULL << ini);
+	io_conf_input.mode = GPIO_MODE_INPUT;
+	io_conf_input.pull_up_en = GPIO_PULLUP_ENABLE;
+	io_conf_input.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf_input.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&io_conf_input);
+
+	//se inicializan los pines input
+   	gpio_config_t io_conf_input_simple;
+    io_conf_input_simple.pin_bit_mask = (1ULL << echo_1) | (1ULL << echo_2);
+    io_conf_input_simple.mode = GPIO_MODE_INPUT;
+    io_conf_input_simple.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf_input_simple.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
+    gpio_config(&io_conf_input_simple);
+
+  	// configuracion de los objetos de sensores de color y ultrasonicos
+  	sc->begin();
+	su.nvsLeer();
+
+	//se le asigna al puntero los el objeto correspondiente
+	sc = new SensorLimite(limCol, &mu, &mutex);
+
+
+  	// se inicializa el objeto de la maquina de estados
+  	static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, alerta, alerta2, enemigo,
+                                enemigo2, orden);
+
+  	// se apunta al puntero
+  	me = &maquina;
+
+	//se inicializa el objeto de telemetria
+	tm = new Telemetria(me, &cm, sc, &su, &mq);
+
+	if(modo == 0){
+		//modo de prueba
+
+		//inicializar el tcp/ip
+		esp_netif_init();
+		esp_event_loop_create_default();
+
+		//se inicializa el wifi y el MQTT
+ 		wi.begin();
+		wi.espera();
+ 		mq.begin();
+
+		//tarea de telemetria
+		xTaskCreatePinnedToCore(telemetria, "telemetria", 4096, NULL, 1, NULL, 0);
+	}else{
+		esp_log_level_set("*", ESP_LOG_NONE);
+	}
+
+  	// se crean las tareas
+  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
+  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, NULL, 1);
+  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
+}
+   // DESCRIPCIONES A TOMAR EN CUENTA:
+  	// ojos_1 y sc_1 en direccion "a"
+  	// ojos_2 y sc_2 en direccion "b"
+  	// ojos_1 enemigo
+  	// ojos_2 enemigo2
+  	// sc_1 alerta
+  	// sc_2 alerta2
+  	// y se verifique que este todo correcto
+
+
+
+==========================================
+FILE PATH: ./src/MaquinaEstados.cpp
+==========================================
+
+#include "MaquinaEstados.h"
+#include "Nvs.h"
+#include "freertos/task.h"
+#include "nvs.h"
+#include <cstdint>
+
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
+                   SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
+                   QueueHandle_t& _orden):
+	temp1(0),
+	temp2(0),
+	temp3(0),
+	temp4(0),
+	temp5(0),
+	temp6(0),
+	tiempo1(_tiempo1),
+	tiempo2(_tiempo2),
+	tiempo3(_tiempo3),
+	tiempo4(_tiempo4),
+	alerta(_alerta),
+	alerta2(_alerta2),
+	enemigo(_enemigo),
+	enemigo2(_enemigo2),
+	orden(_orden),
+	modo(6),
+	memo1(false),
+	memo2(false),
+	memo3(false),
+	memo4(false),
+	memo5(false)
+{
+	nvsLeer();
+}
+
+//se cuentan kis tiempos
+void MaquinaEstados::tiempo(){
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+	// condiciones que evaluan si ya pasaron los tiempos
+    if (temp - temp1 >= tiempo1) {
+    	memo1 = false;
+    }
+    if (temp - temp2 >= tiempo1) {
+      	memo2 = false;
+    }
+    if (temp - temp3 >= tiempo2) {
+    	memo3 = false;
+    }
+    if (temp - temp4 >= tiempo2) {
+     	memo4 = false;
+    }
+}
+
+// selecciona el estado
+void MaquinaEstados::seleccion(){
+	// si detecta el limite por sc_1
+	if (xSemaphoreTake(alerta, 0) == pdTRUE) {
+  		modo = 0;
+	}
+	// si detecta el limite por sc_2
+	else if (xSemaphoreTake(alerta2, 0) == pdTRUE) {
+	 	 modo = 1;
+	}
+	// si deja de detectar el limite por sc 1
+	else if (memo3) {
+  		modo = 2;
+	}
+	// si deja de detectar el limite por sc 2
+	else if (memo4) {
+		modo = 3;
+    }
+	// si detecta el robot por ojos 1
+	else if (xSemaphoreTake(enemigo, 0) == pdTRUE) {
+  		modo = 4;
+	}
+    // si detecta el robot por ojos 2
+	else if (xSemaphoreTake(enemigo2, 0) == pdTRUE) {
+		modo = 5;
+	}
+	// si deja de detectar al robot por ojos 1
+	else if (memo1) {
+  		modo = 6;
+	}
+	// si deja de detectar al robot por ojos 2
+	else if (memo2) {
+		modo = 7;
+    }
+    // si no detecta nada
+	else if(memo5){
+		modo = 8;
+    }
+	else{
+		modo = 9;
+	}
+}
+
+void MaquinaEstados::ejecucion(){
+	// variable del comandos
+    int com;
+
+	//se guarda el tiempo
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+    // ejecuta el estado
+    switch (modo) {
+		// detiene el movimiento y retrocede en direccion b
+    	case 0:
+      		com = DIR_B;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		memo3 = true;
+      		temp3 = temp;
+      		break;
+      	// detiene el movimiento y retrocede en direccion a
+    	case 1:
+    	  	com = DIR_A;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		memo4 = true;
+      		temp4 = temp;
+      		break;
+		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
+    	case 2:
+      		com = DIR_B;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		break;
+    	// continua avanzando en direccion a por un tiempo definido para alejarse del borde
+    	case 3:
+      		com = DIR_A;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		break;
+    	// avanza en direccion a
+    	case 4:
+      		com = ATAQUE_A;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		memo1 = true;
+      		temp1 = temp;
+      		break;
+    	// avanza en direccion b
+    	case 5:
+      		com = ATAQUE_B;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		memo2 = true;
+      		temp2 = temp;
+      		break;
+    	// avanza por un tiempo definido de 4 segundo en direccion a
+    	case 6:
+      		com = ATAQUE_A;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		break;
+    	// avanza por un tiempo definido de 4 segundos en direccion b
+    	case 7:
+      		com = ATAQUE_B;
+      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+      		break;
+      	// da vueltas hasta encontrar el robot
+    	case 8:
+      		//aqui pondre la logica para que avanze formando la estrella
+			if (temp - temp5 >= tiempo3) {
+    			memo5 = false;        // ir a girar
+    			temp6 = temp;         // inicia tiempo del giro
+			}else{
+      			com = DIR_A;
+      			xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+			}
+      		break;
+		case 9:
+    		if(temp - temp6 >= tiempo4){
+    		    memo5 = true;      // Termina giro → pasará a estado 8
+    		    temp5 = temp;      // Reiniciar timer del avance
+    		} else {
+    		    com = GIRO;
+    		    xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+    		}
+            break;
+	}
+}
+
+void MaquinaEstados::logica(){
+	//evaluacion de tiempos
+	tiempo();
+
+	//seleccion de estado
+	seleccion();
+
+	//ejecucion del estado
+	ejecucion();
+}
+
+void MaquinaEstados::nvsLeer(){
+	Nvs nvs("tiempos");
+	tiempo1 = nvs.leer("ataque_ciego",tiempo1);
+	tiempo2 = nvs.leer("retroceso",tiempo2);
+	tiempo3 = nvs.leer("recta_star",tiempo3);
+	tiempo4 = nvs.leer("giro_star",tiempo4);
+}
+
+//metodo que entrega el estado actual
+int MaquinaEstados::estado(){
+	return modo;
+}
+
+
+==========================================
+FILE PATH: ./src/MaquinaEstados.h
+==========================================
+
+#ifndef MAQUINAESTADOS_H
+#define MAQUINAESTADOS_H
+
+// comandos de movimiento
+#include <cstdint>
+#define ALTO 0
+#define DIR_A 1
+#define DIR_B 2
+#define ATAQUE_A 3
+#define ATAQUE_B 4
+#define GIRO 5
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "freertos/queue.h"
+
+class MaquinaEstados{
+	private:
+		// variables que cuentan el tiempo
+		unsigned long temp1;
+		unsigned long temp2;
+		unsigned long temp3;
+		unsigned long temp4;
+		unsigned long temp5;
+		unsigned long temp6;
+
+		//tiempos establecidos
+		int tiempo1;
+		int tiempo2;
+		int tiempo3;
+		int tiempo4;
+
+		// alerta del limite
+		SemaphoreHandle_t& alerta;
+		SemaphoreHandle_t& alerta2;
+
+		// alerta de deteccion del rival
+		SemaphoreHandle_t& enemigo;
+		SemaphoreHandle_t& enemigo2;
+
+		// orden de una accion
+		QueueHandle_t &orden;
+
+		//variables de control
+		int modo;
+		bool memo1;
+
+		bool memo2;
+		bool memo3;
+		bool memo4;
+		bool memo5;
+
+		//metodo de validacion del tiempo
+		void tiempo();
+
+		//seleccion de estado
+		void seleccion();
+
+		//sejecuta el estado
+		void ejecucion();
+
+		//lee los datos de la nvs
+		void nvsLeer();
+	public:
+		//constructor
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
+                   SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
+            		QueueHandle_t& _orden);
+
+		//maquina de estados
+		void logica();
+
+		//metodo que entrega el estado actual
+		int estado();
+};
+#endif // !DEBUG
+
+
+==========================================
+FILE PATH: ./src/Mqtt.cpp
+==========================================
+
+#include "Mqtt.h"
+#include "Ota.h"
+#include "Nvs.h"
+#include "esp_event_base.h"
+#include "mqtt_client.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "cJSON.h"
+#include <cstdint>
+#include <string>
+
+static const char *TAG = "MQTT";
+
+void Mqtt::begin(){
+	//se configura
+	esp_mqtt_client_config_t mqttC = {};
+	mqttC.broker.address.uri = BROKER;
+
+	//se inicializa
+	this->cliente = esp_mqtt_client_init(&mqttC);
+
+	//se registra la funcion que recibira los eventos
+	esp_mqtt_client_register_event(this->cliente, (esp_mqtt_event_id_t)ESP_EVENT_ANY_ID, Mqtt::evento, this);
+
+	//inicia
+	esp_mqtt_client_start(cliente);
+}
+
+void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
+	//se guarda el obtejo
+	Mqtt* self = (Mqtt*)arg;
+
+	//guarda el evento en esta variable
+	esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)data;
+
+	//decide que hacer con el evento
+	switch((esp_mqtt_event_id_t)id){
+		case MQTT_EVENT_CONNECTED:
+			ESP_LOGI(TAG, "mqtt exitoso");
+			esp_mqtt_client_subscribe(self->cliente, "robot/ota", 1);
+			esp_mqtt_client_subscribe(self->cliente, "robot/conf", 1);
+			self->pub("funciona", "robot/ota/log", 1, 0);
+			break;
+		case MQTT_EVENT_DISCONNECTED:
+			ESP_LOGE(TAG, "mqtt se desconecto");
+			break;
+		case MQTT_EVENT_DATA:
+			if(strncmp(event->topic, "robot/ota", event->topic_len) == 0){
+				ESP_LOGI(TAG, "url recibida");
+				char *urlT = (char*)malloc(event->data_len + 1);
+				if(urlT == NULL){
+					ESP_LOGE(TAG, "error al procesar url");
+					break;
+				}
+				memcpy(urlT, event->data, event->data_len);
+                urlT[event->data_len] = '\0';
+
+				Ota ota;
+				ota.ota(urlT);
+
+				free(urlT);
+			}else if(strncmp(event->topic, "robot/conf", event->topic_len) == 0){
+				//se recibe y establece la configuracion enviada por un json
+				self->configuracion_json(event);
+			}
+			break;
+		case MQTT_EVENT_ERROR:
+			ESP_LOGE(TAG, "mqtt fallo");
+			break;
+		default:
+			break;
+	}
+
+
+}
+void Mqtt::pub(const char* men, const char* top, int q, int r){
+	esp_mqtt_client_publish(cliente, top, men, 0, q, r);
+}
+
+//metodo para extraer el resto de configuraciones del json para guardarlas en la Nvs
+void Mqtt::extraer(cJSON *padre, const char* clave, const char* name){
+	//se obtiene el objeto hijo del padre
+	cJSON *hijo = cJSON_GetObjectItemCaseSensitive(padre, clave);
+	//se verifica si es un numero
+	if(cJSON_IsNumber(hijo)){
+		//se crea el objeto nvs
+		Nvs nvs(name);
+		//se lee valores previos
+		int val = nvs.leer(clave, -9999);
+		//se obtiene el valor entero del json
+		int val_j = hijo->valueint;
+		if(val != val_j){
+			nvs.guardar(clave, val_j);
+			ESP_LOGI(TAG, "configuracion nueva recibida:", clave, val_j);
+		}
+	}
+}
+
+//metodo que extrae las velocidades de los motores y las guarda en sus respectivas variables
+void Mqtt::extraerM(cJSON *padre, const char* item, const char* clave1, const char* clave2){
+	cJSON *hijo = cJSON_GetObjectItemCaseSensitive(padre, item);
+	if(hijo != NULL){
+		cJSON *izq = cJSON_GetObjectItemCaseSensitive(hijo, "izq");
+		cJSON *der = cJSON_GetObjectItemCaseSensitive(hijo, "der");
+		Nvs nvs("motores");
+		if(cJSON_IsNumber(izq)){
+			int vel_izq = nvs.leer(clave1, -9999);
+
+			int izq_v = izq->valueint;
+			if (vel_izq != izq_v){
+				nvs.guardar(clave1, izq_v);
+				ESP_LOGI(TAG, "valocidades de los motores actualizadas");
+			}
+		}
+		if(cJSON_IsNumber(der)){
+			int vel_der = nvs.leer(clave2, -9999);
+
+			int der_v = der->valueint;
+			if (vel_der != der_v){
+				nvs.guardar(clave2, der_v);
+			}
+		}
+	}
+}
+
+void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
+	ESP_LOGI(TAG, "se recibio la configuracion nueva");
+	char *jsonT = (char*)malloc(evento->data_len + 1);
+	if(jsonT == NULL){
+		ESP_LOGE(TAG, "erro al procesar la configuracion del json");
+		return;
+	}
+	memcpy(jsonT, evento->data, evento->data_len);
+	jsonT[evento->data_len] = '\0';
+
+	cJSON *maestro = cJSON_Parse(jsonT);
+	free(jsonT);
+	if(maestro == NULL){
+		ESP_LOGE(TAG, "estructura del json invalida");
+		return;
+	}
+
+	//se revisa y aplican cambios recibidos de la velocidad de los motores
+	cJSON *motores = cJSON_GetObjectItemCaseSensitive(maestro, "motores");
+	if(motores != NULL){
+		extraerM(motores, "normal", "velocidad_nI", "velocidad_nD");
+		extraerM(motores, "ataque", "velocidad_aI", "velocidad_aD");
+		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
+	}
+
+	//se revisa y aplican cambios en la configuracion de los tiempo
+	cJSON *tiempos = cJSON_GetObjectItemCaseSensitive(maestro, "tiempos");
+	if(tiempos != NULL){
+		extraer(tiempos, "ataque_ciego", "tiempos");
+		extraer(tiempos, "retroceso", "tiempos");
+		extraer(tiempos, "recta_star", "tiempos");
+		extraer(tiempos, "giro_star", "tiempos");
+	}
+
+	//se revisa y aplican cambios en la configuracion de los limites de los sensores
+	cJSON *sensores = cJSON_GetObjectItemCaseSensitive(maestro, "sensores");
+	if(sensores != NULL){
+		extraer(sensores, "dist_max", "sensores");
+		extraer(sensores, "umbral_color", "sensores");
+	}
+
+	//se revisa y aplican cambios en la configuracion del sistema
+	cJSON *sistema = cJSON_GetObjectItemCaseSensitive(maestro, "sistema");
+	if(sistema != NULL){
+		extraer(sistema, "modo", "sistema");
+		extraer(sistema, "monitor", "sistema");
+	}
+
+	cJSON_Delete(maestro);
+	esp_restart();
+}
+
+
+==========================================
+FILE PATH: ./src/Mqtt.h
+==========================================
+
+#ifndef MQTT_H
+#define MQTT_H
+
+#include "esp_event_base.h"
+#include "mqtt_client.h"
+#include <cstdint>
+#include <string>
+#include "cJSON.h"
+
+#define BROKER "mqtt://dante-arch.local:1883"
+
+class Mqtt{
+	private:
+		esp_mqtt_client_handle_t cliente;
+
+		static void evento(void* arg, esp_event_base_t base, int32_t id, void* data);
+		void configuracion_json(esp_mqtt_event_handle_t evento);
+		void extraer(cJSON *padre, const char* clave, const char* name);
+		void extraerM(cJSON *padre, const char* item, const char* clave1, const char* clave2);
+
+	public:
+		void begin();
+		void pub(const char* men, const char* top, int q, int r);
+	};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/Multiplexor.cpp
+==========================================
+
+#include "Multiplexor.h"       // Tu propia cabecera
+
+// Librerías del sistema ESP-IDF
+#include "esp_log.h"           // Para usar ESP_LOGE, ESP_LOGI (Debugging)
+#include "freertos/FreeRTOS.h" // Necesario para definiciones base de RTOS
+#include "freertos/task.h"     // Necesario para vTaskDelay y pdMS_TO_TICKS
+
+// Librerías de tu proyecto
+#include "rgb.h"               // Para llamar a rgb(0, 1023) si falla el inicio
+							   //
+//pines ic2
+#define I2C_MASTER_SCL_IO GPIO_NUM_22
+#define I2C_MASTER_SDA_IO GPIO_NUM_21
+#define I2C_MASTER_NUM I2C_NUM_0
+#define I2C_MASTER_FREQ_HZ 400000
+#define I2C_MASTER_TX_BUF_DISABLE 0
+#define I2C_MASTER_RX_BUF_DISABLE 0
+
+// direccion del multiplexor y sensor
+#define TCAADDR 0x70
+
+//tag
+static const char* TAG = "Multiplexor";
+
+void Multiplexor::begin(){
+	//configuracion del i2c
+	i2c_config_t conf = {};
+	conf.mode = I2C_MODE_MASTER;
+	conf.sda_io_num = I2C_MASTER_SDA_IO;
+	conf.scl_io_num = I2C_MASTER_SCL_IO;
+	conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+	conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+	conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
+	i2c_param_config(I2C_MASTER_NUM, &conf);
+
+	esp_err_t err = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+	if (err != ESP_OK){
+		ESP_LOGE(TAG, "fallo al instalar i2c %s", esp_err_to_name(err));
+		rgb(0, 1023);
+	}
+}
+
+
+void Multiplexor::sel(uint8_t i){
+	if(i > 7){
+	return;
+	}
+	//selecciona el sensor de color a utilizar
+    uint8_t data = 1 << i;
+	esp_err_t err = i2c_master_write_to_device(I2C_MASTER_NUM, TCAADDR, &data, 1, pdMS_TO_TICKS(20));
+	if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Fallo al seleccionar canal del MUX I2C: %s", esp_err_to_name(err));
+		rgb(0, 1023);
+    }
+}
+
+ i2c_port_t Multiplexor::port(){
+	return I2C_MASTER_NUM;
+}
+
+
+
+==========================================
+FILE PATH: ./src/Multiplexor.h
+==========================================
+
+#ifndef MULTIPLEXOR_H
+#define MULTIPLEXOR_H
+
+#include "driver/i2c.h"
+#include "driver/gpio.h"
+
+class Multiplexor{
+	public:
+		void begin();
+		void sel(uint8_t i);
+		i2c_port_t port();
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/Nvs.cpp
+==========================================
+
+#include "Nvs.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include "esp_log.h"
+#include <cstdint>
+
+
+Nvs::Nvs(const char* _nameE){
+	nameE = _nameE;
+}
+
+
+void Nvs::guardar(const char* clave, int32_t valor){
+	//se declara el handle
+	nvs_handle_t nvs;
+
+	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	if(err == ESP_OK){
+		nvs_set_i32(nvs, clave, valor);
+		nvs_commit(nvs);
+		nvs_close(nvs);
+	}
+}
+
+int32_t Nvs::leer(const char* clave, int32_t valor){
+	//se declara el handle
+	nvs_handle_t nvs;
+
+	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	if(err == ESP_OK){
+		nvs_get_i32(nvs, clave, &valor);
+		nvs_close(nvs);
+	}
+	return valor;
+}
+
+
+==========================================
+FILE PATH: ./src/Nvs.h
+==========================================
+
+#ifndef NVS_H
+#define NVS_H
+
+#include <cstdint>
+class Nvs{
+	private:
+		const char* nameE;
+	public:
+		Nvs(const char* _nameE);
+		void guardar(const char* clave, int32_t valor);
+		int32_t leer(const char* clave, int32_t valor);
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/Ota.cpp
+==========================================
+
+#include "Ota.h"
+#include "esp_system.h"
+#include "esp_http_client.h"
+#include "esp_https_ota.h"
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <cstring>
+
+static const char *TAG = "OTA";
+
+void Ota::ota(const char* url){
+	char *urlC = strdup(url);
+	if(urlC != NULL){
+		size_t len = strlen(urlC);
+        while(len > 0 && (isspace((unsigned char)urlC[len - 1]) || urlC[len - 1] == '\r' || urlC[len - 1] == '\n')) {
+            urlC[len - 1] = '\0';
+            len--;
+        }
+
+        // 2. Eliminar comillas dobles al final (SI EXISTEN)
+        if(len > 0 && urlC[len - 1] == '\"') {
+            urlC[len - 1] = '\0';
+            len--;
+        }
+
+        char* urlF = urlC;
+
+        // 3. Eliminar espacios al inicio
+        while(*urlF && isspace((unsigned char)*urlF)) {
+            urlF++;
+        }
+
+        // 4. Eliminar comillas dobles al inicio (SI EXISTEN)
+        if(*urlF == '\"') {
+            urlF++;
+        }
+
+		char *urlT = strdup(urlF);
+
+        // Log para ver EXACTAMENTE qué estamos enviando (entre corchetes)
+        ESP_LOGI(TAG, "URL Limpia: [%s]", urlT);
+		ESP_LOGI(TAG, "iniciando ota");
+		xTaskCreate(Ota::tareaOta, "tarea ota", 8192, (void*)urlT, 5, NULL);
+	}else{
+		ESP_LOGE(TAG, "error al iniciar la ota");
+	}
+}
+
+void Ota::tareaOta(void *pvParameter){
+	char *url = (char*)pvParameter;
+	esp_http_client_config_t confH = {
+		.url = url,
+		.cert_pem = NULL,
+		.crt_bundle_attach = NULL,
+		//.skip_cert_common_name_check = true,
+		.keep_alive_enable = true
+	};
+
+	esp_https_ota_config_t confO = {
+		.http_config = &confH,
+	};
+
+	esp_err_t err = esp_https_ota(&confO);
+
+	if(err == ESP_OK){
+		ESP_LOGI(TAG, "ota exitoso");
+		free(url);
+		esp_restart();
+	}else{
+		ESP_LOGE(TAG, "OTA falló: %s", esp_err_to_name(err));
+		free(url);
+		vTaskDelete(NULL);
+	}
+}
+
+
+==========================================
+FILE PATH: ./src/Ota.h
+==========================================
+
+#ifndef OTA_H
+#define OTA_H
+
+#include "esp_log.h"
+
+class Ota{
+	private:
+		static void tareaOta(void *pvParameter);
+	public:
+		void ota(const char* url);
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/rgb.h
+==========================================
+
+#ifndef RGB_H
+#define RGB_H
+
+#include "driver/gpio.h"
+#include "driver/ledc.h"
+
+#define LEDC_TIMER              LEDC_TIMER_3
+#define LEDC_MODE               LEDC_LOW_SPEED_MODE
+#define LEDC_DUTY_RES           LEDC_TIMER_10_BIT   // Resolución (0-1023)
+#define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
+
+// --- Configuración Pin 16 ---
+#define LEDC_PIN_16             GPIO_NUM_16
+#define LEDC_CHANNEL_16         LEDC_CHANNEL_4
+
+// --- Configuración Pin 17 ---
+#define LEDC_PIN_17             GPIO_NUM_17
+#define LEDC_CHANNEL_17         LEDC_CHANNEL_5
+
+static inline void pwm_rgb() {
+    // 1. Configurar el Timer (Solo se hace una vez)
+    // Este timer será compartido por ambos pines
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_MODE,
+        .duty_resolution  = LEDC_DUTY_RES,
+        .timer_num        = LEDC_TIMER,
+        .freq_hz          = LEDC_FREQUENCY,
+        .clk_cfg          = LEDC_AUTO_CLK,
+		.deconfigure = false
+    };
+    ledc_timer_config(&ledc_timer);
+
+
+    // 2. Configurar el Canal 0 (para el Pin 16)
+    ledc_channel_config_t ledc_channel_16 = {
+        .gpio_num       = LEDC_PIN_16,
+        .speed_mode     = LEDC_MODE,
+        .channel        = LEDC_CHANNEL_16,
+		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
+        .timer_sel      = LEDC_TIMER, // <-- Vinculado al Timer 0
+        .duty           = 0,
+        .hpoint         = 0,
+    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
+    	.flags = 0
+    };
+    ledc_channel_config(&ledc_channel_16);
+
+
+    // 3. Configurar el Canal 1 (para el Pin 17)
+    ledc_channel_config_t ledc_channel_17 = {
+        .gpio_num       = LEDC_PIN_17,
+        .speed_mode     = LEDC_MODE,
+        .channel        = LEDC_CHANNEL_17,
+		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
+        .timer_sel      = LEDC_TIMER, // <-- Vinculado al mismo Timer 0
+        .duty           = 0,
+        .hpoint         = 0,
+    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
+    	.flags = 0
+    };
+    ledc_channel_config(&ledc_channel_17);
+}
+static inline void set_16(uint32_t duty) {
+    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_16, duty);
+    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_16);
+}
+static inline void set_17(uint32_t duty) {
+    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_17, duty);
+    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_17);
+}
+// funcion que prende un led para detectar errores, etc.
+static inline void rgb(int a, int b) {
+    set_16(a);
+    set_17(b);
+}
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/SensorLimite.cpp
+==========================================
+
+#include "SensorLimite.h"
+#include "Nvs.h"
+#include "driver/i2c.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
+#include "rgb.h"
+#include "esp_log.h"
+#include "freertos/task.h"
+#include "rgb.h"
+#include "esp_rom_sys.h"
+#include "rom/ets_sys.h"
+
+#define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
+#define TAG "SensorLimite"
+
+#define TCS_ENABLE 0x80 | 0x00
+#define TCS_ATIME 0x80 | 0x01
+#define TCS_CONTROL 0x80 | 0x0F
+#define TCS_CDATAL 0x80 | 0x14
+
+//constructor
+SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
+	//tolerancia de color
+    limCol(_limCol),
+
+    //variables de la logica
+    estado(false),
+    estado2(false),
+	mutex(_mutex),
+	mu(_mu),
+
+	//variables predeterminadas
+    redC(50),
+    green(50),
+    blue(50),
+    lcr(50),
+	lcg(50),
+    lcb(50)
+{}
+
+
+bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
+	uint8_t write_buf[1] = {TCS_CDATAL};
+	uint8_t read_buf[8];
+
+	//definir donde empezar a escribir los datos leidos
+	esp_err_t err = i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(20));
+    if (err != ESP_OK) {
+        return false;
+    }
+
+	//leer datos del color
+	err = i2c_master_read_from_device(mu->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(20));
+    if (err != ESP_OK) {
+        return false;
+    }
+
+	//conbina los bytes para transformarlos a valores en 16bits
+	*c = (read_buf[1] << 8) | read_buf[0];
+    *r = (read_buf[3] << 8) | read_buf[2];
+    *g = (read_buf[5] << 8) | read_buf[4];
+    *b = (read_buf[7] << 8) | read_buf[6];
+
+	return true;
+}
+
+void SensorLimite::calCol(){
+ 	// Acumuladores para promediar las lecturas
+  	uint32_t t_r = 0;
+  	uint32_t t_g = 0;
+  	uint32_t t_b = 0;
+  	uint16_t r, g, b, c;
+  	const int NUMM = 15;
+
+	//se detecta recibe el mutex
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		//primero sensor
+  		for (int i = 0; i < NUMM; i++) {
+  		  	// Leer sensor 1
+  		  	mu->sel(0);
+			ets_delay_us(10);
+  		  	if(read(&r, &g, &b, &c)){
+				t_r += r;
+  		  		t_g += g;
+  		  		t_b += b;
+			}
+		    vTaskDelay(pdMS_TO_TICKS(10));
+  		}
+  		// calcula el promedio de las muestras
+ 		lcr = t_r / NUMM;
+		lcg = t_g / NUMM;
+  		lcb = t_b / NUMM;
+
+		ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d", lcr, lcg, lcb);
+
+		//se libera el mutex
+		xSemaphoreGive(*mutex);
+	}
+	//segundo sensor
+	t_r = 0;
+	t_g = 0;
+	t_b = 0;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+  		for (int i = 0; i < NUMM; i++) {
+  	  		// Leer sensor 2
+  	  		mu->sel(3);
+			ets_delay_us(10);
+  	  		if(read(&r, &g, &b, &c)){
+				t_r += r;
+  	  			t_g += g;
+  	  			t_b += b;
+			}
+	    	vTaskDelay(pdMS_TO_TICKS(10));
+  		}
+  		// calcula el promedio de las muestras
+ 		lcr2 = t_r / NUMM;
+		lcg2 = t_g / NUMM;
+  		lcb2 = t_b / NUMM;
+
+		ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d", lcr2, lcg2, lcb2);
+
+		//se libera el mutex
+		xSemaphoreGive(*mutex);
+	}
+}
+
+void SensorLimite::begin(){
+	nvsLeer();
+	uint8_t write_buf[2];
+
+    write_buf[0] = TCS_ATIME;
+    write_buf[1] = 0xFF;
+	uint8_t write_buf_gain[2] = {TCS_CONTROL, 0x01};
+	uint8_t write_buf_enable[2] = {TCS_ENABLE, 0x03};
+
+	// selecciona sc_1
+	mu->sel(0);
+	ets_delay_us(10);
+	// verifica el funcionamiento de sc_1
+	if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+        estado = true;
+    } else {
+	    estado = false;
+		ESP_LOGE(TAG, "No se pudo inicializar sc_1 (TCS34725)");
+		rgb(0, 1023);
+	}
+
+	mu->sel(3);
+
+	ets_delay_us(10);
+
+    // Intentamos escribir la configuración
+    if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+	    estado2 = true;
+	} else {
+	    estado2 = false;
+		ESP_LOGE(TAG, "No se pudo inicializar sc_2 (TCS34725)");
+		rgb(0, 1023);
+	}
+}
+
+bool SensorLimite::sc_1Verify(){
+	//variable que guarda el resultado
+	bool res = false;
+	//variable tempotales
+	uint16_t rt, gt, bt, ct;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+    	// detecta si el sensor de color funciona bien
+    	if (estado) {
+    		// selecciona sc_1
+    	  	mu->sel(0);
+			ets_delay_us(10);
+      		// sc_1 lee el color
+      		if(read(&rt, &gt, &bt, &ct)){
+				//se aplican
+				r1 = rt;
+				g1 = gt;
+				b1 = bt;
+      			// sc_1 determina si el color detectado es el mismo del limite
+      			long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
+      			if (difCol > limCol) {
+        			// retorna verdadero al detectar el limite
+					res = true;
+				}
+			}else{
+				rgb(0, 1023);
+			}
+		}
+		xSemaphoreGive(*mutex);
+	}
+	vTaskDelay(1);
+	return res;
+}
+
+bool SensorLimite::sc_2Verify(){
+	//variable del resultado
+	bool res = false;
+	//variables temporales
+	uint16_t rt, gt, bt, ct;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		if (estado2) {
+      		// selecciona sc_2
+      		mu->sel(3);
+			ets_delay_us(10);
+      		// sc_2 lee el color
+      		if(read(&rt, &gt, &bt, &ct)){
+				r2 = rt;
+				g2 = gt;
+				b2 = bt;
+      			// sc_2 determina si el color detectado es el mismo del limite
+      			long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
+      			if (difCol > limCol) {
+        			// retorna verdadero al detectar el limite
+					res = true;
+				}
+			}
+    	}
+		else{
+			rgb(0, 1023);
+		}
+		xSemaphoreGive(*mutex);
+	}
+	vTaskDelay(1);
+	return res;
+}
+
+void SensorLimite::nvsLeer(){
+	Nvs nvs("sensores");
+	limCol = nvs.leer("umbral_color", limCol);
+}
+
+void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2){
+	//mutex para evitar datos correptos
+	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
+		//se envian los respecivos datos a la telemetria
+		*rc = lcr;
+		*gc = lcg;
+		*bc = lcb;
+		*red1 = r1;
+		*green1 = g1;
+		*blue1 = b1;
+		*red2 = r2;
+		*green2 = g2;
+		*blue2 = b2;
+		//se suelta el mutex
+		xSemaphoreGive(*mutex);
+	}else{
+		//si no se puede leer envia in valor irreal a la telemtetria
+		uint16_t eVal = 65535;
+		*rc = eVal;
+		*gc = eVal;
+		*bc = eVal;
+		*red1 = eVal;
+		*green1 = eVal;
+		*blue1 = eVal;
+		*red2 = eVal;
+		*green2 = eVal;
+		*blue2 = eVal;
+	}
+}
+
+
+==========================================
+FILE PATH: ./src/SensorLimite.h
+==========================================
+
+#ifndef SENSORLIMITE_H
+#define SENSORLIMITE_H
+
+#include "driver/i2c.h"
+#include "freertos/task.h"
+#include "Multiplexor.h"
+
+class SensorLimite{
+	private:
+		int limCol;//variable de la tolerancia
+		bool estado;//variable que verifica el estado de sc_1
+		bool estado2;//variable que verifica el estado de sc_2
+
+		//puntero al mutex
+		SemaphoreHandle_t* mutex;
+
+		//objeto del Multiplexor
+		Multiplexor* mu;
+
+		//variables de color predeterminado
+		int redC;
+		int green;
+		int blue;
+
+		//se establecen lo valores predetermindos
+		uint16_t lcr, lcg, lcb;
+		//variables de calibracion en el segundo sensor de color
+		uint16_t lcr2, lcg2, lcb2;
+
+		//metodo para leer color
+		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
+		void nvsLeer();
+
+		//valores de los colores leidos
+		uint16_t r1;
+		uint16_t g1;
+		uint16_t b1;
+		uint16_t r2;
+		uint16_t g2;
+		uint16_t b2;
+	public:
+		//constructor
+		SensorLimite(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
+
+		//metodo que calibra el Sensor
+		void calCol();
+
+		//metodos de deteccion de limite
+		bool sc_1Verify();
+		bool sc_2Verify();
+
+		//inicializara todo
+		void begin();
+
+		//metodo que devuelve las lecturas de los colores
+		void colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2);
+};
+#endif
+
+
+==========================================
+FILE PATH: ./src/SensorRival.cpp
+==========================================
+
+#include "esp_timer.h"
+#include "SensorRival.h"
+#include "Nvs.h"
+#include "driver/gpio.h"
+#include "rom/ets_sys.h"
+
+SensorRival::SensorRival(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
+	trig_1(_trig_1),
+	trig_2(_trig_2),
+	echo_1(_echo_1),
+	echo_2(_echo_2),
+    maxd(_maxd),
+	ind1(0),
+	ind2(0),
+	total1(0),
+	total2(0)
+{
+for(int i = 0; i < N_MUESTRAS; i++) {
+        mem1[i] = 0;
+        mem2[i] = 0;
+    }
+}
+
+uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo){
+	//configuracion inicial
+	gpio_set_level(trig, 0);
+	ets_delay_us(2);
+
+	//pulso trigger
+	gpio_set_level(trig, 1);
+	ets_delay_us(10);
+	gpio_set_level(trig, 0);
+
+	//detectar por echo
+	uint32_t timeout_us = 25000;
+	int64_t startT = esp_timer_get_time();
+	while(gpio_get_level(echo) == 0){
+		if((esp_timer_get_time() - startT) > timeout_us){
+			return 0;
+		}
+	}
+
+	//mide el tiempo en el que se detecta por echo
+	startT = esp_timer_get_time();
+	while(gpio_get_level(echo) == 1){
+		if((esp_timer_get_time() - startT) > timeout_us){
+			return 0;
+		}
+	}
+	//calcula la distacia
+	uint64_t dur = esp_timer_get_time() - startT;
+	uint32_t dis = dur / 58;
+	//retorna la distancia
+	return dis;
+}
+
+uint16_t SensorRival::filtro(gpio_num_t trig, gpio_num_t echo, uint16_t* mem, int& ind, long& total){
+	//se eliminaba del total la lectura mas vieja
+	total = total - mem[ind];
+
+	//se le la nueva lectura
+	int lec = dist_cm(trig, echo);
+
+	//se agrega a la lista
+	mem[ind] = lec;
+
+	//se agrega al total
+	total = total + mem[ind];
+
+	//se suma 1 al indice o lo restablecemos a 0 si llega al maximo
+	ind++;
+	if(ind >= N_MUESTRAS){
+		ind = 0;
+	}
+
+	//retorna el promedio
+	return total / N_MUESTRAS;
+}
+
+//metodo que verifica ojos 1
+bool SensorRival::ojos_1Verify(){
+	dis2 = filtro(trig_1, echo_1, mem1, ind1, total1);
+	return (dis2 > 0 && dis2 <= maxd);
+}
+
+//metodo que verifica ojos 2
+bool SensorRival::ojos_2Verify(){
+	dis1 = filtro(trig_2, echo_2, mem2, ind2, total2);
+	return (dis1 > 0 && dis1 <= maxd);
+}
+
+//metodo que lee de la nvs la distancia maxima guardada
+void SensorRival::nvsLeer(){
+	Nvs nvs("sensores");
+	maxd = nvs.leer("dist_max", maxd);
+}
+
+//metodo que da las distancias para telemetria
+void SensorRival::distancias(uint16_t* d1, uint16_t* d2){
+			*d1 = dis1;
+			*d2 = dis2;
+}
+
+
+==========================================
+FILE PATH: ./src/SensorRival.h
+==========================================
+
+#ifndef SENSORRIVAL_H
+#define SENSORRIVAL_H
+
+#define N_MUESTRAS 5
+#include "driver/gpio.h"
+class SensorRival{
+	private:
+		//pines de los sensores
+		gpio_num_t trig_1;
+		gpio_num_t trig_2;
+		gpio_num_t echo_1;
+		gpio_num_t echo_2;
+
+		//vaiables de las distancias leidas
+		uint16_t dis1;
+		uint16_t dis2;
+
+		//limite de distancia
+		int maxd;
+
+		//variables que almacenan muestas
+		uint16_t mem1[N_MUESTRAS];
+		uint16_t mem2[N_MUESTRAS];
+
+		//variables que de los indices
+		int ind1;
+		int ind2;
+
+		//variables de los totales promedio
+		long total1;
+		long total2;
+
+		//metodo para medir distancia
+		uint16_t dist_cm(gpio_num_t trig_pin, gpio_num_t echo_pin);
+
+		uint16_t filtro(gpio_num_t trig, gpio_num_t echo, uint16_t* mem, int& ind, long& total);
+
+
+	public:
+		//costructor
+		SensorRival(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2);
+
+		//metodo para leer los valores del nvs
+		void nvsLeer();
+
+		//metodos de verificacion
+		bool ojos_1Verify();
+		bool ojos_2Verify();
+
+		//metodo para devolver las distancias
+		void distancias(uint16_t* d1, uint16_t* d2);
+};
+
+#endif // !SENSORRIVAL_H
+
+
+==========================================
+FILE PATH: ./src/SensorTof.cpp
+==========================================
+
+#include "SensorTof.h"
+#include "Nvs.h"
+#include "esp_log.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
+#include "freertos/task.h"
+#include "driver/i2c.h"
+
+static const char* TAG = "SensorToF";
+
+SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd):
+	mu(_mu),
+	mutex(_mutex),
+	maxd(_maxd)
+{
+	for(int i = 0; i < NUM_TOF; i++){
+		can[i] = _can[i];
+		tof[i] = nullptr;
+	}
+}
+
+bool SensorTof::begin(){
+	//carga los datos del nvs
+	nvsLeer();
+
+	//configuracion necesaria para la libreria
+	bool b = true;
+	espp::Vl53l::Config config;
+    config.device_address = 0x29;
+
+	//funcion de escritura
+	config.write = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
+        esp_err_t err = i2c_master_write_to_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+    	return (err == ESP_OK);
+    };
+
+	//funcion de lectura
+	config.read = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
+        esp_err_t err = i2c_master_read_from_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+    	return (err == ESP_OK);
+    };
+
+	//se aplica para cada SensorTof
+	for(int i = 0; i < NUM_TOF; i++){
+		//se selecciona canal
+		mu->sel(can[i]);
+		vTaskDelay(pdMS_TO_TICKS(10));
+
+		//creamos los objetos de los sensores tof
+		tof[i] = new espp::Vl53l(config);
+
+		//variable de error
+		std::error_code ec;
+
+		//los inicializamos
+		if(!tof[i]->start_ranging(ec)){
+			ESP_LOGE(TAG, "Fallo al iniciar ToF en canal %d", can[i]);
+			b = false;
+		}else{
+			ESP_LOGI(TAG, "ToF en canal %d iniciado correctamente", can[i]);
+		}
+	}
+	return b;
+}
+
+uint16_t SensorTof::dist(int n){
+	//verifica si el sensor se creo correctamente
+	if(n < 0 || n >= NUM_TOF || tof[n] == nullptr){
+		//valor predeterminado de fuera de rango
+		return 8190;
+	}
+
+	//selecciona el sensor indicado
+	mu->sel(can[n]);
+
+	//variable de error
+	std::error_code ec;
+
+	dis[n] = tof[n]->get_distance_mm(ec);
+
+	//detecta si hubo algun error
+	if (ec) {
+        return 8190;
+    }
+
+    return dis[n];
+}
+
+bool SensorTof::verify(int n){
+	//variable que registrara el resultado
+	bool res = false;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		//se lee la distancia
+		uint16_t distancia = dist(n);
+		//se verifica si esta en el rango
+		if(distancia > 10 && distancia < maxd && distancia < 8000){
+			res = true;
+		}
+		xSemaphoreGive(*mutex);
+	}
+	return res;
+}
+
+//metodo que lee la Nvs
+void SensorTof::nvsLeer(){
+	Nvs nvs("sensores");
+	maxd = nvs.leer("dist_max", maxd);
+}
+
+//metodo de la telemetria
+void SensorTof::distancias(uint16_t* t1, uint16_t* t2, uint16_t* t3, uint16_t* t4, uint16_t* t5, uint16_t* t6 ){
+	*t1 = dis[0];
+	*t2 = dis[1];
+	*t3 = dis[2];
+	*t4 = dis[3];
+	*t5 = dis[4];
+	*t6 = dis[5];
+}
+
+
+==========================================
+FILE PATH: ./src/SensorTof.h
+==========================================
+
+#ifndef SENSORTOF_H
+#define SENSORTOF_H
+
+#include "vl53l.hpp"
+#include "Multiplexor.h"
+#include <vector>
+
+//numero de sensores ToF
+#define NUM_TOF 6
+
+class SensorTof{
+	private:
+		//el multiplexor
+		Multiplexor* mu;
+		//puntero al mutex
+		SemaphoreHandle_t* mutex;
+		//objetos toF de la libreria
+		espp::Vl53l* tof[NUM_TOF];
+		//canales
+		uint8_t can[NUM_TOF];
+		//distancia maxima
+		int maxd;
+		//variables de las lecturas de los sensores
+		uint16_t dis[NUM_TOF];
+		//lee determinado sensor ToF
+		uint16_t dist(int n);
+		//metodo que lee si hay una distancia maxima en nvs
+		void nvsLeer();
+	public:
+		//constructor
+		SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd);
+		//inicializa los sensores ToF
+		bool begin();
+		//verifica si detecto un enemigo
+		bool verify(int n);
+		//metodo que envia las medidas de cada sensor a la telemetria
+		void distancias(uint16_t* t1, uint16_t* t2, uint16_t* t3, uint16_t* t4, uint16_t* t5, uint16_t* t6 );
+};
+#endif
+
+
+==========================================
+FILE PATH: ./src/Telemetria.cpp
+==========================================
+
+#include "Telemetria.h"
+#include "DatosT.h"
+#include "Mqtt.h"
+#include "MaquinaEstados.h"
+#include "ControlMotores.h"
+#include "SensorLimite.h"
+#include "SensorRival.h"
+#include "SensorTof.h"
+#include "freertos/portmacro.h"
+#include "esp_system.h"
+#include <cstdio>
+
+//constructor
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q):
+	me(e),
+	cm(m),
+	sc(c),
+	su(u),
+	mq(q)
+{}
+
+void Telemetria::recopilar(){
+	d.estado = me->estado();
+	cm->velocidades(&d.pwm1, &d.pwm2);
+	sc->colores(&d.scR, &d.scG, &d.scB, &d.scR1, &d.scG1, &d.scB1, &d.scR2, &d.scG2, &d.scB2);
+	su->distancias(&d.ojos1, &d.ojos2);
+	d.ToF1 = 0;
+	d.ToF2 = 0;
+	d.ToF3 = 0;
+	d.ToF4 = 0;
+	d.ToF5 = 0;
+	d.ToF6 = 0;
+	d.pila = 0;
+	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
+	d.heap = esp_get_free_heap_size();
+}
+
+void Telemetria::enviar(){
+	//se crea el strcut
+	recopilar();
+
+	//variable que guardara el json
+	char json[NJSON];
+
+	//se arma el json
+	int lon = snprintf(json, NJSON,
+    "{\"t\":%lu,\"e\":%d,\"h\":%lu,\"m\":[%d,%d],\"u\":[%d,%d],\"c1\":[%d,%d,%d],\"c2\":[%d,%d,%d],\"ref\":[%d,%d,%d]}",
+    d.tiempo, d.estado, d.heap, // Heap con %lu
+    d.pwm1, d.pwm2,
+    d.ojos1, d.ojos2,
+    d.scR1, d.scG1, d.scB1,
+    d.scR2, d.scG2, d.scB2,
+    d.scR, d.scG, d.scB
+	);
+
+	//se valida y envia el json
+	if(lon > 0){
+		mq->pub(json, "robot/telemetria", 0, 0);
+	}
+}
+
+
+==========================================
+FILE PATH: ./src/Telemetria.h
+==========================================
+
+#ifndef TELEMETRIA_H
+#define TELEMETRIA_H
+
+#include "DatosT.h"
+#include "Mqtt.h"
+#include "MaquinaEstados.h"
+#include "ControlMotores.h"
+#include "SensorLimite.h"
+#include "SensorRival.h"
+#include "SensorTof.h"
+
+#define NJSON 512
+
+class Telemetria{
+	private:
+		//struct con los datos
+		Datos d;
+		//punteros de los objetos
+		MaquinaEstados* me;
+		ControlMotores* cm;
+		SensorLimite* sc;
+		SensorRival* su;
+		Mqtt* mq;
+		//se arma el struct
+		void recopilar();
+	public:
+		//constructor
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q);
+		//envia el stuct
+		void enviar();
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/Wifi.cpp
+==========================================
+
+#include "Wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "esp_bit_defs.h"
+#include "esp_err.h"
+#include "esp_netif_types.h"
+#include "esp_wifi.h"
+#include "esp_netif.h"
+#include "esp_event.h"
+#include "esp_wifi_types.h"
+#include "freertos/projdefs.h"
+#include "nvs.h"
+#include "nvs_flash.h"
+#include <cstdint>
+#include <cstring>
+#include "freertos/event_groups.h"
+#include "esp_log.h"
+#include "mdns.h"
+#include "esp_smartconfig.h"
+
+const char* TAG = "wifi";
+
+void Wifi::begin(){
+	//crear un grupo de eventos
+	e = xEventGroupCreate();
+
+	esp_netif_create_default_wifi_sta();
+
+	intentos = 0;
+
+	wifi();
+}
+
+void Wifi::wifi(){
+	//reservar la memoria
+	wifi_init_config_t conf = WIFI_INIT_CONFIG_DEFAULT();
+
+	//verififcar si hay algun error
+	ESP_ERROR_CHECK(esp_wifi_init(&conf));
+
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &Wifi::evento, this, NULL));
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &Wifi::evento, this, NULL));
+	ESP_ERROR_CHECK(esp_event_handler_instance_register(SC_EVENT, ESP_EVENT_ANY_ID, &Wifi::evento, this, NULL));
+
+	//se establece en modo sta
+	esp_wifi_set_mode(WIFI_MODE_STA);
+	wifi_config_t w = {
+		.sta = {
+			.ssid = 0,
+			.password = 0,
+			.threshold = {
+				.authmode = WIFI_AUTH_WPA2_PSK,
+			},
+		}
+	};
+
+	esp_wifi_start();
+	//mobjeto del wifimanager
+	esp_wifi_set_ps(WIFI_PS_NONE);
+}
+
+void Wifi::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
+	Wifi* self = (Wifi*) arg;
+	if(base == WIFI_EVENT && id == WIFI_EVENT_STA_START){
+    	// INTENTAR CONECTAR Y VERIFICAR SI FALLA INMEDIATAMENTE
+    	esp_err_t err = esp_wifi_connect();
+    	if (err == ESP_ERR_WIFI_SSID) {
+        	// Si no hay SSID guardado, ir directo a SmartConfig
+        	ESP_LOGW("WIFI", "No hay credenciales guardadas. Iniciando SmartConfig...");
+        	self->smart();
+    	}
+	}else if(base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED){
+		if(self->intentos < 5){
+			esp_wifi_connect();
+			self->intentos++;
+		}else{
+			self->smart();
+		}
+	}else if(base == IP_EVENT && id == IP_EVENT_STA_GOT_IP){
+		self->intentos = 0;
+		self->mdns();
+		xEventGroupSetBits(self->e, WIFI_CONNECTED);
+	}else if(base == SC_EVENT && id == SC_EVENT_SCAN_DONE){
+
+	}else if(base == SC_EVENT && id == SC_EVENT_FOUND_CHANNEL){
+
+	}else if(base == SC_EVENT && id == SC_EVENT_GOT_SSID_PSWD){
+		smartconfig_event_got_ssid_pswd_t* smartC = (smartconfig_event_got_ssid_pswd_t*) data;
+		wifi_config_t wi = {
+			.sta = {
+				.ssid = 0,
+				.password = 0,
+				.threshold = {
+					.authmode = WIFI_AUTH_WPA2_PSK,
+				},
+			}
+		};
+		memcpy(&wi.sta.ssid, smartC->ssid, sizeof(wi.sta.ssid));
+		memcpy(&wi.sta.password, smartC->password, sizeof(wi.sta.password));
+
+		wi.sta.bssid_set = smartC->bssid_set;
+		if (wi.sta.bssid_set == true) {
+	    	memcpy(wi.sta.bssid, smartC->bssid, sizeof(wi.sta.bssid));
+		}
+
+		esp_wifi_disconnect();
+		esp_wifi_set_config(WIFI_IF_STA, &wi);
+		esp_wifi_connect();
+	}else if(base == SC_EVENT && id == SC_EVENT_SEND_ACK_DONE){
+		esp_smartconfig_stop();
+
+	}
+
+}
+
+void Wifi::espera(){
+	xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
+}
+
+//metodo para inicializar el mDNS
+void Wifi::mdns(){
+	if (mdns_init() == ESP_OK) {
+        mdns_hostname_set("robot-sumo");
+        ESP_LOGI("MDNS", "Servicio iniciado: robot-sumo.local");
+    } else {
+        ESP_LOGE("MDNS", "Fallo al iniciar mDNS");
+    }
+}
+
+//funcion que gestiona las contraseñas y redes para poder conectarse a multiples redes
+void Wifi::smart(){
+	//se elige el protocologo que va a usa
+	esp_smartconfig_set_type(SC_TYPE_ESPTOUCH);
+	//se establece la configuracion
+	smartconfig_start_config_t con = SMARTCONFIG_START_CONFIG_DEFAULT();
+	//inicializar smart config
+	esp_err_t sm = esp_smartconfig_start(&con);
+	if(sm == ESP_OK){
+		ESP_LOGI("smartconfig", "funciono");
+	}
+}
+
+
+==========================================
+FILE PATH: ./src/Wifi.h
+==========================================
+
+#ifndef WIFI_H
+#define WIFI_H
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+#include "esp_event.h"
+#include "esp_bit_defs.h"
+
+//#define WIFI "INFINITUM288C_2.4"
+//#define CONTRASEÑA "2465364457"
+#define WIFI_CONNECTED BIT0
+
+class Wifi{
+	private:
+		EventGroupHandle_t e;
+		int intentos;
+		void wifi();
+		static void evento(void* arg, esp_event_base_t base, int32_t id, void* data);
+		//metodo para el mDNS
+		static void mdns();
+		//metodo para smartconfig
+		void smart();
+	public:
+		void begin();
+		void espera();
+};
+#endif

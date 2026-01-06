@@ -47,7 +47,7 @@ void Multiplexor::sel(uint8_t i){
 	}
 	//selecciona el sensor de color a utilizar
     uint8_t data = 1 << i;
-	esp_err_t err = i2c_master_write_to_device(I2C_MASTER_NUM, TCAADDR, &data, 1, pdMS_TO_TICKS(1000));
+	esp_err_t err = i2c_master_write_to_device(I2C_MASTER_NUM, TCAADDR, &data, 1, pdMS_TO_TICKS(20));
 	if (err != ESP_OK) {
         ESP_LOGE(TAG, "Fallo al seleccionar canal del MUX I2C: %s", esp_err_to_name(err));
 		rgb(0, 1023);

@@ -39,8 +39,7 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 			ESP_LOGI(TAG, "mqtt exitoso");
 			esp_mqtt_client_subscribe(self->cliente, "robot/ota", 1);
 			esp_mqtt_client_subscribe(self->cliente, "robot/conf", 1);
-			esp_mqtt_client_subscribe(self->cliente, "robot/telemetria", 0);
-			self->pub("funciona", "ota/log", 1, 0);
+			self->pub("funciona", "robot/ota/log", 1, 0);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			ESP_LOGE(TAG, "mqtt se desconecto");

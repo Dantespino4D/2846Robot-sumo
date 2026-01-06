@@ -11,6 +11,9 @@ class SensorLimite{
 		bool estado;//variable que verifica el estado de sc_1
 		bool estado2;//variable que verifica el estado de sc_2
 
+		//puntero al mutex
+		SemaphoreHandle_t* mutex;
+
 		//objeto del Multiplexor
 		Multiplexor* mu;
 
@@ -21,6 +24,8 @@ class SensorLimite{
 
 		//se establecen lo valores predetermindos
 		uint16_t lcr, lcg, lcb;
+		//variables de calibracion en el segundo sensor de color
+		uint16_t lcr2, lcg2, lcb2;
 
 		//metodo para leer color
 		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
@@ -35,7 +40,7 @@ class SensorLimite{
 		uint16_t b2;
 	public:
 		//constructor
-		SensorLimite(int limCol, Multiplexor* _mu);
+		SensorLimite(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
 
 		//metodo que calibra el Sensor
 		void calCol();

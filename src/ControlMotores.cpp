@@ -7,7 +7,7 @@
 
 ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
 // Valores de configuracion pwm
-    freq(5000),
+    freq(20000),
     solut(LEDC_TIMER_10_BIT),
     pwmC_1(LEDC_CHANNEL_0),
     pwmC_2(LEDC_CHANNEL_1),
@@ -20,7 +20,7 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_aI(950),
 	vel_aD(800),
 	vel_gI(950),
-	vel_gD(800)
+	vel_gD(-800)
 {
 	//pines pwm
 	mot2[0] = motA2;
@@ -31,7 +31,7 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 }
 
 //estblecer velocidad
-void ControlMotores::velocidad(int vel_1, int vel_2){
+void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2){
 	vel1 = vel_1;
 	vel2 = vel_2;
 	if(vel_1 > 0){
@@ -90,7 +90,7 @@ void ControlMotores::ataque_b(){
 
 void ControlMotores::giro(){
 	//alto();
-	velocidad(vel_gI, -vel_gD);
+	velocidad(vel_gI, vel_gD);
 }
 
 void ControlMotores::begin(){

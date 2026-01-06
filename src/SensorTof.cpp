@@ -1,14 +1,16 @@
 #include "SensorTof.h"
 #include "Nvs.h"
 #include "esp_log.h"
+#include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
 static const char* TAG = "SensorToF";
 
-SensorTof::SensorTof(Multiplexor* _mu, const uint8_t* _can, int _maxd):
+SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd):
 	mu(_mu),
+	mutex(_mutex),
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
@@ -85,14 +87,18 @@ uint16_t SensorTof::dist(int n){
 }
 
 bool SensorTof::verify(int n){
-	//se lee la distancia
-	uint16_t distancia = dist(n);
-	//se verifica si esta en el rango
-	if(distancia > 10 && distancia < maxd && distancia < 8000){
-		return true;
-	}else{
-		return false;
+	//variable que registrara el resultado
+	bool res = false;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		//se lee la distancia
+		uint16_t distancia = dist(n);
+		//se verifica si esta en el rango
+		if(distancia > 10 && distancia < maxd && distancia < 8000){
+			res = true;
+		}
+		xSemaphoreGive(*mutex);
 	}
+	return res;
 }
 
 //metodo que lee la Nvs

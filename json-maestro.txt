@@ -1,6 +1,6 @@
 {
   "motores": {
-    "normal": { "frente": 700, "atras": 700 },
+    "normal": { "izq": 700, "der": 700 },
     "ataque": { "izq": 950, "der": 800 },
     "giro": { "izq": 950, "der": -800 }
   },

@@ -18,15 +18,15 @@ class ControlMotores{
 		gpio_num_t mot[2];
 
 		//funcion velocidad
-		void velocidad(int vel_1, int vel_2);
+		void velocidad(int16_t vel_1, int16_t vel_2);
 
 		//variables que definien las velocidades
-		int vel_nI;
-		int vel_nD;
-		int vel_aI;
-		int vel_aD;
-		int vel_gI;
-		int vel_gD;
+		int16_t vel_nI;
+		int16_t vel_nD;
+		int16_t vel_aI;
+		int16_t vel_aD;
+		int16_t vel_gI;
+		int16_t vel_gD;
 
 		//variables que guardan la velocidad actual
 		int16_t vel1;

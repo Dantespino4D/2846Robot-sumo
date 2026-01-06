@@ -1,9 +1,14 @@
 #include "SensorLimite.h"
 #include "Nvs.h"
+#include "driver/i2c.h"
+#include "freertos/portmacro.h"
+#include "freertos/projdefs.h"
 #include "rgb.h"
 #include "esp_log.h"
 #include "freertos/task.h"
 #include "rgb.h"
+#include "esp_rom_sys.h"
+#include "rom/ets_sys.h"
 
 #define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
 #define TAG "SensorLimite"
@@ -14,13 +19,14 @@
 #define TCS_CDATAL 0x80 | 0x14
 
 //constructor
-SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu):
+SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
 	//tolerancia de color
     limCol(_limCol),
 
     //variables de la logica
     estado(false),
     estado2(false),
+	mutex(_mutex),
 	mu(_mu),
 
 	//variables predeterminadas
@@ -38,13 +44,13 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	uint8_t read_buf[8];
 
 	//definir donde empezar a escribir los datos leidos
-	esp_err_t err = i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(1000));
+	esp_err_t err = i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
         return false;
     }
 
 	//leer datos del color
-	err = i2c_master_read_from_device(mu->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(1000));
+	err = i2c_master_read_from_device(mu->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
         return false;
     }
@@ -63,26 +69,59 @@ void SensorLimite::calCol(){
   	uint32_t t_r = 0;
   	uint32_t t_g = 0;
   	uint32_t t_b = 0;
-
   	uint16_t r, g, b, c;
   	const int NUMM = 15;
-  	for (int i = 0; i < NUMM; i++) {
-  	  	// Leer sensor 1
-  	  	mu->sel(0);
-		vTaskDelay(pdMS_TO_TICKS(10));
-  	  	if(read(&r, &g, &b, &c)){
-			t_r += r;
-  	  		t_g += g;
-  	  		t_b += b;
-		}
-	    vTaskDelay(pdMS_TO_TICKS(10));
-  	}
-  	// calcula el promedio de las muestras
- 	lcr = t_r / NUMM;
-	lcg = t_g / NUMM;
-  	lcb = t_b / NUMM;
 
-	ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d", lcr, lcg, lcb);
+	//se detecta recibe el mutex
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		//primero sensor
+  		for (int i = 0; i < NUMM; i++) {
+  		  	// Leer sensor 1
+  		  	mu->sel(0);
+			ets_delay_us(10);
+  		  	if(read(&r, &g, &b, &c)){
+				t_r += r;
+  		  		t_g += g;
+  		  		t_b += b;
+			}
+		    vTaskDelay(pdMS_TO_TICKS(10));
+  		}
+  		// calcula el promedio de las muestras
+ 		lcr = t_r / NUMM;
+		lcg = t_g / NUMM;
+  		lcb = t_b / NUMM;
+
+		ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d", lcr, lcg, lcb);
+
+		//se libera el mutex
+		xSemaphoreGive(*mutex);
+	}
+	//segundo sensor
+	t_r = 0;
+	t_g = 0;
+	t_b = 0;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+  		for (int i = 0; i < NUMM; i++) {
+  	  		// Leer sensor 2
+  	  		mu->sel(3);
+			ets_delay_us(10);
+  	  		if(read(&r, &g, &b, &c)){
+				t_r += r;
+  	  			t_g += g;
+  	  			t_b += b;
+			}
+	    	vTaskDelay(pdMS_TO_TICKS(10));
+  		}
+  		// calcula el promedio de las muestras
+ 		lcr2 = t_r / NUMM;
+		lcg2 = t_g / NUMM;
+  		lcb2 = t_b / NUMM;
+
+		ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d", lcr2, lcg2, lcb2);
+
+		//se libera el mutex
+		xSemaphoreGive(*mutex);
+	}
 }
 
 void SensorLimite::begin(){
@@ -96,7 +135,7 @@ void SensorLimite::begin(){
 
 	// selecciona sc_1
 	mu->sel(0);
-	vTaskDelay(pdMS_TO_TICKS(2));
+	ets_delay_us(10);
 	// verifica el funcionamiento de sc_1
 	if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
         i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
@@ -110,7 +149,7 @@ void SensorLimite::begin(){
 
 	mu->sel(3);
 
-	vTaskDelay(pdMS_TO_TICKS(2));
+	ets_delay_us(10);
 
     // Intentamos escribir la configuración
     if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
@@ -125,59 +164,68 @@ void SensorLimite::begin(){
 }
 
 bool SensorLimite::sc_1Verify(){
-	//variable de clear
-	uint16_t c;
-    // detecta si el sensor de color funciona bien
-    if (estado) {
-    	// selecciona sc_1
-      	mu->sel(0);
-		vTaskDelay(pdMS_TO_TICKS(2));
-      	// sc_1 lee el color
-      	if(read(&r1, &g1, &b1, &c)){
-      		// sc_1 determina si el color detectado es el mismo del limite
-      		long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
-      		if (difCol > limCol) {
-        		// retorna verdadero al detectar el limite
-				return true;
+	//variable que guarda el resultado
+	bool res = false;
+	//variable tempotales
+	uint16_t rt, gt, bt, ct;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+    	// detecta si el sensor de color funciona bien
+    	if (estado) {
+    		// selecciona sc_1
+    	  	mu->sel(0);
+			ets_delay_us(10);
+      		// sc_1 lee el color
+      		if(read(&rt, &gt, &bt, &ct)){
+				//se aplican
+				r1 = rt;
+				g1 = gt;
+				b1 = bt;
+      			// sc_1 determina si el color detectado es el mismo del limite
+      			long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
+      			if (difCol > limCol) {
+        			// retorna verdadero al detectar el limite
+					res = true;
+				}
 			}else{
-					//retorna falso si no detencta nada
-			return false;
+				rgb(0, 1023);
 			}
-		}else{
-			return false;
 		}
-	}else{
-		return false;
-		rgb(0, 1023);
+		xSemaphoreGive(*mutex);
 	}
+	vTaskDelay(1);
+	return res;
 }
 
 bool SensorLimite::sc_2Verify(){
-	//variable de clear
-	uint16_t c;
-	if (estado2) {
-      	// selecciona sc_2
-      	mu->sel(3);
-		vTaskDelay(pdMS_TO_TICKS(2));
-      	// sc_2 lee el color
-      	if(read(&r2, &g2, &b2, &c)){
-      		// sc_2 determina si el color detectado es el mismo del limite
-      		long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
-      		if (difCol > limCol) {
-        		// retorna verdadero al detectar el limite
-				return true;
-			}else{
-					//retorna falso si no detencta nada
-			return false;
+	//variable del resultado
+	bool res = false;
+	//variables temporales
+	uint16_t rt, gt, bt, ct;
+	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		if (estado2) {
+      		// selecciona sc_2
+      		mu->sel(3);
+			ets_delay_us(10);
+      		// sc_2 lee el color
+      		if(read(&rt, &gt, &bt, &ct)){
+				r2 = rt;
+				g2 = gt;
+				b2 = bt;
+      			// sc_2 determina si el color detectado es el mismo del limite
+      			long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
+      			if (difCol > limCol) {
+        			// retorna verdadero al detectar el limite
+					res = true;
+				}
 			}
-		}else{
-			return false;
+    	}
+		else{
+			rgb(0, 1023);
 		}
-    }
-	else{
-		return false;
-		rgb(0, 1023);
+		xSemaphoreGive(*mutex);
 	}
+	vTaskDelay(1);
+	return res;
 }
 
 void SensorLimite::nvsLeer(){
@@ -186,13 +234,31 @@ void SensorLimite::nvsLeer(){
 }
 
 void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2){
-	*rc = lcr;
-	*gc = lcg;
-	*bc = lcb;
-	*red1 = r1;
-	*green1 = g1;
-	*blue1 = b1;
-	*red2 = r2;
-	*green2 = g2;
-	*blue2 = b2;
+	//mutex para evitar datos correptos
+	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
+		//se envian los respecivos datos a la telemetria
+		*rc = lcr;
+		*gc = lcg;
+		*bc = lcb;
+		*red1 = r1;
+		*green1 = g1;
+		*blue1 = b1;
+		*red2 = r2;
+		*green2 = g2;
+		*blue2 = b2;
+		//se suelta el mutex
+		xSemaphoreGive(*mutex);
+	}else{
+		//si no se puede leer envia in valor irreal a la telemtetria
+		uint16_t eVal = 65535;
+		*rc = eVal;
+		*gc = eVal;
+		*bc = eVal;
+		*red1 = eVal;
+		*green1 = eVal;
+		*blue1 = eVal;
+		*red2 = eVal;
+		*green2 = eVal;
+		*blue2 = eVal;
+	}
 }
