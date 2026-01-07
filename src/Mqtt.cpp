@@ -143,6 +143,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	//se revisa y aplican cambios recibidos de la velocidad de los motores
 	cJSON *motores = cJSON_GetObjectItemCaseSensitive(maestro, "motores");
 	if(motores != NULL){
+		extraer(motores, "tiempo_rampa", "motores");
 		extraerM(motores, "normal", "velocidad_nI", "velocidad_nD");
 		extraerM(motores, "ataque", "velocidad_aI", "velocidad_aD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");

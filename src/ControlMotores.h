@@ -3,6 +3,7 @@
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include <cstdint>
 
 class ControlMotores{
 	private:
@@ -17,8 +18,16 @@ class ControlMotores{
 		gpio_num_t mot2[2];
 		gpio_num_t mot[2];
 
+		//variables de la rampa
+		int tRam;
+		int paso;
+
+		//variables donde se guarda la velocidad actual
+		int16_t vActual1;
+		int16_t vActual2;
+
 		//funcion velocidad
-		void velocidad(int16_t vel_1, int16_t vel_2);
+		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
 
 		//variables que definien las velocidades
 		int16_t vel_nI;

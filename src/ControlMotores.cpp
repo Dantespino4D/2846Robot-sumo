@@ -14,6 +14,9 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
     pwmC_3(LEDC_CHANNEL_2),
     pwmC_4(LEDC_CHANNEL_3),
 
+	//valor del tiempo de la rampa
+	tRam(200),
+
 	//velocidades por defecto
 	vel_nI(700),
 	vel_nD(700),
@@ -31,27 +34,52 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 }
 
 //estblecer velocidad
-void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2){
+void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	vel1 = vel_1;
 	vel2 = vel_2;
-	if(vel_1 > 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, vel_1);
+	if(ram){
+		int16_t lim1 = vel_1 - vActual1;
+		if(abs(lim1) > paso){
+			if(lim1 > 0){
+				vActual1 = vActual1 + paso;
+			}else{
+				vActual1 = vActual1 - paso;
+			}
+		}else{
+			vActual1 = vel_1;
+		}
+		int16_t lim2 = vel_2 - vActual2;
+		if(abs(lim2) > paso){
+			if(lim2 > 0){
+				vActual2 = vActual2 + paso;
+			}else{
+				vActual2 = vActual2 - paso;
+			}
+		}else{
+			vActual2 = vel_2;
+		}
+	}else{
+		vActual1 = vel_1;
+		vActual2 = vel_2;
+	}
+	if(vActual1 > 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, vActual1);
 		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 0);
-	}else if(vel_1 < 0){
+	}else if(vActual1 < 0){
     	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, abs(vel_1));
-	}else if(vel_1 == 0){
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, abs(vActual1));
+	}else if(vActual1 == 0){
     	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 1023);
 		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 1023);
 	}
 
-	if(vel_2 > 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, vel_2);
+	if(vActual2 > 0){
+    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, vActual2);
 		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 0);
-	}else if(vel_2 < 0){
+	}else if(vActual2 < 0){
     	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, abs(vel_2));
-	}else if(vel_2 == 0){
+		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, abs(vActual2));
+	}else if(vActual2 == 0){
 	    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 1023);
 		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 1023);
 	}
@@ -63,39 +91,50 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2){
 }
 
 void ControlMotores::alto(){
-	velocidad(0, 0);
+	velocidad(0, 0, false);
 	ets_delay_us(100);
 }
 
 void ControlMotores::dir_a(){
 	//alto();
-	velocidad(vel_nI, vel_nD);
+	velocidad(vel_nI, vel_nD, false);
 }
 
 void ControlMotores::dir_b(){
 	//alto();
-	velocidad(-vel_nI, -vel_nD);
+	velocidad(-vel_nI, -vel_nD, false);
 
 }
 
 void ControlMotores::ataque_a(){
 	//alto();
-	velocidad(vel_aI, vel_aD);
+	velocidad(vel_aI, vel_aD, true);
 }
 
 void ControlMotores::ataque_b(){
 	//alto();
-	velocidad(-vel_aI, -vel_aD);
+	velocidad(-vel_aI, -vel_aD, true);
 }
 
 void ControlMotores::giro(){
 	//alto();
-	velocidad(vel_gI, vel_gD);
+	velocidad(vel_gI, vel_gD, true);
 }
 
 void ControlMotores::begin(){
 	//se aplican datos de nvs
 	nvsLeer();
+
+	//variables de la velocidad actual
+	vActual1 = 0;
+	vActual2 = 0;
+
+	//se calculan de cuanto en cuanto acelerara el robot
+	if(tRam < 10){
+		paso = 1023;
+	}else{
+		paso = (10230)/tRam;
+	}
 
   	// configuracion y asignacion de los pines pwm
 
@@ -196,6 +235,7 @@ void ControlMotores::nvsLeer(){
 	Nvs nvs("motores");
 
 	//se aplica cada variable
+	tRam = nvs.leer("tiempo_rampa", tRam);
 	vel_nI = nvs.leer("velocidad_nI", vel_nI);
 	vel_nD = nvs.leer("velocidad_nD", vel_nD);
 	vel_aI = nvs.leer("velocidad_aI", vel_aI);
