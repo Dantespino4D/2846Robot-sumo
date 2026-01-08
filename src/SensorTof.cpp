@@ -103,8 +103,12 @@ bool SensorTof::verify(int n){
 
 //metodo que lee la Nvs
 void SensorTof::nvsLeer(){
+	//se crea el objeto del nvs
 	Nvs nvs("sensores");
+	//se extrae el valor de la distancia maxima
 	maxd = nvs.leer("dist_max", maxd);
+	//se convierte de cm a mm
+	maxd = maxd * 10;
 }
 
 //metodo de la telemetria
