@@ -7,6 +7,7 @@
 #include "SensorRival.h"
 #include "Telemetria.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/projdefs.h"
 #include "rgb.h"
 #include "Nvs.h"
@@ -103,13 +104,19 @@ void robot(void *pvParameters) {
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
   	start = true;
+	uint64_t Tpas = 0;
   while (true) {
 	// inicia
 
+	  uint64_t Tini = esp_timer_get_time();
     // MAQUINA DE ESTADOS
     me->logica();
 
     vTaskDelay(pdMS_TO_TICKS(10));
+	//se calcula y envia la duracion de un ciclo
+	uint64_t Tfin = esp_timer_get_time();
+	int ciclo = (int)((Tfin - Tini)/1000);
+	me->cicloR(ciclo, 1);
   }
 }
 
@@ -296,12 +303,13 @@ extern "C" void app_main(void){
     io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
     gpio_config(&io_conf_input_simple);
 
+	//se le asigna al puntero los el objeto correspondiente
+	sc = new SensorLimite(limCol, &mu, &mutex);
+
   	// configuracion de los objetos de sensores de color y ultrasonicos
   	sc->begin();
 	su.nvsLeer();
-
-	//se le asigna al puntero los el objeto correspondiente
-	sc = new SensorLimite(limCol, &mu, &mutex);
+	su.begin();
 
 
   	// se inicializa el objeto de la maquina de estados
@@ -310,9 +318,6 @@ extern "C" void app_main(void){
 
   	// se apunta al puntero
   	me = &maquina;
-
-	//se inicializa el objeto de telemetria
-	tm = new Telemetria(me, &cm, sc, &su, &mq);
 
 	if(modo == 0){
 		//modo de prueba
@@ -325,6 +330,9 @@ extern "C" void app_main(void){
  		wi.begin();
 		wi.espera();
  		mq.begin();
+
+		//se inicializa el objeto de telemetria
+		tm = new Telemetria(me, &cm, sc, &su, &mq, &wi);
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 4096, NULL, 1, NULL, 0);

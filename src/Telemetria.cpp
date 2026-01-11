@@ -6,23 +6,31 @@
 #include "SensorLimite.h"
 #include "SensorRival.h"
 #include "SensorTof.h"
+#include "Wifi.h"
 #include "freertos/portmacro.h"
 #include "esp_system.h"
 #include <cstdio>
 
+#ifndef COMMIT
+#define COMMIT 0
+#endif
+
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w):
 	me(e),
 	cm(m),
 	sc(c),
 	su(u),
-	mq(q)
+	mq(q),
+	wf(w)
 {}
 
 void Telemetria::recopilar(){
-	d.estado = me->estado();
+	//se arma el struct con los valores correspondientes
+	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
+	wf->señalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
-	sc->colores(&d.scR, &d.scG, &d.scB, &d.scR1, &d.scG1, &d.scB1, &d.scR2, &d.scG2, &d.scB2);
+	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
 	su->distancias(&d.ojos1, &d.ojos2);
 	d.ToF1 = 0;
 	d.ToF2 = 0;
@@ -30,9 +38,18 @@ void Telemetria::recopilar(){
 	d.ToF4 = 0;
 	d.ToF5 = 0;
 	d.ToF6 = 0;
+	d.fToF1 = 0;
+	d.fToF2 = 0;
+	d.fToF3 = 0;
+	d.fToF4 = 0;
+	d.fToF5 = 0;
+	d.fToF6 = 0;
+
 	d.pila = 0;
+	d.prototipo = 1;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
+	d.stall = 0;
 }
 
 void Telemetria::enviar(){
@@ -44,14 +61,16 @@ void Telemetria::enviar(){
 
 	//se arma el json
 	int lon = snprintf(json, NJSON,
-    "{\"t\":%lu,\"e\":%d,\"h\":%lu,\"m\":[%d,%d],\"u\":[%d,%d],\"c1\":[%d,%d,%d],\"c2\":[%d,%d,%d],\"ref\":[%d,%d,%d]}",
-    d.tiempo, d.estado, d.heap, // Heap con %lu
-    d.pwm1, d.pwm2,
-    d.ojos1, d.ojos2,
-    d.scR1, d.scG1, d.scB1,
-    d.scR2, d.scG2, d.scB2,
-    d.scR, d.scG, d.scB
-	);
+    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+    COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo ,d.prototipo,
+	d.estado, d.estrategia, d.inicio,
+    d.pwm1, d.pwm2, d.stall,
+    d.ojos1, d.ojos2, d.ToF1, d.ToF2, d.ToF3, d.fToF1, d.fToF2, d.fToF3, d.ToF4, d.ToF5, d.ToF6, d.fToF4, d.fToF5, d.fToF6,
+	d.cR1, d.cG1, d.cB1, d.cC1,
+	d.cR2, d.cG2, d.cB2, d.cC2,
+    d.scR1, d.scG1, d.scB1, d.scC1,
+    d.scR2, d.scG2, d.scB2, d.scC2
+    	);
 
 	//se valida y envia el json
 	if(lon > 0){

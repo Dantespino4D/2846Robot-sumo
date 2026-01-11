@@ -23,6 +23,9 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	enemigo2(_enemigo2),
 	orden(_orden),
 	modo(6),
+	estrategia(1),
+	ciclo(0),
+	ini(0),
 	memo1(false),
 	memo2(false),
 	memo3(false),
@@ -193,7 +196,16 @@ void MaquinaEstados::nvsLeer(){
 	tiempo4 = nvs.leer("giro_star",tiempo4);
 }
 
+//metodo que recibe la duracion del ciclo
+void MaquinaEstados::cicloR(int c, int i){
+	ciclo = c;
+	ini = i;
+}
+
 //metodo que entrega el estado actual
-int MaquinaEstados::estado(){
-	return modo;
+void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini){
+	 *_modo = modo;
+	 *_estra = estrategia;
+	 *_ciclo =ciclo;
+	 *_ini = ini;
 }

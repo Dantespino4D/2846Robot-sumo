@@ -8,6 +8,7 @@
 #include "SensorLimite.h"
 #include "SensorRival.h"
 #include "SensorTof.h"
+#include "Wifi.h"
 
 #define NJSON 512
 
@@ -21,11 +22,12 @@ class Telemetria{
 		SensorLimite* sc;
 		SensorRival* su;
 		Mqtt* mq;
+		Wifi* wf;
 		//se arma el struct
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w);
 		//envia el stuct
 		void enviar();
 };

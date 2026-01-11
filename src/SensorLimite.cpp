@@ -9,6 +9,7 @@
 #include "rgb.h"
 #include "esp_rom_sys.h"
 #include "rom/ets_sys.h"
+#include <cstdint>
 
 #define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
 #define TAG "SensorLimite"
@@ -69,6 +70,7 @@ void SensorLimite::calCol(){
   	uint32_t t_r = 0;
   	uint32_t t_g = 0;
   	uint32_t t_b = 0;
+	uint32_t t_c = 0;
   	uint16_t r, g, b, c;
   	const int NUMM = 15;
 
@@ -83,6 +85,7 @@ void SensorLimite::calCol(){
 				t_r += r;
   		  		t_g += g;
   		  		t_b += b;
+				t_c += c;
 			}
 		    vTaskDelay(pdMS_TO_TICKS(10));
   		}
@@ -90,8 +93,9 @@ void SensorLimite::calCol(){
  		lcr = t_r / NUMM;
 		lcg = t_g / NUMM;
   		lcb = t_b / NUMM;
+		lcc = t_c / NUMM;
 
-		ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d", lcr, lcg, lcb);
+		ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d, C=%d", lcr, lcg, lcb, lcc);
 
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
@@ -100,6 +104,7 @@ void SensorLimite::calCol(){
 	t_r = 0;
 	t_g = 0;
 	t_b = 0;
+	t_c = 0;
 	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
   		for (int i = 0; i < NUMM; i++) {
   	  		// Leer sensor 2
@@ -109,6 +114,7 @@ void SensorLimite::calCol(){
 				t_r += r;
   	  			t_g += g;
   	  			t_b += b;
+				t_c += c;
 			}
 	    	vTaskDelay(pdMS_TO_TICKS(10));
   		}
@@ -116,8 +122,9 @@ void SensorLimite::calCol(){
  		lcr2 = t_r / NUMM;
 		lcg2 = t_g / NUMM;
   		lcb2 = t_b / NUMM;
+		lcc2 = t_c / NUMM;
 
-		ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d", lcr2, lcg2, lcb2);
+		ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d, C=%d", lcr2, lcg2, lcb2, lcc2);
 
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
@@ -180,6 +187,7 @@ bool SensorLimite::sc_1Verify(){
 				r1 = rt;
 				g1 = gt;
 				b1 = bt;
+				c1 = ct;
       			// sc_1 determina si el color detectado es el mismo del limite
       			long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
       			if (difCol > limCol) {
@@ -211,6 +219,7 @@ bool SensorLimite::sc_2Verify(){
 				r2 = rt;
 				g2 = gt;
 				b2 = bt;
+				c2 = ct;
       			// sc_2 determina si el color detectado es el mismo del limite
       			long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
       			if (difCol > limCol) {
@@ -233,19 +242,27 @@ void SensorLimite::nvsLeer(){
 	limCol = nvs.leer("umbral_color", limCol);
 }
 
-void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2){
+void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria
 		*rc = lcr;
 		*gc = lcg;
 		*bc = lcb;
+		*cc = lcc;
+		*rc2 = lcr2;
+		*gc2 = lcg2;
+		*bc2 = lcb2;
+		*cc2 = lcc2;
+
 		*red1 = r1;
 		*green1 = g1;
 		*blue1 = b1;
+		*clear1 = c1;
 		*red2 = r2;
 		*green2 = g2;
 		*blue2 = b2;
+		*clear2 = c2;
 		//se suelta el mutex
 		xSemaphoreGive(*mutex);
 	}else{
@@ -254,11 +271,19 @@ void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* r
 		*rc = eVal;
 		*gc = eVal;
 		*bc = eVal;
+		*cc = eVal;
+		*rc2 = eVal;
+		*gc2 = eVal;
+		*bc2 = eVal;
+		*cc2 = eVal;
+
 		*red1 = eVal;
 		*green1 = eVal;
 		*blue1 = eVal;
+		*clear1 = eVal;
 		*red2 = eVal;
 		*green2 = eVal;
 		*blue2 = eVal;
+		*clear2 = eVal;
 	}
 }

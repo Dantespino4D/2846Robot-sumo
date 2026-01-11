@@ -37,12 +37,17 @@ for(int i = 0; i < N_MUESTRAS; i++) {
 
 //metodo que inicializa cosas
 void SensorRival::begin(){
+	//creamos el encoder
+	rmt_copy_encoder_config_t confE = {};
+	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
+
 	//configuracion de canal tx1
 	rmt_tx_channel_config_t confT1 = {
 		.gpio_num = trig_1,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
-		.trans_queue_depth = 2,
+		.trans_queue_depth = 4,
 	};
 	//handle del canal tx1
 	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT1, &txC1));
@@ -50,9 +55,10 @@ void SensorRival::begin(){
 	//configuracion de canal tx2
 	rmt_tx_channel_config_t confT2 = {
 		.gpio_num = trig_2,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
-		.trans_queue_depth = 2,
+		.trans_queue_depth = 4,
 	};
 	//handle del canal tx2
 	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT2, &txC2));
@@ -60,6 +66,7 @@ void SensorRival::begin(){
 	//configuracion del canal rx1
 	rmt_rx_channel_config_t confR1 = {
 		.gpio_num = echo_1,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
 	};
@@ -69,6 +76,7 @@ void SensorRival::begin(){
 	//configuracion del canal rx2
 	rmt_rx_channel_config_t confR2 = {
 		.gpio_num = echo_2,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
 	};
@@ -109,7 +117,7 @@ uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 
 	//configuracion de la recepcion dl pulso
 	rmt_receive_config_t confR = {
-		.signal_range_min_ns = 10000,
+		.signal_range_min_ns = 1000,
 		.signal_range_max_ns = 25000000,
 	};
 	//detectar por echo (ponemos a escuchar ANTES de disparar)
@@ -120,8 +128,10 @@ uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 
 	//espera los datos del callback
 	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50)) == 0){
-        // Timeout: El sensor no respondio
-        return 0; 
+        // Timeout: El sensor no respondio, reseteamos el canal
+		rmt_disable(rxC);
+		rmt_enable(rxC);
+        return 0;
     }
 
     //Retornamos el valor correspondiente al canal que acabamos de usar

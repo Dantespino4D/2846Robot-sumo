@@ -44,8 +44,11 @@ class MaquinaEstados{
 
 		//variables de control
 		int modo;
-		bool memo1;
+		int estrategia;
+		int ciclo;
+		int ini;
 
+		bool memo1;
 		bool memo2;
 		bool memo3;
 		bool memo4;
@@ -71,7 +74,10 @@ class MaquinaEstados{
 		//maquina de estados
 		void logica();
 
+		//se obtiene el ciclo
+		void cicloR(int c, int i);
+
 		//metodo que entrega el estado actual
-		int estado();
+		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini);
 };
 #endif // !DEBUG

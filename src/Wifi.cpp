@@ -138,3 +138,12 @@ void Wifi::smart(){
 		ESP_LOGI("smartconfig", "funciono");
 	}
 }
+
+void Wifi::señalW(int* _señal){
+	wifi_ap_record_t info;
+	int señal = 0;
+	if(esp_wifi_sta_get_ap_info(&info) == ESP_OK) {
+		señal = info.rssi;
+	}
+	*_señal = señal;
+}
