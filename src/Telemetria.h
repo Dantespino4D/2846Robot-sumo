@@ -10,7 +10,7 @@
 #include "SensorTof.h"
 #include "Wifi.h"
 
-#define NJSON 512
+#define NJSON 2048
 
 class Telemetria{
 	private:

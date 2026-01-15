@@ -9,3 +9,6 @@ sdkconfig.esp32dev
 managed_components/
 sdkconfig.esp32dev
 sdkconfig.test_motores
+.idea/
+telemetria_S.db-journal
+telemetria_S.db
