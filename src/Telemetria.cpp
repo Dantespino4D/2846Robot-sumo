@@ -49,6 +49,7 @@ void Telemetria::recopilar(){
 	d.prototipo = 1;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
+	d.temperatura = 0;
 	d.stall = 0;
 }
 
@@ -61,8 +62,8 @@ void Telemetria::enviar(){
 
 	//se arma el json
 	int lon = snprintf(json, NJSON,
-    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
-    COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo ,d.prototipo,
+    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+    COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
 	d.estado, d.estrategia, d.inicio,
     d.pwm1, d.pwm2, d.stall,
     d.ojos1, d.ojos2, d.ToF1, d.ToF2, d.ToF3, d.fToF1, d.fToF2, d.fToF3, d.ToF4, d.ToF5, d.ToF6, d.fToF4, d.fToF5, d.fToF6,

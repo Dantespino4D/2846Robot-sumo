@@ -63,6 +63,7 @@ struct Datos{
 	//variables del sistema
 	uint32_t tiempo;
 	uint32_t heap;
+	float temperatura;
 	int wifi;
 	int ciclo;
 	int prototipo;

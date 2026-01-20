@@ -31,16 +31,8 @@ class MaquinaEstados{
 		int tiempo3;
 		int tiempo4;
 
-		// alerta del limite
-		SemaphoreHandle_t& alerta;
-		SemaphoreHandle_t& alerta2;
-
-		// alerta de deteccion del rival
-		SemaphoreHandle_t& enemigo;
-		SemaphoreHandle_t& enemigo2;
-
-		// orden de una accion
-		QueueHandle_t &orden;
+		// handle de la tarea de los motores
+		TaskHandle_t* motr;
 
 		//variables de control
 		int modo;
@@ -67,9 +59,7 @@ class MaquinaEstados{
 		void nvsLeer();
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
-                   SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
-            		QueueHandle_t& _orden);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, TaskHandle_t* _motr);
 
 		//maquina de estados
 		void logica();

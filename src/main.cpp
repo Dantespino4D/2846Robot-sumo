@@ -9,6 +9,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/projdefs.h"
+#include "portmacro.h"
 #include "rgb.h"
 #include "Nvs.h"
 #include <Musica.h>
@@ -40,17 +41,6 @@ int limCol = 200; // tolerancia del sendor de color
 
 //creamos el mutex
 SemaphoreHandle_t mutex = NULL;
-
-// alerta del limite
-SemaphoreHandle_t alerta;
-SemaphoreHandle_t alerta2;
-
-// alerta de deteccion del rival
-SemaphoreHandle_t enemigo;
-SemaphoreHandle_t enemigo2;
-
-// orden de una accion
-QueueHandle_t orden;
 
 // variables de control
  volatile bool start = false;
@@ -90,6 +80,12 @@ MaquinaEstados *me = nullptr;
 // objeto de la telemetria
 Telemetria* tm = nullptr;
 
+//objeto de handle de la tarea del robot
+TaskHandle_t rob = NULL;
+
+//handle de la tarea de los motores
+TaskHandle_t motr = NULL;
+
 
 // TAREA DE LA LOGICA DEL ROBOT
 
@@ -105,30 +101,31 @@ void robot(void *pvParameters) {
 	ESP_LOGI(TAG,"iniciando combate");
   	start = true;
 	uint64_t Tpas = 0;
-  while (true) {
-	// inicia
 
-	  uint64_t Tini = esp_timer_get_time();
-    // MAQUINA DE ESTADOS
-    me->logica();
+	//bucle del robot
+	while (true) {
+		// inicia
 
-    vTaskDelay(pdMS_TO_TICKS(10));
-	//se calcula y envia la duracion de un ciclo
-	uint64_t Tfin = esp_timer_get_time();
-	int ciclo = (int)((Tfin - Tini)/1000);
-	me->cicloR(ciclo, 1);
-  }
+	  	uint64_t Tini = esp_timer_get_time();
+    	// MAQUINA DE ESTADOS
+    	me->logica();
+
+		//se calcula y envia la duracion de un ciclo
+		uint64_t Tfin = esp_timer_get_time();
+		int ciclo = (int)((Tfin - Tini)/1000);
+		me->cicloR(ciclo, 1);
+  	}
 }
 
 // TAREA DE LOS MOTORES
 
 void motores(void *pvParameters) {
-  	int accion = 0;
-  	int accionNueva;
+  	uint32_t accion = 0;
+  	uint32_t accionNueva;
 
   	while (true) {
     	// Espera una nueva orden indefinidamente
-    	if (xQueueReceive(orden, &accionNueva, portMAX_DELAY) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
       		accion = accionNueva;
 
@@ -145,11 +142,11 @@ void senColor(void *pvParameters) {
 	while (true) {
 		if (start) {
 			if (sc->sc_1Verify()) {
-     	 		xSemaphoreGive(alerta);
+				xTaskNotify(rob, (1 << 0), eSetBits);
     		}
 
     		if (sc->sc_2Verify()) {
-      			xSemaphoreGive(alerta2);
+				xTaskNotify(rob, (1 << 1), eSetBits);
     		}
 		}
    	 	vTaskDelay(pdMS_TO_TICKS(10));
@@ -162,10 +159,10 @@ void senUltra(void *pvParameters) {
 	while (true) {
 		if(start){
     		if (su.ojos_1Verify()) {
-     			xSemaphoreGive(enemigo);
+        		xTaskNotify(rob, (1 << 2), eSetBits);
     		}
     		if (su.ojos_2Verify()) {
-      			xSemaphoreGive(enemigo2);
+        		xTaskNotify(rob, (1 << 3), eSetBits);
     		}
 		}
     	vTaskDelay(pdMS_TO_TICKS(20));
@@ -246,30 +243,11 @@ extern "C" void app_main(void){
 	//inicializamos el mutex
 	mutex = xSemaphoreCreateMutex();
 
-  	// se crea la alerta de deteccion del limite
-  	alerta = xSemaphoreCreateBinary();
-  	alerta2 = xSemaphoreCreateBinary();
-
-  	// se crean las alertas de deteccion de enemigos
-  	enemigo = xSemaphoreCreateBinary();
-  	enemigo2 = xSemaphoreCreateBinary();
-
-  	// se crea la la orden con la que se estara comunicando con los motores
-  	orden = xQueueCreate(5, sizeof(int));
-
   	//ajustes iniciales
 
   	mu.begin();
   	cm.begin();
   	cm.alto();
-
-  	// metodo de seguridad
-  	if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
-  		enemigo2 == NULL) {
-    	cm.alto(); // detener motores por seguridad
-    	esp_restart();
-    	rgb(0, 1023);
-  	}
 
 
   	//pin de la musica
@@ -313,8 +291,7 @@ extern "C" void app_main(void){
 
 
   	// se inicializa el objeto de la maquina de estados
-  	static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, alerta, alerta2, enemigo,
-                                enemigo2, orden);
+static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
 
   	// se apunta al puntero
   	me = &maquina;
@@ -341,8 +318,8 @@ extern "C" void app_main(void){
 	}
 
   	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
-  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, NULL, 1);
+  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
+  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
   	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
 	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);

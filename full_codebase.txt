@@ -946,6 +946,8 @@ FILE PATH: ./src/DatosT.h
 struct Datos{
 	//variabel del estado actual
 	int estado;
+	int estrategia;
+	int inicio;
 
 	//variables de los sensores ultrasonicos
 	uint16_t ojos1;
@@ -959,20 +961,36 @@ struct Datos{
 	uint16_t ToF5;
 	uint16_t ToF6;
 
+	//variables de la fiablilidad de los sensores ToF
+	uint16_t fToF1;
+	uint16_t fToF2;
+	uint16_t fToF3;
+	uint16_t fToF4;
+	uint16_t fToF5;
+	uint16_t fToF6;
+
 	//variables de la calibracion de los sensores de color
-	uint16_t scR;
-	uint16_t scG;
-	uint16_t scB;
+	uint16_t cR1;
+	uint16_t cG1;
+	uint16_t cB1;
+	uint16_t cC1;
+	uint16_t cR2;
+	uint16_t cG2;
+	uint16_t cB2;
+	uint16_t cC2;
+
 
 	//variables del primero sensor de color
 	uint16_t scR1;
 	uint16_t scG1;
 	uint16_t scB1;
+	uint16_t scC1;
 
 	//variables del segundo sensor de color
 	uint16_t scR2;
 	uint16_t scG2;
 	uint16_t scB2;
+	uint16_t scC2;
 
 	//variable de la pila
 	float pila;
@@ -980,10 +998,15 @@ struct Datos{
 	//variables de los motores
 	int16_t pwm1;
 	int16_t pwm2;
+	int stall;
 
 	//variables del sistema
 	uint32_t tiempo;
 	uint32_t heap;
+	float temperatura;
+	int wifi;
+	int ciclo;
+	int prototipo;
 };
 
 #endif
@@ -1002,7 +1025,9 @@ FILE PATH: ./src/main.cpp
 #include "SensorRival.h"
 #include "Telemetria.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/projdefs.h"
+#include "portmacro.h"
 #include "rgb.h"
 #include "Nvs.h"
 #include <Musica.h>
@@ -1034,17 +1059,6 @@ int limCol = 200; // tolerancia del sendor de color
 
 //creamos el mutex
 SemaphoreHandle_t mutex = NULL;
-
-// alerta del limite
-SemaphoreHandle_t alerta;
-SemaphoreHandle_t alerta2;
-
-// alerta de deteccion del rival
-SemaphoreHandle_t enemigo;
-SemaphoreHandle_t enemigo2;
-
-// orden de una accion
-QueueHandle_t orden;
 
 // variables de control
  volatile bool start = false;
@@ -1084,6 +1098,12 @@ MaquinaEstados *me = nullptr;
 // objeto de la telemetria
 Telemetria* tm = nullptr;
 
+//objeto de handle de la tarea del robot
+TaskHandle_t rob = NULL;
+
+//handle de la tarea de los motores
+TaskHandle_t motr = NULL;
+
 
 // TAREA DE LA LOGICA DEL ROBOT
 
@@ -1098,25 +1118,32 @@ void robot(void *pvParameters) {
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
   	start = true;
-  while (true) {
-	// inicia
+	uint64_t Tpas = 0;
 
-    // MAQUINA DE ESTADOS
-    me->logica();
+	//bucle del robot
+	while (true) {
+		// inicia
 
-    vTaskDelay(pdMS_TO_TICKS(10));
-  }
+	  	uint64_t Tini = esp_timer_get_time();
+    	// MAQUINA DE ESTADOS
+    	me->logica();
+
+		//se calcula y envia la duracion de un ciclo
+		uint64_t Tfin = esp_timer_get_time();
+		int ciclo = (int)((Tfin - Tini)/1000);
+		me->cicloR(ciclo, 1);
+  	}
 }
 
 // TAREA DE LOS MOTORES
 
 void motores(void *pvParameters) {
-  	int accion = 0;
-  	int accionNueva;
+  	uint32_t accion = 0;
+  	uint32_t accionNueva;
 
   	while (true) {
     	// Espera una nueva orden indefinidamente
-    	if (xQueueReceive(orden, &accionNueva, portMAX_DELAY) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
       		accion = accionNueva;
 
@@ -1133,11 +1160,11 @@ void senColor(void *pvParameters) {
 	while (true) {
 		if (start) {
 			if (sc->sc_1Verify()) {
-     	 		xSemaphoreGive(alerta);
+				xTaskNotify(rob, (1 << 0), eSetBits);
     		}
 
     		if (sc->sc_2Verify()) {
-      			xSemaphoreGive(alerta2);
+				xTaskNotify(rob, (1 << 1), eSetBits);
     		}
 		}
    	 	vTaskDelay(pdMS_TO_TICKS(10));
@@ -1150,10 +1177,10 @@ void senUltra(void *pvParameters) {
 	while (true) {
 		if(start){
     		if (su.ojos_1Verify()) {
-     			xSemaphoreGive(enemigo);
+        		xTaskNotify(rob, (1 << 2), eSetBits);
     		}
     		if (su.ojos_2Verify()) {
-      			xSemaphoreGive(enemigo2);
+        		xTaskNotify(rob, (1 << 3), eSetBits);
     		}
 		}
     	vTaskDelay(pdMS_TO_TICKS(20));
@@ -1234,30 +1261,11 @@ extern "C" void app_main(void){
 	//inicializamos el mutex
 	mutex = xSemaphoreCreateMutex();
 
-  	// se crea la alerta de deteccion del limite
-  	alerta = xSemaphoreCreateBinary();
-  	alerta2 = xSemaphoreCreateBinary();
-
-  	// se crean las alertas de deteccion de enemigos
-  	enemigo = xSemaphoreCreateBinary();
-  	enemigo2 = xSemaphoreCreateBinary();
-
-  	// se crea la la orden con la que se estara comunicando con los motores
-  	orden = xQueueCreate(5, sizeof(int));
-
   	//ajustes iniciales
 
   	mu.begin();
   	cm.begin();
   	cm.alto();
-
-  	// metodo de seguridad
-  	if (alerta == NULL || alerta2 == NULL || enemigo == NULL ||
-  		enemigo2 == NULL) {
-    	cm.alto(); // detener motores por seguridad
-    	esp_restart();
-    	rgb(0, 1023);
-  	}
 
 
   	//pin de la musica
@@ -1291,23 +1299,20 @@ extern "C" void app_main(void){
     io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
     gpio_config(&io_conf_input_simple);
 
-  	// configuracion de los objetos de sensores de color y ultrasonicos
-  	sc->begin();
-	su.nvsLeer();
-
 	//se le asigna al puntero los el objeto correspondiente
 	sc = new SensorLimite(limCol, &mu, &mutex);
 
+  	// configuracion de los objetos de sensores de color y ultrasonicos
+  	sc->begin();
+	su.nvsLeer();
+	su.begin();
+
 
   	// se inicializa el objeto de la maquina de estados
-  	static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, alerta, alerta2, enemigo,
-                                enemigo2, orden);
+static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
 
   	// se apunta al puntero
   	me = &maquina;
-
-	//se inicializa el objeto de telemetria
-	tm = new Telemetria(me, &cm, sc, &su, &mq);
 
 	if(modo == 0){
 		//modo de prueba
@@ -1321,6 +1326,9 @@ extern "C" void app_main(void){
 		wi.espera();
  		mq.begin();
 
+		//se inicializa el objeto de telemetria
+		tm = new Telemetria(me, &cm, sc, &su, &mq, &wi);
+
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 4096, NULL, 1, NULL, 0);
 	}else{
@@ -1328,8 +1336,8 @@ extern "C" void app_main(void){
 	}
 
   	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
-  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, NULL, 1);
+  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
+  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
   	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
 	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
@@ -1351,13 +1359,12 @@ FILE PATH: ./src/MaquinaEstados.cpp
 
 #include "MaquinaEstados.h"
 #include "Nvs.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
 #include <cstdint>
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
-                   SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
-                   QueueHandle_t& _orden):
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, TaskHandle_t* _motr):
 	temp1(0),
 	temp2(0),
 	temp3(0),
@@ -1368,12 +1375,11 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	tiempo2(_tiempo2),
 	tiempo3(_tiempo3),
 	tiempo4(_tiempo4),
-	alerta(_alerta),
-	alerta2(_alerta2),
-	enemigo(_enemigo),
-	enemigo2(_enemigo2),
-	orden(_orden),
+	motr(_motr),
 	modo(6),
+	estrategia(1),
+	ciclo(0),
+	ini(0),
 	memo1(false),
 	memo2(false),
 	memo3(false),
@@ -1404,12 +1410,14 @@ void MaquinaEstados::tiempo(){
 
 // selecciona el estado
 void MaquinaEstados::seleccion(){
+	uint32_t noti;
+	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
 	// si detecta el limite por sc_1
-	if (xSemaphoreTake(alerta, 0) == pdTRUE) {
+	if (noti & (1 << 0)) {
   		modo = 0;
 	}
 	// si detecta el limite por sc_2
-	else if (xSemaphoreTake(alerta2, 0) == pdTRUE) {
+	else if (noti & (1 << 1)) {
 	 	 modo = 1;
 	}
 	// si deja de detectar el limite por sc 1
@@ -1421,11 +1429,11 @@ void MaquinaEstados::seleccion(){
 		modo = 3;
     }
 	// si detecta el robot por ojos 1
-	else if (xSemaphoreTake(enemigo, 0) == pdTRUE) {
+	else if (noti & (1 << 2)) {
   		modo = 4;
 	}
     // si detecta el robot por ojos 2
-	else if (xSemaphoreTake(enemigo2, 0) == pdTRUE) {
+	else if (noti & (1 << 3)) {
 		modo = 5;
 	}
 	// si deja de detectar al robot por ojos 1
@@ -1457,50 +1465,50 @@ void MaquinaEstados::ejecucion(){
 		// detiene el movimiento y retrocede en direccion b
     	case 0:
       		com = DIR_B;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		memo3 = true;
       		temp3 = temp;
       		break;
       	// detiene el movimiento y retrocede en direccion a
     	case 1:
     	  	com = DIR_A;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		memo4 = true;
       		temp4 = temp;
       		break;
 		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
     	case 2:
       		com = DIR_B;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		break;
     	// continua avanzando en direccion a por un tiempo definido para alejarse del borde
     	case 3:
       		com = DIR_A;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		break;
     	// avanza en direccion a
     	case 4:
       		com = ATAQUE_A;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		memo1 = true;
       		temp1 = temp;
       		break;
     	// avanza en direccion b
     	case 5:
       		com = ATAQUE_B;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		memo2 = true;
       		temp2 = temp;
       		break;
     	// avanza por un tiempo definido de 4 segundo en direccion a
     	case 6:
       		com = ATAQUE_A;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		break;
     	// avanza por un tiempo definido de 4 segundos en direccion b
     	case 7:
       		com = ATAQUE_B;
-      		xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		break;
       	// da vueltas hasta encontrar el robot
     	case 8:
@@ -1510,7 +1518,7 @@ void MaquinaEstados::ejecucion(){
     			temp6 = temp;         // inicia tiempo del giro
 			}else{
       			com = DIR_A;
-      			xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        		xTaskNotify(*motr, com, eSetValueWithOverwrite);
 			}
       		break;
 		case 9:
@@ -1519,7 +1527,7 @@ void MaquinaEstados::ejecucion(){
     		    temp5 = temp;      // Reiniciar timer del avance
     		} else {
     		    com = GIRO;
-    		    xQueueSend(orden, &com, 10 / portTICK_PERIOD_MS);
+        		xTaskNotify(*motr, com, eSetValueWithOverwrite);
     		}
             break;
 	}
@@ -1544,9 +1552,18 @@ void MaquinaEstados::nvsLeer(){
 	tiempo4 = nvs.leer("giro_star",tiempo4);
 }
 
+//metodo que recibe la duracion del ciclo
+void MaquinaEstados::cicloR(int c, int i){
+	ciclo = c;
+	ini = i;
+}
+
 //metodo que entrega el estado actual
-int MaquinaEstados::estado(){
-	return modo;
+void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini){
+	 *_modo = modo;
+	 *_estra = estrategia;
+	 *_ciclo =ciclo;
+	 *_ini = ini;
 }
 
 
@@ -1587,21 +1604,16 @@ class MaquinaEstados{
 		int tiempo3;
 		int tiempo4;
 
-		// alerta del limite
-		SemaphoreHandle_t& alerta;
-		SemaphoreHandle_t& alerta2;
-
-		// alerta de deteccion del rival
-		SemaphoreHandle_t& enemigo;
-		SemaphoreHandle_t& enemigo2;
-
-		// orden de una accion
-		QueueHandle_t &orden;
+		// handle de la tarea de los motores
+		TaskHandle_t* motr;
 
 		//variables de control
 		int modo;
-		bool memo1;
+		int estrategia;
+		int ciclo;
+		int ini;
 
+		bool memo1;
 		bool memo2;
 		bool memo3;
 		bool memo4;
@@ -1620,15 +1632,16 @@ class MaquinaEstados{
 		void nvsLeer();
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, SemaphoreHandle_t& _alerta, SemaphoreHandle_t& _alerta2,
-                   SemaphoreHandle_t& _enemigo, SemaphoreHandle_t& _enemigo2,
-            		QueueHandle_t& _orden);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, TaskHandle_t* _motr);
 
 		//maquina de estados
 		void logica();
 
+		//se obtiene el ciclo
+		void cicloR(int c, int i);
+
 		//metodo que entrega el estado actual
-		int estado();
+		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini);
 };
 #endif // !DEBUG
 
@@ -2193,6 +2206,7 @@ FILE PATH: ./src/SensorLimite.cpp
 #include "rgb.h"
 #include "esp_rom_sys.h"
 #include "rom/ets_sys.h"
+#include <cstdint>
 
 #define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
 #define TAG "SensorLimite"
@@ -2253,6 +2267,7 @@ void SensorLimite::calCol(){
   	uint32_t t_r = 0;
   	uint32_t t_g = 0;
   	uint32_t t_b = 0;
+	uint32_t t_c = 0;
   	uint16_t r, g, b, c;
   	const int NUMM = 15;
 
@@ -2267,6 +2282,7 @@ void SensorLimite::calCol(){
 				t_r += r;
   		  		t_g += g;
   		  		t_b += b;
+				t_c += c;
 			}
 		    vTaskDelay(pdMS_TO_TICKS(10));
   		}
@@ -2274,8 +2290,9 @@ void SensorLimite::calCol(){
  		lcr = t_r / NUMM;
 		lcg = t_g / NUMM;
   		lcb = t_b / NUMM;
+		lcc = t_c / NUMM;
 
-		ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d", lcr, lcg, lcb);
+		ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d, C=%d", lcr, lcg, lcb, lcc);
 
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
@@ -2284,6 +2301,7 @@ void SensorLimite::calCol(){
 	t_r = 0;
 	t_g = 0;
 	t_b = 0;
+	t_c = 0;
 	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
   		for (int i = 0; i < NUMM; i++) {
   	  		// Leer sensor 2
@@ -2293,6 +2311,7 @@ void SensorLimite::calCol(){
 				t_r += r;
   	  			t_g += g;
   	  			t_b += b;
+				t_c += c;
 			}
 	    	vTaskDelay(pdMS_TO_TICKS(10));
   		}
@@ -2300,8 +2319,9 @@ void SensorLimite::calCol(){
  		lcr2 = t_r / NUMM;
 		lcg2 = t_g / NUMM;
   		lcb2 = t_b / NUMM;
+		lcc2 = t_c / NUMM;
 
-		ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d", lcr2, lcg2, lcb2);
+		ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d, C=%d", lcr2, lcg2, lcb2, lcc2);
 
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
@@ -2364,6 +2384,7 @@ bool SensorLimite::sc_1Verify(){
 				r1 = rt;
 				g1 = gt;
 				b1 = bt;
+				c1 = ct;
       			// sc_1 determina si el color detectado es el mismo del limite
       			long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
       			if (difCol > limCol) {
@@ -2395,6 +2416,7 @@ bool SensorLimite::sc_2Verify(){
 				r2 = rt;
 				g2 = gt;
 				b2 = bt;
+				c2 = ct;
       			// sc_2 determina si el color detectado es el mismo del limite
       			long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
       			if (difCol > limCol) {
@@ -2417,19 +2439,27 @@ void SensorLimite::nvsLeer(){
 	limCol = nvs.leer("umbral_color", limCol);
 }
 
-void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2){
+void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria
 		*rc = lcr;
 		*gc = lcg;
 		*bc = lcb;
+		*cc = lcc;
+		*rc2 = lcr2;
+		*gc2 = lcg2;
+		*bc2 = lcb2;
+		*cc2 = lcc2;
+
 		*red1 = r1;
 		*green1 = g1;
 		*blue1 = b1;
+		*clear1 = c1;
 		*red2 = r2;
 		*green2 = g2;
 		*blue2 = b2;
+		*clear2 = c2;
 		//se suelta el mutex
 		xSemaphoreGive(*mutex);
 	}else{
@@ -2438,12 +2468,20 @@ void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* r
 		*rc = eVal;
 		*gc = eVal;
 		*bc = eVal;
+		*cc = eVal;
+		*rc2 = eVal;
+		*gc2 = eVal;
+		*bc2 = eVal;
+		*cc2 = eVal;
+
 		*red1 = eVal;
 		*green1 = eVal;
 		*blue1 = eVal;
+		*clear1 = eVal;
 		*red2 = eVal;
 		*green2 = eVal;
 		*blue2 = eVal;
+		*clear2 = eVal;
 	}
 }
 
@@ -2458,6 +2496,7 @@ FILE PATH: ./src/SensorLimite.h
 #include "driver/i2c.h"
 #include "freertos/task.h"
 #include "Multiplexor.h"
+#include <cstdint>
 
 class SensorLimite{
 	private:
@@ -2477,9 +2516,9 @@ class SensorLimite{
 		int blue;
 
 		//se establecen lo valores predetermindos
-		uint16_t lcr, lcg, lcb;
+		uint16_t lcr, lcg, lcb, lcc;
 		//variables de calibracion en el segundo sensor de color
-		uint16_t lcr2, lcg2, lcb2;
+		uint16_t lcr2, lcg2, lcb2, lcc2;
 
 		//metodo para leer color
 		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
@@ -2489,9 +2528,11 @@ class SensorLimite{
 		uint16_t r1;
 		uint16_t g1;
 		uint16_t b1;
+		uint16_t c1;
 		uint16_t r2;
 		uint16_t g2;
 		uint16_t b2;
+		uint16_t c2;
 	public:
 		//constructor
 		SensorLimite(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
@@ -2507,7 +2548,7 @@ class SensorLimite{
 		void begin();
 
 		//metodo que devuelve las lecturas de los colores
-		void colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* red2, uint16_t* green2, uint16_t* blue2);
+		void colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2);
 };
 #endif
 
@@ -2555,12 +2596,17 @@ for(int i = 0; i < N_MUESTRAS; i++) {
 
 //metodo que inicializa cosas
 void SensorRival::begin(){
+	//creamos el encoder
+	rmt_copy_encoder_config_t confE = {};
+	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
+
 	//configuracion de canal tx1
 	rmt_tx_channel_config_t confT1 = {
 		.gpio_num = trig_1,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
-		.trans_queue_depth = 2,
+		.trans_queue_depth = 4,
 	};
 	//handle del canal tx1
 	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT1, &txC1));
@@ -2568,9 +2614,10 @@ void SensorRival::begin(){
 	//configuracion de canal tx2
 	rmt_tx_channel_config_t confT2 = {
 		.gpio_num = trig_2,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
-		.trans_queue_depth = 2,
+		.trans_queue_depth = 4,
 	};
 	//handle del canal tx2
 	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT2, &txC2));
@@ -2578,6 +2625,7 @@ void SensorRival::begin(){
 	//configuracion del canal rx1
 	rmt_rx_channel_config_t confR1 = {
 		.gpio_num = echo_1,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
 	};
@@ -2587,6 +2635,7 @@ void SensorRival::begin(){
 	//configuracion del canal rx2
 	rmt_rx_channel_config_t confR2 = {
 		.gpio_num = echo_2,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
 		.resolution_hz = 1000000,
 		.mem_block_symbols = 64,
 	};
@@ -2627,7 +2676,7 @@ uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 
 	//configuracion de la recepcion dl pulso
 	rmt_receive_config_t confR = {
-		.signal_range_min_ns = 10000,
+		.signal_range_min_ns = 1000,
 		.signal_range_max_ns = 25000000,
 	};
 	//detectar por echo (ponemos a escuchar ANTES de disparar)
@@ -2638,8 +2687,10 @@ uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 
 	//espera los datos del callback
 	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50)) == 0){
-        // Timeout: El sensor no respondio
-        return 0; 
+        // Timeout: El sensor no respondio, reseteamos el canal
+		rmt_disable(rxC);
+		rmt_enable(rxC);
+        return 0;
     }
 
     //Retornamos el valor correspondiente al canal que acabamos de usar
@@ -2996,23 +3047,31 @@ FILE PATH: ./src/Telemetria.cpp
 #include "SensorLimite.h"
 #include "SensorRival.h"
 #include "SensorTof.h"
+#include "Wifi.h"
 #include "freertos/portmacro.h"
 #include "esp_system.h"
 #include <cstdio>
 
+#ifndef COMMIT
+#define COMMIT 0
+#endif
+
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w):
 	me(e),
 	cm(m),
 	sc(c),
 	su(u),
-	mq(q)
+	mq(q),
+	wf(w)
 {}
 
 void Telemetria::recopilar(){
-	d.estado = me->estado();
+	//se arma el struct con los valores correspondientes
+	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
+	wf->señalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
-	sc->colores(&d.scR, &d.scG, &d.scB, &d.scR1, &d.scG1, &d.scB1, &d.scR2, &d.scG2, &d.scB2);
+	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
 	su->distancias(&d.ojos1, &d.ojos2);
 	d.ToF1 = 0;
 	d.ToF2 = 0;
@@ -3020,9 +3079,19 @@ void Telemetria::recopilar(){
 	d.ToF4 = 0;
 	d.ToF5 = 0;
 	d.ToF6 = 0;
+	d.fToF1 = 0;
+	d.fToF2 = 0;
+	d.fToF3 = 0;
+	d.fToF4 = 0;
+	d.fToF5 = 0;
+	d.fToF6 = 0;
+
 	d.pila = 0;
+	d.prototipo = 1;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
+	d.temperatura = 0;
+	d.stall = 0;
 }
 
 void Telemetria::enviar(){
@@ -3034,14 +3103,16 @@ void Telemetria::enviar(){
 
 	//se arma el json
 	int lon = snprintf(json, NJSON,
-    "{\"t\":%lu,\"e\":%d,\"h\":%lu,\"m\":[%d,%d],\"u\":[%d,%d],\"c1\":[%d,%d,%d],\"c2\":[%d,%d,%d],\"ref\":[%d,%d,%d]}",
-    d.tiempo, d.estado, d.heap, // Heap con %lu
-    d.pwm1, d.pwm2,
-    d.ojos1, d.ojos2,
-    d.scR1, d.scG1, d.scB1,
-    d.scR2, d.scG2, d.scB2,
-    d.scR, d.scG, d.scB
-	);
+    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+    COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
+	d.estado, d.estrategia, d.inicio,
+    d.pwm1, d.pwm2, d.stall,
+    d.ojos1, d.ojos2, d.ToF1, d.ToF2, d.ToF3, d.fToF1, d.fToF2, d.fToF3, d.ToF4, d.ToF5, d.ToF6, d.fToF4, d.fToF5, d.fToF6,
+	d.cR1, d.cG1, d.cB1, d.cC1,
+	d.cR2, d.cG2, d.cB2, d.cC2,
+    d.scR1, d.scG1, d.scB1, d.scC1,
+    d.scR2, d.scG2, d.scB2, d.scC2
+    	);
 
 	//se valida y envia el json
 	if(lon > 0){
@@ -3064,8 +3135,9 @@ FILE PATH: ./src/Telemetria.h
 #include "SensorLimite.h"
 #include "SensorRival.h"
 #include "SensorTof.h"
+#include "Wifi.h"
 
-#define NJSON 512
+#define NJSON 2048
 
 class Telemetria{
 	private:
@@ -3077,11 +3149,12 @@ class Telemetria{
 		SensorLimite* sc;
 		SensorRival* su;
 		Mqtt* mq;
+		Wifi* wf;
 		//se arma el struct
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w);
 		//envia el stuct
 		void enviar();
 };
@@ -3234,6 +3307,15 @@ void Wifi::smart(){
 	}
 }
 
+void Wifi::señalW(int* _señal){
+	wifi_ap_record_t info;
+	int señal = 0;
+	if(esp_wifi_sta_get_ap_info(&info) == ESP_OK) {
+		señal = info.rssi;
+	}
+	*_señal = señal;
+}
+
 
 ==========================================
 FILE PATH: ./src/Wifi.h
@@ -3264,5 +3346,6 @@ class Wifi{
 	public:
 		void begin();
 		void espera();
+		void señalW(int* _señal);
 };
 #endif
