@@ -6,9 +6,17 @@
 #define ALTO 0
 #define DIR_A 1
 #define DIR_B 2
-#define ATAQUE_A 3
-#define ATAQUE_B 4
-#define GIRO 5
+#define ATAQUE_AI 3
+#define ATAQUE_BI 4
+#define ATAQUE_AD 5
+#define ATAQUE_BD 6
+#define MED_AI 7
+#define MED_BI 8
+#define MED_AD 9
+#define MED_BD 10
+#define MAX_A 11
+#define MAX_B 12
+#define GIRO 13
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -40,20 +48,31 @@ class MaquinaEstados{
 		int ciclo;
 		int ini;
 
-		bool memo1;
-		bool memo2;
-		bool memo3;
-		bool memo4;
-		bool memo5;
+		bool memo1;//control ToF ad
+		bool memo2;//contol toF bd
+		bool memo3;//control sc_1
+		bool memo4;//control sc_2
+		bool memo5;//contol estrella
+		bool memo6;//contol ToF ai
+		bool memo7;//contol ToF bi
 
 		//metodo de validacion del tiempo
 		void tiempo();
 
-		//seleccion de estado
+		//seleccion de estado(prototipo)
+		void seleccionP();
+
+		//seleccion de estado(final)
 		void seleccion();
 
-		//sejecuta el estado
-		void ejecucion();
+		//se ejecuta el estado(prototipo)
+		void ejecucionEP();
+
+		//se ejecuta el estado(estrategia 1)
+		void ejecucionE1();
+
+		//se ejecutara el estado(estrategia 2)
+		void ejecucionE2();
 
 		//lee los datos de la nvs
 		void nvsLeer();

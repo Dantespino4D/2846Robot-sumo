@@ -1,4 +1,5 @@
 #include "Multiplexor.h"       // Tu propia cabecera
+#include "sdkconfig.h"
 
 // Librerías del sistema ESP-IDF
 #include "esp_log.h"           // Para usar ESP_LOGE, ESP_LOGI (Debugging)
@@ -9,8 +10,14 @@
 #include "rgb.h"               // Para llamar a rgb(0, 1023) si falla el inicio
 							   //
 //pines ic2
-#define I2C_MASTER_SCL_IO GPIO_NUM_22
-#define I2C_MASTER_SDA_IO GPIO_NUM_21
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    // Pines estandar I2C para ESP32-S3 (DevKitC-1)
+    #define I2C_MASTER_SCL_IO GPIO_NUM_9
+    #define I2C_MASTER_SDA_IO GPIO_NUM_8
+#else
+    #define I2C_MASTER_SCL_IO GPIO_NUM_22
+    #define I2C_MASTER_SDA_IO GPIO_NUM_21
+#endif
 #define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 400000
 #define I2C_MASTER_TX_BUF_DISABLE 0

@@ -43,16 +43,12 @@ void Wifi::wifi(){
 
 	//se establece en modo sta
 	esp_wifi_set_mode(WIFI_MODE_STA);
-	wifi_config_t w = {
-		.sta = {
-			.ssid = 0,
-			.password = 0,
-			.threshold = {
-				.authmode = WIFI_AUTH_WPA2_PSK,
-			},
-		}
-	};
+	wifi_config_t w = {};
+    strcpy((char*)w.sta.ssid, WIFI);
+    strcpy((char*)w.sta.password, WIFI_PASS_CRED);
+    w.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &w));
 	esp_wifi_start();
 	//mobjeto del wifimanager
 	esp_wifi_set_ps(WIFI_PS_NONE);
@@ -113,7 +109,9 @@ void Wifi::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 }
 
 void Wifi::espera(){
+    ESP_LOGW(TAG, "ESPERA: El programa está pausado esperando conexión WiFi...");
 	xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
+    ESP_LOGI(TAG, "ESPERA: WiFi conectado con éxito, continuando...");
 }
 
 //metodo para inicializar el mDNS
@@ -135,7 +133,11 @@ void Wifi::smart(){
 	//inicializar smart config
 	esp_err_t sm = esp_smartconfig_start(&con);
 	if(sm == ESP_OK){
-		ESP_LOGI("smartconfig", "funciono");
+		ESP_LOGW("smartconfig", "========================================================");
+		ESP_LOGW("smartconfig", "SMARTCONFIG ACTIVADO: El robot no tiene internet.");
+		ESP_LOGW("smartconfig", "Por favor, usa la App 'ESPTouch' en tu celular para");
+		ESP_LOGW("smartconfig", "enviar el nombre y contraseña de tu red WiFi.");
+		ESP_LOGW("smartconfig", "========================================================");
 	}
 }
 

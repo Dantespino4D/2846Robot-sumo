@@ -3,6 +3,7 @@
 	"tiempo_rampa": 200,
     "normal": { "izq": 700, "der": 700 },
     "ataque": { "izq": 950, "der": 800 },
+		"maximo": { "izq": 1023, "der": 1023 },
     "giro": { "izq": 950, "der": -800 }
   },
   "tiempos": {
@@ -16,7 +17,8 @@
     "umbral_color": 200
   },
   "sistema": {
-    "modo": "0",
-    "monitor": 1
+    "modo": 0,
+    "monitor": 1,
+		"estrategia": 0
   }
 }

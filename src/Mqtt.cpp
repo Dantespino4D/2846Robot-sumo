@@ -15,6 +15,8 @@ void Mqtt::begin(){
 	//se configura
 	esp_mqtt_client_config_t mqttC = {};
 	mqttC.broker.address.uri = BROKER;
+	mqttC.credentials.username = USUARIO;
+	mqttC.credentials.authentication.password = CONTRASEÑA;
 
 	//se inicializa
 	this->cliente = esp_mqtt_client_init(&mqttC);
@@ -146,6 +148,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraer(motores, "tiempo_rampa", "motores");
 		extraerM(motores, "normal", "velocidad_nI", "velocidad_nD");
 		extraerM(motores, "ataque", "velocidad_aI", "velocidad_aD");
+		extraerM(motores, "maximo", "velocidad_mI", "velocidad_mD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
 	}
 
@@ -170,6 +173,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	if(sistema != NULL){
 		extraer(sistema, "modo", "sistema");
 		extraer(sistema, "monitor", "sistema");
+		extraer(sistema, "estrategia", "sistema");
 	}
 
 	cJSON_Delete(maestro);

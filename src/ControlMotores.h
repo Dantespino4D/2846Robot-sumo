@@ -34,6 +34,8 @@ class ControlMotores{
 		int16_t vel_nD;
 		int16_t vel_aI;
 		int16_t vel_aD;
+		int16_t vel_mI;
+		int16_t vel_mD;
 		int16_t vel_gI;
 		int16_t vel_gD;
 
@@ -44,8 +46,12 @@ class ControlMotores{
 		//metodos de acciones
 		void dir_a();
 		void dir_b();
-		void ataque_a();
-		void ataque_b();
+		void ataque_ai();
+		void ataque_bi();
+		void ataque_ad();
+		void ataque_bd();
+		void max_a();
+		void max_b();
 		void giro();
 
 		//metodo para leer y aplicar los valores de la nvs

@@ -5,6 +5,12 @@
 #include "Nvs.h"
 #include "rom/ets_sys.h"
 
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    #define MODO_PWM LEDC_LOW_SPEED_MODE
+#else
+    #define MODO_PWM LEDC_HIGH_SPEED_MODE
+#endif
+
 ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
 // Valores de configuracion pwm
     freq(20000),
@@ -22,6 +28,8 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_nD(700),
 	vel_aI(950),
 	vel_aD(800),
+	vel_mI(1023),
+	vel_mD(1023),
 	vel_gI(950),
 	vel_gD(-800)
 {
@@ -63,59 +71,89 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 		vActual2 = vel_2;
 	}
 	if(vActual1 > 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, vActual1);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 0);
+    	ledc_set_duty(MODO_PWM, pwmC_1, vActual1);
+		ledc_set_duty(MODO_PWM, pwmC_3, 0);
 	}else if(vActual1 < 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, abs(vActual1));
+    	ledc_set_duty(MODO_PWM, pwmC_1, 0);
+		ledc_set_duty(MODO_PWM, pwmC_3, abs(vActual1));
 	}else if(vActual1 == 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 1023);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 1023);
+    	ledc_set_duty(MODO_PWM, pwmC_1, 1023);
+		ledc_set_duty(MODO_PWM, pwmC_3, 1023);
 	}
 
 	if(vActual2 > 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, vActual2);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 0);
+    	ledc_set_duty(MODO_PWM, pwmC_2, vActual2);
+		ledc_set_duty(MODO_PWM, pwmC_4, 0);
 	}else if(vActual2 < 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, abs(vActual2));
+    	ledc_set_duty(MODO_PWM, pwmC_2, 0);
+		ledc_set_duty(MODO_PWM, pwmC_4, abs(vActual2));
 	}else if(vActual2 == 0){
-	    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 1023);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 1023);
+	    ledc_set_duty(MODO_PWM, pwmC_2, 1023);
+		ledc_set_duty(MODO_PWM, pwmC_4, 1023);
 	}
 
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_1);
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_2);
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_3);
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_4);
+	ledc_update_duty(MODO_PWM, pwmC_1);
+	ledc_update_duty(MODO_PWM, pwmC_2);
+	ledc_update_duty(MODO_PWM, pwmC_3);
+	ledc_update_duty(MODO_PWM, pwmC_4);
 }
 
+//metodo que para el robot
 void ControlMotores::alto(){
 	velocidad(0, 0, false);
 	ets_delay_us(100);
 }
 
+//metodo que avanza en direccion a
 void ControlMotores::dir_a(){
 	//alto();
 	velocidad(vel_nI, vel_nD, false);
 }
 
+//metodo que avanza en direccion b
 void ControlMotores::dir_b(){
 	//alto();
 	velocidad(-vel_nI, -vel_nD, false);
 
 }
 
-void ControlMotores::ataque_a(){
+//metodo de ataque en direccion a izquierda
+void ControlMotores::ataque_ai(){
 	//alto();
 	velocidad(vel_aI, vel_aD, true);
 }
 
-void ControlMotores::ataque_b(){
+//metodo de ataque en direccion b izquierda
+void ControlMotores::ataque_bi(){
 	//alto();
 	velocidad(-vel_aI, -vel_aD, true);
 }
 
+//metodo de ataque en direccion a derecha
+void ControlMotores::ataque_ad(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro
+	velocidad(vel_aD, vel_aI, true);
+}
+
+//metodo de ataque en direccion b derecha
+void ControlMotores::ataque_bd(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro
+	velocidad(-vel_aD, -vel_aI, true);
+}
+
+//metodo de velocidad maxima en direccion a
+void ControlMotores::max_a(){
+	velocidad(vel_mI, vel_mD, false);
+}
+
+//metodo de velocidad maxima en direccion b
+void ControlMotores::max_b(){
+	velocidad(-vel_mI, -vel_mD, false);
+}
+
+//metodo de giro
 void ControlMotores::giro(){
 	//alto();
 	velocidad(vel_gI, vel_gD, true);
@@ -140,7 +178,7 @@ void ControlMotores::begin(){
 
 	//configuracion del timer
 	ledc_timer_config_t ledc_timer = {
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.duty_resolution = solut,
 		.timer_num = LEDC_TIMER_0,
 		.freq_hz = (uint32_t)freq,
@@ -152,7 +190,7 @@ void ControlMotores::begin(){
 	//configuracion canal 1
 	ledc_channel_config_t ledc_channel_1 = {
 		.gpio_num = mot2[0],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_1,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -166,7 +204,7 @@ void ControlMotores::begin(){
 	//configuracion canal 2
 	ledc_channel_config_t ledc_channel_2 = {
 		.gpio_num = mot2[1],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_2,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -180,7 +218,7 @@ void ControlMotores::begin(){
 	//configuracion canal 3
 	ledc_channel_config_t ledc_channel_3 = {
 		.gpio_num = mot[0],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_3,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -194,7 +232,7 @@ void ControlMotores::begin(){
 	//configuracion canal 4
 	ledc_channel_config_t ledc_channel_4 = {
 		.gpio_num = mot[1],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_4,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -219,12 +257,24 @@ void ControlMotores::controlador(int accion){
 			dir_b();
 			break;
 		case 3:
-			ataque_a();
+			ataque_ai();
 			break;
 		case 4:
-			ataque_b();
+			ataque_bi();
 			break;
 		case 5:
+			ataque_ad();
+			break;
+		case 6:
+			ataque_bd();
+			break;
+		case 7:
+			max_a();
+			break;
+		case 8:
+			max_b();
+			break;
+		case 9:
 			giro();
 			break;
 	}
@@ -240,6 +290,8 @@ void ControlMotores::nvsLeer(){
 	vel_nD = nvs.leer("velocidad_nD", vel_nD);
 	vel_aI = nvs.leer("velocidad_aI", vel_aI);
 	vel_aD = nvs.leer("velocidad_aD", vel_aD);
+	vel_mI = nvs.leer("velocidad_mI", vel_mI);
+	vel_mD = nvs.leer("velocidad_mD", vel_mD);
 	vel_gI = nvs.leer("velocidad_gI", vel_gI);
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
 }

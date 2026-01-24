@@ -1,3 +1,4 @@
+#include "sdkconfig.h"
 #include "Wifi.h"
 #include "Mqtt.h"
 #include "ControlMotores.h"
@@ -46,15 +47,32 @@ SemaphoreHandle_t mutex = NULL;
  volatile bool start = false;
 
 // variables de los pines
-gpio_num_t mus = GPIO_NUM_4;
-gpio_num_t ini = GPIO_NUM_2;
-gpio_num_t trig_1 = GPIO_NUM_19;
-gpio_num_t echo_1 = GPIO_NUM_34;
-gpio_num_t trig_2 = GPIO_NUM_18;
-gpio_num_t echo_2 = GPIO_NUM_35;
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    // Pines seguros para ESP32-S3 (evitando Flash, USB y JTAG 39-42)
+    gpio_num_t mus = GPIO_NUM_47;       // Buzzer (Safe)
+    gpio_num_t ini = GPIO_NUM_2;        // Boton (Boot/Safe)
+    
+    // Ultrasonicos (Safe GPIOs)
+    gpio_num_t trig_1 = GPIO_NUM_15;
+    gpio_num_t echo_1 = GPIO_NUM_21;
+    gpio_num_t trig_2 = GPIO_NUM_38;
+    gpio_num_t echo_2 = GPIO_NUM_48;
 
-// variables de los pines de los motores
-gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
+    // Pines de motores S3 (Safe 4-7)
+    // Evitamos 39-42 (JTAG) que pueden bloquear el arranque
+    gpio_num_t mot[2][2] = {{GPIO_NUM_4, GPIO_NUM_5},{GPIO_NUM_6, GPIO_NUM_7}};
+#else
+    // Configuración original ESP32
+    gpio_num_t mus = GPIO_NUM_4;
+    gpio_num_t ini = GPIO_NUM_2;
+    gpio_num_t trig_1 = GPIO_NUM_19;
+    gpio_num_t echo_1 = GPIO_NUM_34;
+    gpio_num_t trig_2 = GPIO_NUM_18;
+    gpio_num_t echo_2 = GPIO_NUM_35;
+
+    // variables de los pines de los motores
+    gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
+#endif
 
 //objeto de Wifi
 Wifi wi;
@@ -192,6 +210,12 @@ void telemetria(void *pvParameters){
 
 // setup
 extern "C" void app_main(void){
+    #ifdef CONFIG_IDF_TARGET_ESP32S3
+        ESP_LOGI(TAG, "TARGET DETECTADO: ESP32-S3");
+    #else
+        ESP_LOGW(TAG, "TARGET DETECTADO: ESP32 ESTANDAR (O MACRO NO DEFINIDA)");
+    #endif
+
 	//inicializar la memoria nvs
 	esp_err_t err = nvs_flash_init();
 	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
@@ -209,20 +233,20 @@ extern "C" void app_main(void){
 
 	int32_t modo;
 	if(gpio_get_level(ini) == 0){
-		ESP_LOGI(TAG, "modo de prueba activado");
+		ESP_LOGI(TAG, "modo de prueba activado por boton");
 		sys.guardar("modo", 0);
 		modo = 0;
 	}else{
-		modo = sys.leer("modo", 1);
+        modo = sys.leer("modo", 1);
 	}
 	int32_t val = sys.leer("monitor", 2);
 
 	//se aplica el valor elegido
-	switch(val){
+    switch(val){
 		case 0:
 			esp_log_level_set("*", ESP_LOG_NONE);
 			break;
-		case 1:
+        case 1:
 			esp_log_level_set("*", ESP_LOG_ERROR);
 			break;
 		case 2:
@@ -236,6 +260,7 @@ extern "C" void app_main(void){
 			break;
 	}
 
+
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
   	rgb(1023, 512);
@@ -244,11 +269,10 @@ extern "C" void app_main(void){
 	mutex = xSemaphoreCreateMutex();
 
   	//ajustes iniciales
-
+    ESP_LOGI(TAG, "Iniciando hardware...");
   	mu.begin();
   	cm.begin();
   	cm.alto();
-
 
   	//pin de la musica
   	pinMus(mus);
@@ -283,21 +307,25 @@ extern "C" void app_main(void){
 
 	//se le asigna al puntero los el objeto correspondiente
 	sc = new SensorLimite(limCol, &mu, &mutex);
-
-  	// configuracion de los objetos de sensores de color y ultrasonicos
-  	sc->begin();
+    if (sc == nullptr) {
+        ESP_LOGE(TAG, "CRITICAL: sc is NULL after new!");
+    } else {
+        ESP_LOGI(TAG, "sc allocated at: %p", sc);
+        // configuracion de los objetos de sensores de color y ultrasonicos
+        sc->begin();
+    }
 	su.nvsLeer();
 	su.begin();
 
 
   	// se inicializa el objeto de la maquina de estados
-static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
-
-  	// se apunta al puntero
-  	me = &maquina;
+    // CORRECCION CRITICA: Usar new para asegurar que el objeto vive en el heap
+    // y el puntero 'me' es valido en todas las tareas.
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
 
 	if(modo == 0){
 		//modo de prueba
+        ESP_LOGI(TAG, "Modo 0: Test y Telemetria");
 
 		//inicializar el tcp/ip
 		esp_netif_init();
@@ -312,7 +340,7 @@ static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
 		tm = new Telemetria(me, &cm, sc, &su, &mq, &wi);
 
 		//tarea de telemetria
-		xTaskCreatePinnedToCore(telemetria, "telemetria", 4096, NULL, 1, NULL, 0);
+		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
 	}else{
 		esp_log_level_set("*", ESP_LOG_NONE);
 	}
@@ -332,4 +360,3 @@ static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
   	// sc_1 alerta
   	// sc_2 alerta2
   	// y se verifique que este todo correcto
-
