@@ -148,6 +148,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraer(motores, "tiempo_rampa", "motores");
 		extraerM(motores, "normal", "velocidad_nI", "velocidad_nD");
 		extraerM(motores, "ataque", "velocidad_aI", "velocidad_aD");
+		extraerM(motores, "pronunciado", "velocidad_pI", "velocidad_pD");
 		extraerM(motores, "maximo", "velocidad_mI", "velocidad_mD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
 	}

@@ -30,6 +30,8 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_aD(800),
 	vel_mI(1023),
 	vel_mD(1023),
+	vel_pI(950),
+	vel_pD(600),
 	vel_gI(950),
 	vel_gD(-800)
 {
@@ -132,16 +134,17 @@ void ControlMotores::ataque_bi(){
 //metodo de ataque en direccion a derecha
 void ControlMotores::ataque_ad(){
 	//alto();
-	//se invierte la direccion de las velocidades para efectuar el giro
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(vel_aD, vel_aI, true);
 }
 
 //metodo de ataque en direccion b derecha
 void ControlMotores::ataque_bd(){
 	//alto();
-	//se invierte la direccion de las velocidades para efectuar el giro
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(-vel_aD, -vel_aI, true);
 }
+
 
 //metodo de velocidad maxima en direccion a
 void ControlMotores::max_a(){
@@ -151,6 +154,32 @@ void ControlMotores::max_a(){
 //metodo de velocidad maxima en direccion b
 void ControlMotores::max_b(){
 	velocidad(-vel_mI, -vel_mD, false);
+}
+
+//metodo de ataque pronunciado en direccion a, a la izquierda
+void ControlMotores::pronunciado_ai(){
+	//alto();
+	velocidad(vel_pI, vel_pD, true);
+}
+
+//metodo de ataque pronunciado en direccion b, a la izquierda
+void ControlMotores::pronunciado_bi(){
+	//alto();
+	velocidad(-vel_pI, -vel_pD, true);
+}
+
+//metodo de ataque pronunciado en direccion a, a la derecha
+void ControlMotores::pronunciado_ad(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
+	velocidad(vel_pD, vel_pI, true);
+}
+
+//metodo de ataque pronunciado en direccion b, a la derecha
+void ControlMotores::pronunciado_bd(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
+	velocidad(-vel_pD, -vel_pI, true);
 }
 
 //metodo de giro
@@ -269,12 +298,24 @@ void ControlMotores::controlador(int accion){
 			ataque_bd();
 			break;
 		case 7:
-			max_a();
+			pronunciado_ai();
 			break;
 		case 8:
-			max_b();
+			pronunciado_bi();
 			break;
 		case 9:
+			pronunciado_ad();
+			break;
+		case 10:
+			pronunciado_bd();
+			break;
+		case 11:
+			max_a();
+			break;
+		case 12:
+			max_b();
+			break;
+		case 13:
 			giro();
 			break;
 	}
@@ -292,6 +333,8 @@ void ControlMotores::nvsLeer(){
 	vel_aD = nvs.leer("velocidad_aD", vel_aD);
 	vel_mI = nvs.leer("velocidad_mI", vel_mI);
 	vel_mD = nvs.leer("velocidad_mD", vel_mD);
+	vel_pI = nvs.leer("velocidad_pI", vel_pI);
+	vel_pD = nvs.leer("velocidad_pD", vel_pD);
 	vel_gI = nvs.leer("velocidad_gI", vel_gI);
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
 }

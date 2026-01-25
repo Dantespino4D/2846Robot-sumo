@@ -10,10 +10,10 @@
 #define ATAQUE_BI 4
 #define ATAQUE_AD 5
 #define ATAQUE_BD 6
-#define MED_AI 7
-#define MED_BI 8
-#define MED_AD 9
-#define MED_BD 10
+#define PRO_AI 7
+#define PRO_BI 8
+#define PRO_AD 9
+#define PRO_BD 10
 #define MAX_A 11
 #define MAX_B 12
 #define GIRO 13
@@ -26,12 +26,10 @@
 class MaquinaEstados{
 	private:
 		// variables que cuentan el tiempo
-		unsigned long temp1;
-		unsigned long temp2;
-		unsigned long temp3;
-		unsigned long temp4;
-		unsigned long temp5;
-		unsigned long temp6;
+		unsigned long tempT;
+		unsigned long tempC;
+		unsigned long tempE1;
+		unsigned long tempE2;
 
 		//tiempos establecidos
 		int tiempo1;
@@ -48,13 +46,14 @@ class MaquinaEstados{
 		int ciclo;
 		int ini;
 
-		bool memo1;//control ToF ad
-		bool memo2;//contol toF bd
-		bool memo3;//control sc_1
-		bool memo4;//control sc_2
-		bool memo5;//contol estrella
-		bool memo6;//contol ToF ai
-		bool memo7;//contol ToF bi
+		int memo_T;//control de los ToF
+				   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
+
+		int memo_C;//control de los sc
+							//0 = sin memoria, 1 = sc_1, 2 = sc_2
+
+		bool memo_E;//contol estrella
+
 
 		//metodo de validacion del tiempo
 		void tiempo();
