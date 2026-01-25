@@ -405,15 +405,161 @@ void MaquinaEstados::ejecucionE1(){
     xTaskNotify(*motr, com, eSetValueWithOverwrite);
 }
 
+
+void MaquinaEstados::ejecucionE2(){
+	//variable del comandos
+	int com = ALTO;
+
+	//variable que guarda el tiempo
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+	switch (modo) {
+		// detiene el movimiento y retrocede en direccion b
+		case 0:
+	  		com = DIR_B;
+	  		memo_C = 1;
+	  		tempC = temp;
+	  		break;
+	  	// detiene el movimiento y retrocede en direccion a
+		case 1:
+		  	com = DIR_A;
+	  		memo_C = 2;
+	  		tempC = temp;
+	  		break;
+		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
+		case 2:
+	  		com = DIR_B;
+	  		break;
+		// continua avanzando en direccion a por un tiempo definido para alejarse del borde
+		case 3:
+	  		com = DIR_A;
+	  		break;
+         // enemigo inmnente direccion a
+        case 4:
+              com = MAX_A;
+              break;
+        //enemigo detectado en direccion a izquierda
+        case 5:
+			memo_T = 1;
+			tempT = temp;
+            com = ATAQUE_AI;
+			break;
+        //incoherencia, posible falla de los sensores en direccion a(accion por definir que es mejor)
+        case 6:
+            com = MAX_A;
+            break;
+        // enemigo detectado ne direccion a derecha
+        case 7:
+			memo_T = 2;
+			tempT = temp;
+            com = ATAQUE_AD;
+            break;
+        // enemigo detectado muy a la izquierda en direccion a
+        case 8:
+			memo_T = 1;
+			tempT = temp;
+            com = PRO_AI;
+			break;
+        //enemigo detectado lejos en direccion a
+        case 9:
+            com = DIR_A;
+            break;
+        // enemigo detectado muy a la derecha en direccion a
+        case 10:
+			memo_T = 2;
+			tempT = temp;
+            com = PRO_AD;
+            break;
+        // enemigo inminente direccio a
+        case 11:
+            com = MAX_A;
+            break;
+        // enemigo detectado en direccion b izquierda
+        case 12:
+			memo_T = 3;
+			tempT = temp;
+            com = ATAQUE_BI;
+            break;
+        //incoherencia, posible falla de los sensores en direccion b(accion por definir que es mejor)
+        case 13:
+            com = MAX_A;
+            break;
+        // enemigo detectado en direccion b derecha
+        case 14:
+			memo_T = 4;
+			tempT = temp;
+            com = ATAQUE_BD;
+            break;
+        // enemigo detectado muy a la izquierda en direccion b
+        case 15:
+			memo_T = 3;
+			tempT = temp;
+            com = PRO_BI;
+            break;
+        // enemigo detectado lejos en direccion b
+        case 16:
+            com = DIR_B;
+            break;
+        // enemigo detectado muy a la derecha en direccion b
+        case 17:
+			memo_T = 4;
+			tempT = temp;
+            com = PRO_BD;
+            break;
+		//memoria del sector AI
+		case 18:
+			com = PRO_AD;
+			break;
+		//memoria del sector AD
+		case 19:
+			com = PRO_AI;
+			break;
+		//memoria del sector BI
+		case 20:
+			com = PRO_BD;
+			break;
+		//memoria del sector BD
+		case 21:
+			com = PRO_BI;
+			break;
+		//avanze de estrella
+		case 22:
+			//logica para que avanze formando la estrella
+			if (temp - tempE1 >= tiempo3) {
+    			memo_E = false;        // ir a girar
+    			tempE2 = temp;         // inicia tiempo del giro
+				com = GIRO;
+			}else{
+      			com = DIR_A;
+			}
+      		break;
+		//giro de estrella
+		case 23:
+    		if(temp - tempE2 >= tiempo4){
+    		    memo_E = true;      // Termina giro → pasará a estado 8
+    		    tempE1 = temp;      // Reiniciar timer del avance
+				com = DIR_A;
+    		} else {
+    		    com = GIRO;
+    		}
+            break;
+        default:
+            com = ALTO;
+            break;
+    }
+    xTaskNotify(*motr, com, eSetValueWithOverwrite);
+}
+
 void MaquinaEstados::logica(){
 	//evaluacion de tiempos
 	tiempo();
-
-	//seleccion de estado
-	seleccionP();
-
-	//medida de seguiridad temporal para no acceder por accidente a estrategias que no son del prototipo
-	estrategia = 0;
+	if(estrategia == 0){
+		//seleccion de estado del prototipo
+		seleccionP();
+	}else{
+		//seleccion de estado
+		seleccion();
+	}
 
 	//se ejecuta dependiendo de la estrategia
 	switch (estrategia) {
@@ -428,10 +574,6 @@ void MaquinaEstados::logica(){
 			break;
 
 	}
-}
-
-void MaquinaEstados::ejecucionE2(){
-
 }
 
 void MaquinaEstados::nvsLeer(){

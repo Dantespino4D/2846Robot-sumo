@@ -618,6 +618,12 @@ FILE PATH: ./src/ControlMotores.cpp
 #include "Nvs.h"
 #include "rom/ets_sys.h"
 
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    #define MODO_PWM LEDC_LOW_SPEED_MODE
+#else
+    #define MODO_PWM LEDC_HIGH_SPEED_MODE
+#endif
+
 ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
 // Valores de configuracion pwm
     freq(20000),
@@ -635,6 +641,10 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_nD(700),
 	vel_aI(950),
 	vel_aD(800),
+	vel_mI(1023),
+	vel_mD(1023),
+	vel_pI(950),
+	vel_pD(600),
 	vel_gI(950),
 	vel_gD(-800)
 {
@@ -676,59 +686,116 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 		vActual2 = vel_2;
 	}
 	if(vActual1 > 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, vActual1);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 0);
+    	ledc_set_duty(MODO_PWM, pwmC_1, vActual1);
+		ledc_set_duty(MODO_PWM, pwmC_3, 0);
 	}else if(vActual1 < 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, abs(vActual1));
+    	ledc_set_duty(MODO_PWM, pwmC_1, 0);
+		ledc_set_duty(MODO_PWM, pwmC_3, abs(vActual1));
 	}else if(vActual1 == 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_1, 1023);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_3, 1023);
+    	ledc_set_duty(MODO_PWM, pwmC_1, 1023);
+		ledc_set_duty(MODO_PWM, pwmC_3, 1023);
 	}
 
 	if(vActual2 > 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, vActual2);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 0);
+    	ledc_set_duty(MODO_PWM, pwmC_2, vActual2);
+		ledc_set_duty(MODO_PWM, pwmC_4, 0);
 	}else if(vActual2 < 0){
-    	ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 0);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, abs(vActual2));
+    	ledc_set_duty(MODO_PWM, pwmC_2, 0);
+		ledc_set_duty(MODO_PWM, pwmC_4, abs(vActual2));
 	}else if(vActual2 == 0){
-	    ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_2, 1023);
-		ledc_set_duty(LEDC_HIGH_SPEED_MODE, pwmC_4, 1023);
+	    ledc_set_duty(MODO_PWM, pwmC_2, 1023);
+		ledc_set_duty(MODO_PWM, pwmC_4, 1023);
 	}
 
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_1);
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_2);
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_3);
-	ledc_update_duty(LEDC_HIGH_SPEED_MODE, pwmC_4);
+	ledc_update_duty(MODO_PWM, pwmC_1);
+	ledc_update_duty(MODO_PWM, pwmC_2);
+	ledc_update_duty(MODO_PWM, pwmC_3);
+	ledc_update_duty(MODO_PWM, pwmC_4);
 }
 
+//metodo que para el robot
 void ControlMotores::alto(){
 	velocidad(0, 0, false);
 	ets_delay_us(100);
 }
 
+//metodo que avanza en direccion a
 void ControlMotores::dir_a(){
 	//alto();
 	velocidad(vel_nI, vel_nD, false);
 }
 
+//metodo que avanza en direccion b
 void ControlMotores::dir_b(){
 	//alto();
 	velocidad(-vel_nI, -vel_nD, false);
 
 }
 
-void ControlMotores::ataque_a(){
+//metodo de ataque en direccion a izquierda
+void ControlMotores::ataque_ai(){
 	//alto();
 	velocidad(vel_aI, vel_aD, true);
 }
 
-void ControlMotores::ataque_b(){
+//metodo de ataque en direccion b izquierda
+void ControlMotores::ataque_bi(){
 	//alto();
 	velocidad(-vel_aI, -vel_aD, true);
 }
 
+//metodo de ataque en direccion a derecha
+void ControlMotores::ataque_ad(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
+	velocidad(vel_aD, vel_aI, true);
+}
+
+//metodo de ataque en direccion b derecha
+void ControlMotores::ataque_bd(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
+	velocidad(-vel_aD, -vel_aI, true);
+}
+
+
+//metodo de velocidad maxima en direccion a
+void ControlMotores::max_a(){
+	velocidad(vel_mI, vel_mD, false);
+}
+
+//metodo de velocidad maxima en direccion b
+void ControlMotores::max_b(){
+	velocidad(-vel_mI, -vel_mD, false);
+}
+
+//metodo de ataque pronunciado en direccion a, a la izquierda
+void ControlMotores::pronunciado_ai(){
+	//alto();
+	velocidad(vel_pI, vel_pD, true);
+}
+
+//metodo de ataque pronunciado en direccion b, a la izquierda
+void ControlMotores::pronunciado_bi(){
+	//alto();
+	velocidad(-vel_pI, -vel_pD, true);
+}
+
+//metodo de ataque pronunciado en direccion a, a la derecha
+void ControlMotores::pronunciado_ad(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
+	velocidad(vel_pD, vel_pI, true);
+}
+
+//metodo de ataque pronunciado en direccion b, a la derecha
+void ControlMotores::pronunciado_bd(){
+	//alto();
+	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
+	velocidad(-vel_pD, -vel_pI, true);
+}
+
+//metodo de giro
 void ControlMotores::giro(){
 	//alto();
 	velocidad(vel_gI, vel_gD, true);
@@ -753,7 +820,7 @@ void ControlMotores::begin(){
 
 	//configuracion del timer
 	ledc_timer_config_t ledc_timer = {
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.duty_resolution = solut,
 		.timer_num = LEDC_TIMER_0,
 		.freq_hz = (uint32_t)freq,
@@ -765,7 +832,7 @@ void ControlMotores::begin(){
 	//configuracion canal 1
 	ledc_channel_config_t ledc_channel_1 = {
 		.gpio_num = mot2[0],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_1,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -779,7 +846,7 @@ void ControlMotores::begin(){
 	//configuracion canal 2
 	ledc_channel_config_t ledc_channel_2 = {
 		.gpio_num = mot2[1],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_2,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -793,7 +860,7 @@ void ControlMotores::begin(){
 	//configuracion canal 3
 	ledc_channel_config_t ledc_channel_3 = {
 		.gpio_num = mot[0],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_3,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -807,7 +874,7 @@ void ControlMotores::begin(){
 	//configuracion canal 4
 	ledc_channel_config_t ledc_channel_4 = {
 		.gpio_num = mot[1],
-		.speed_mode = LEDC_HIGH_SPEED_MODE,
+		.speed_mode = MODO_PWM,
 		.channel = pwmC_4,
 		.intr_type = LEDC_INTR_DISABLE,
 		.timer_sel = LEDC_TIMER_0,
@@ -832,12 +899,36 @@ void ControlMotores::controlador(int accion){
 			dir_b();
 			break;
 		case 3:
-			ataque_a();
+			ataque_ai();
 			break;
 		case 4:
-			ataque_b();
+			ataque_bi();
 			break;
 		case 5:
+			ataque_ad();
+			break;
+		case 6:
+			ataque_bd();
+			break;
+		case 7:
+			pronunciado_ai();
+			break;
+		case 8:
+			pronunciado_bi();
+			break;
+		case 9:
+			pronunciado_ad();
+			break;
+		case 10:
+			pronunciado_bd();
+			break;
+		case 11:
+			max_a();
+			break;
+		case 12:
+			max_b();
+			break;
+		case 13:
 			giro();
 			break;
 	}
@@ -853,6 +944,10 @@ void ControlMotores::nvsLeer(){
 	vel_nD = nvs.leer("velocidad_nD", vel_nD);
 	vel_aI = nvs.leer("velocidad_aI", vel_aI);
 	vel_aD = nvs.leer("velocidad_aD", vel_aD);
+	vel_mI = nvs.leer("velocidad_mI", vel_mI);
+	vel_mD = nvs.leer("velocidad_mD", vel_mD);
+	vel_pI = nvs.leer("velocidad_pI", vel_pI);
+	vel_pD = nvs.leer("velocidad_pD", vel_pD);
 	vel_gI = nvs.leer("velocidad_gI", vel_gI);
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
 }
@@ -904,6 +999,10 @@ class ControlMotores{
 		int16_t vel_nD;
 		int16_t vel_aI;
 		int16_t vel_aD;
+		int16_t vel_mI;
+		int16_t vel_mD;
+		int16_t vel_pI;
+		int16_t vel_pD;
 		int16_t vel_gI;
 		int16_t vel_gD;
 
@@ -914,8 +1013,16 @@ class ControlMotores{
 		//metodos de acciones
 		void dir_a();
 		void dir_b();
-		void ataque_a();
-		void ataque_b();
+		void ataque_ai();
+		void ataque_bi();
+		void ataque_ad();
+		void ataque_bd();
+		void max_a();
+		void max_b();
+		void pronunciado_ai();
+		void pronunciado_bi();
+		void pronunciado_ad();
+		void pronunciado_bd();
 		void giro();
 
 		//metodo para leer y aplicar los valores de la nvs
@@ -1016,6 +1123,7 @@ struct Datos{
 FILE PATH: ./src/main.cpp
 ==========================================
 
+#include "sdkconfig.h"
 #include "Wifi.h"
 #include "Mqtt.h"
 #include "ControlMotores.h"
@@ -1064,15 +1172,32 @@ SemaphoreHandle_t mutex = NULL;
  volatile bool start = false;
 
 // variables de los pines
-gpio_num_t mus = GPIO_NUM_4;
-gpio_num_t ini = GPIO_NUM_2;
-gpio_num_t trig_1 = GPIO_NUM_19;
-gpio_num_t echo_1 = GPIO_NUM_34;
-gpio_num_t trig_2 = GPIO_NUM_18;
-gpio_num_t echo_2 = GPIO_NUM_35;
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    // Pines seguros para ESP32-S3 (evitando Flash, USB y JTAG 39-42)
+    gpio_num_t mus = GPIO_NUM_47;       // Buzzer (Safe)
+    gpio_num_t ini = GPIO_NUM_2;        // Boton (Boot/Safe)
+    
+    // Ultrasonicos (Safe GPIOs)
+    gpio_num_t trig_1 = GPIO_NUM_15;
+    gpio_num_t echo_1 = GPIO_NUM_21;
+    gpio_num_t trig_2 = GPIO_NUM_38;
+    gpio_num_t echo_2 = GPIO_NUM_48;
 
-// variables de los pines de los motores
-gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
+    // Pines de motores S3 (Safe 4-7)
+    // Evitamos 39-42 (JTAG) que pueden bloquear el arranque
+    gpio_num_t mot[2][2] = {{GPIO_NUM_4, GPIO_NUM_5},{GPIO_NUM_6, GPIO_NUM_7}};
+#else
+    // Configuración original ESP32
+    gpio_num_t mus = GPIO_NUM_4;
+    gpio_num_t ini = GPIO_NUM_2;
+    gpio_num_t trig_1 = GPIO_NUM_19;
+    gpio_num_t echo_1 = GPIO_NUM_34;
+    gpio_num_t trig_2 = GPIO_NUM_18;
+    gpio_num_t echo_2 = GPIO_NUM_35;
+
+    // variables de los pines de los motores
+    gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
+#endif
 
 //objeto de Wifi
 Wifi wi;
@@ -1210,6 +1335,12 @@ void telemetria(void *pvParameters){
 
 // setup
 extern "C" void app_main(void){
+    #ifdef CONFIG_IDF_TARGET_ESP32S3
+        ESP_LOGI(TAG, "TARGET DETECTADO: ESP32-S3");
+    #else
+        ESP_LOGW(TAG, "TARGET DETECTADO: ESP32 ESTANDAR (O MACRO NO DEFINIDA)");
+    #endif
+
 	//inicializar la memoria nvs
 	esp_err_t err = nvs_flash_init();
 	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
@@ -1227,20 +1358,20 @@ extern "C" void app_main(void){
 
 	int32_t modo;
 	if(gpio_get_level(ini) == 0){
-		ESP_LOGI(TAG, "modo de prueba activado");
+		ESP_LOGI(TAG, "modo de prueba activado por boton");
 		sys.guardar("modo", 0);
 		modo = 0;
 	}else{
-		modo = sys.leer("modo", 1);
+        modo = sys.leer("modo", 1);
 	}
 	int32_t val = sys.leer("monitor", 2);
 
 	//se aplica el valor elegido
-	switch(val){
+    switch(val){
 		case 0:
 			esp_log_level_set("*", ESP_LOG_NONE);
 			break;
-		case 1:
+        case 1:
 			esp_log_level_set("*", ESP_LOG_ERROR);
 			break;
 		case 2:
@@ -1254,6 +1385,7 @@ extern "C" void app_main(void){
 			break;
 	}
 
+
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
   	rgb(1023, 512);
@@ -1262,11 +1394,10 @@ extern "C" void app_main(void){
 	mutex = xSemaphoreCreateMutex();
 
   	//ajustes iniciales
-
+    ESP_LOGI(TAG, "Iniciando hardware...");
   	mu.begin();
   	cm.begin();
   	cm.alto();
-
 
   	//pin de la musica
   	pinMus(mus);
@@ -1301,21 +1432,25 @@ extern "C" void app_main(void){
 
 	//se le asigna al puntero los el objeto correspondiente
 	sc = new SensorLimite(limCol, &mu, &mutex);
-
-  	// configuracion de los objetos de sensores de color y ultrasonicos
-  	sc->begin();
+    if (sc == nullptr) {
+        ESP_LOGE(TAG, "CRITICAL: sc is NULL after new!");
+    } else {
+        ESP_LOGI(TAG, "sc allocated at: %p", sc);
+        // configuracion de los objetos de sensores de color y ultrasonicos
+        sc->begin();
+    }
 	su.nvsLeer();
 	su.begin();
 
 
   	// se inicializa el objeto de la maquina de estados
-static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
-
-  	// se apunta al puntero
-  	me = &maquina;
+    // CORRECCION CRITICA: Usar new para asegurar que el objeto vive en el heap
+    // y el puntero 'me' es valido en todas las tareas.
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
 
 	if(modo == 0){
 		//modo de prueba
+        ESP_LOGI(TAG, "Modo 0: Test y Telemetria");
 
 		//inicializar el tcp/ip
 		esp_netif_init();
@@ -1330,7 +1465,7 @@ static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
 		tm = new Telemetria(me, &cm, sc, &su, &mq, &wi);
 
 		//tarea de telemetria
-		xTaskCreatePinnedToCore(telemetria, "telemetria", 4096, NULL, 1, NULL, 0);
+		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
 	}else{
 		esp_log_level_set("*", ESP_LOG_NONE);
 	}
@@ -1351,8 +1486,6 @@ static MaquinaEstados maquina(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
   	// sc_2 alerta2
   	// y se verifique que este todo correcto
 
-
-
 ==========================================
 FILE PATH: ./src/MaquinaEstados.cpp
 ==========================================
@@ -1365,26 +1498,22 @@ FILE PATH: ./src/MaquinaEstados.cpp
 #include <cstdint>
 
 MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, TaskHandle_t* _motr):
-	temp1(0),
-	temp2(0),
-	temp3(0),
-	temp4(0),
-	temp5(0),
-	temp6(0),
+	tempT(0),
+	tempC(0),
+	tempE1(0),
+	tempE2(0),
 	tiempo1(_tiempo1),
 	tiempo2(_tiempo2),
 	tiempo3(_tiempo3),
 	tiempo4(_tiempo4),
 	motr(_motr),
-	modo(6),
-	estrategia(1),
+	modo(-1),
+	estrategia(0),
 	ciclo(0),
 	ini(0),
-	memo1(false),
-	memo2(false),
-	memo3(false),
-	memo4(false),
-	memo5(false)
+	memo_T(0),
+	memo_C(0),
+	memo_E(false)
 {
 	nvsLeer();
 }
@@ -1394,22 +1523,18 @@ void MaquinaEstados::tiempo(){
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
 	// condiciones que evaluan si ya pasaron los tiempos
-    if (temp - temp1 >= tiempo1) {
-    	memo1 = false;
+    if (temp - tempT >= tiempo1) {
+		//tiempo de ataque ciego dir a derecha
+    	memo_T = 0;
     }
-    if (temp - temp2 >= tiempo1) {
-      	memo2 = false;
-    }
-    if (temp - temp3 >= tiempo2) {
-    	memo3 = false;
-    }
-    if (temp - temp4 >= tiempo2) {
-     	memo4 = false;
+    if (temp - tempC >= tiempo2) {
+		//timepo de retroceso dir a
+    	memo_C = 0;
     }
 }
 
-// selecciona el estado
-void MaquinaEstados::seleccion(){
+// selecciona el estado del prototipo
+void MaquinaEstados::seleccionP(){
 	uint32_t noti;
 	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
 	// si detecta el limite por sc_1
@@ -1421,11 +1546,11 @@ void MaquinaEstados::seleccion(){
 	 	 modo = 1;
 	}
 	// si deja de detectar el limite por sc 1
-	else if (memo3) {
+	else if (memo_C == 1) {
   		modo = 2;
 	}
 	// si deja de detectar el limite por sc 2
-	else if (memo4) {
+	else if (memo_C == 2) {
 		modo = 3;
     }
 	// si detecta el robot por ojos 1
@@ -1437,15 +1562,15 @@ void MaquinaEstados::seleccion(){
 		modo = 5;
 	}
 	// si deja de detectar al robot por ojos 1
-	else if (memo1) {
+	else if (memo_T == 1) {
   		modo = 6;
 	}
 	// si deja de detectar al robot por ojos 2
-	else if (memo2) {
+	else if (memo_T == 2) {
 		modo = 7;
     }
     // si no detecta nada
-	else if(memo5){
+	else if(memo_E){
 		modo = 8;
     }
 	else{
@@ -1453,9 +1578,107 @@ void MaquinaEstados::seleccion(){
 	}
 }
 
-void MaquinaEstados::ejecucion(){
+//selecciona el estado
+void MaquinaEstados::seleccion(){
+	uint32_t noti;
+	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+	// si detecta el limite por sc_1
+	if (noti & (1 << 0)) {
+		modo = 0;
+	}
+	// si detecta el limite por sc_2
+	else if (noti & (1 << 1)) {
+	 	 modo = 1;
+	}
+	// si deja de detectar el limite por sc 1
+	else if (memo_C == 1) {
+		modo = 2;
+	}
+	// si deja de detectar el limite por sc 2
+	else if (memo_C == 2) {
+		modo = 3;
+	}
+	//si detecta al robot por ToF1, ToF2 y ToF3
+	else if((noti & (1 << 2)) && (noti & (1 << 3)) && (noti & (1 << 4))) {
+		modo = 4;
+	}
+	//si detecta al robot por ToF1 y Tof2
+	else if((noti & (1 << 2)) && (noti & (1 << 3))) {
+		modo = 5;
+	}
+	//si detecta al robot por ToF1 y ToF3
+	else if((noti & (1 << 2)) && (noti & (1 << 4))) {
+		modo = 6;
+	}
+	//si detecta al robot por ToF2 y ToF3
+	else if((noti & (1 << 3)) && (noti & (1 << 4))) {
+		modo = 7;
+	}
+	// si detecta el robot por ToF1
+	else if (noti & (1 << 2)) {
+		modo = 8;
+	}
+	// si detecta el robot por ToF2
+	else if (noti & (1 << 3)) {
+		modo = 9;
+	}
+	//si detecta al robot por ToF3
+	else if (noti & (1 << 4)) {
+	  	modo = 10;
+	}
+	//si detecta al robot por ToF4, ToF5 y ToF6
+	else if((noti & (1 << 5)) && (noti & (1 << 6)) && (noti & (1 << 7))) {
+		modo = 11;
+	}
+	//si detecta al robot por ToF4 y ToF5
+	else if((noti & (1 << 5)) && (noti & (1 << 6))) {
+		modo = 12;
+	}
+	//si detecta al robot por ToF4 y ToF6
+	else if((noti & (1 << 5) && (noti & (1 << 7)))){
+		modo = 13;
+	}
+	//si detecta al robot por ToF5 y ToF6
+	else if((noti & (1 << 6)) && (noti & (1 << 7))) {
+		modo = 14;
+	}
+	// si detecta al robot por ToF4
+	else if (noti & (1 << 5)) {
+	  	modo = 15;
+	}
+	// si detecta al robot por ToF5
+	else if (noti & (1 << 6)) {
+		modo = 16;
+	}
+	//si detecta al robot por ToF6
+	else if (noti & (1 << 7)) {
+		modo = 17;
+	}
+	else if (memo_T == 1) {
+	  		modo = 18;
+	}
+	else if(memo_T == 2) {
+	  		modo = 19;
+	}
+	else if (memo_T == 3) {
+		modo = 20;
+	}
+	else if (memo_T == 4) {
+	  		modo = 21;
+	}
+	else if (memo_E) {
+		modo = 22;
+	}
+	// si no detecta nada
+	else{
+		modo = 23;
+	}
+}
+
+//la ejecucion de la estrategia del prototipo
+void MaquinaEstados::ejecucionEP(){
 	// variable del comandos
-    int com;
+    int com = ALTO;
 
 	//se guarda el tiempo
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
@@ -1465,83 +1688,384 @@ void MaquinaEstados::ejecucion(){
 		// detiene el movimiento y retrocede en direccion b
     	case 0:
       		com = DIR_B;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
-      		memo3 = true;
-      		temp3 = temp;
+      		memo_C = 1;
+      		tempC = temp;
       		break;
       	// detiene el movimiento y retrocede en direccion a
     	case 1:
     	  	com = DIR_A;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
-      		memo4 = true;
-      		temp4 = temp;
+      		memo_C = 0;
+      		tempC = temp;
       		break;
 		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
     	case 2:
       		com = DIR_B;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		break;
     	// continua avanzando en direccion a por un tiempo definido para alejarse del borde
     	case 3:
       		com = DIR_A;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
       		break;
     	// avanza en direccion a
     	case 4:
-      		com = ATAQUE_A;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
-      		memo1 = true;
-      		temp1 = temp;
+      		com = ATAQUE_AI;
+      		memo_T = 1;
+      		tempT = temp;
       		break;
     	// avanza en direccion b
     	case 5:
-      		com = ATAQUE_B;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
-      		memo2 = true;
-      		temp2 = temp;
+      		com = ATAQUE_BI;
+      		memo_T = 2;
+      		tempT = temp;
       		break;
     	// avanza por un tiempo definido de 4 segundo en direccion a
     	case 6:
-      		com = ATAQUE_A;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
+      		com = ATAQUE_AI;
       		break;
     	// avanza por un tiempo definido de 4 segundos en direccion b
     	case 7:
-      		com = ATAQUE_B;
-        	xTaskNotify(*motr, com, eSetValueWithOverwrite);
+      		com = ATAQUE_BI;
       		break;
       	// da vueltas hasta encontrar el robot
     	case 8:
       		//aqui pondre la logica para que avanze formando la estrella
-			if (temp - temp5 >= tiempo3) {
-    			memo5 = false;        // ir a girar
-    			temp6 = temp;         // inicia tiempo del giro
+			if (temp - tempE1 >= tiempo3) {
+    			memo_E = false;        // ir a girar
+    			tempE2 = temp;
+				com = GIRO;
 			}else{
       			com = DIR_A;
-        		xTaskNotify(*motr, com, eSetValueWithOverwrite);
 			}
       		break;
 		case 9:
-    		if(temp - temp6 >= tiempo4){
-    		    memo5 = true;      // Termina giro → pasará a estado 8
-    		    temp5 = temp;      // Reiniciar timer del avance
+    		if(temp - tempE2 >= tiempo4){
+    		    memo_E = true;      // Termina giro → pasará a estado 8
+    		    tempE1 = temp;      // Reiniciar timer del avance
+				com = DIR_A;
     		} else {
     		    com = GIRO;
-        		xTaskNotify(*motr, com, eSetValueWithOverwrite);
     		}
             break;
+		default:
+			com = ALTO;
+			break;
 	}
+    xTaskNotify(*motr, com, eSetValueWithOverwrite);
+}
+
+//ejecucion de la estrategia 1
+void MaquinaEstados::ejecucionE1(){
+	//variable del comandos
+	int com = ALTO;
+
+	//variable que guarda el tiempo
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+	switch (modo) {
+		// detiene el movimiento y retrocede en direccion b
+		case 0:
+	  		com = DIR_B;
+	  		memo_C = 1;
+	  		tempC = temp;
+	  		break;
+	  	// detiene el movimiento y retrocede en direccion a
+		case 1:
+		  	com = DIR_A;
+	  		memo_C = 2;
+	  		tempC = temp;
+	  		break;
+		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
+		case 2:
+	  		com = DIR_B;
+	  		break;
+		// continua avanzando en direccion a por un tiempo definido para alejarse del borde
+		case 3:
+	  		com = DIR_A;
+	  		break;
+         // enemigo inmnente direccion a
+        case 4:
+              com = MAX_A;
+              break;
+        //enemigo detectado en direccion a izquierda
+        case 5:
+			memo_T = 1;
+			tempT = temp;
+            com = ATAQUE_AI;
+			break;
+        //incoherencia, posible falla de los sensores en direccion a(accion por definir que es mejor)
+        case 6:
+            com = MAX_A;
+            break;
+        // enemigo detectado ne direccion a derecha
+        case 7:
+			memo_T = 2;
+			tempT = temp;
+            com = ATAQUE_AD;
+            break;
+        // enemigo detectado muy a la izquierda en direccion a
+        case 8:
+			memo_T = 1;
+			tempT = temp;
+            com = PRO_AI;
+			break;
+        //enemigo detectado lejos en direccion a
+        case 9:
+            com = DIR_A;
+            break;
+        // enemigo detectado muy a la derecha en direccion a
+        case 10:
+			memo_T = 2;
+			tempT = temp;
+            com = PRO_AD;
+            break;
+        // enemigo inminente direccio a
+        case 11:
+            com = MAX_A;
+            break;
+        // enemigo detectado en direccion b izquierda
+        case 12:
+			memo_T = 3;
+			tempT = temp;
+            com = ATAQUE_BI;
+            break;
+        //incoherencia, posible falla de los sensores en direccion b(accion por definir que es mejor)
+        case 13:
+            com = MAX_A;
+            break;
+        // enemigo detectado en direccion b derecha
+        case 14:
+			memo_T = 4;
+			tempT = temp;
+            com = ATAQUE_BD;
+            break;
+        // enemigo detectado muy a la izquierda en direccion b
+        case 15:
+			memo_T = 3;
+			tempT = temp;
+            com = PRO_BI;
+            break;
+        // enemigo detectado lejos en direccion b
+        case 16:
+            com = DIR_B;
+            break;
+        // enemigo detectado muy a la derecha en direccion b
+        case 17:
+			memo_T = 4;
+			tempT = temp;
+            com = PRO_BD;
+            break;
+		//memoria del sector AI
+		case 18:
+			com = PRO_AI;
+			break;
+		//memoria del sector AD
+		case 19:
+			com = PRO_AD;
+			break;
+		//memoria del sector BI
+		case 20:
+			com = PRO_BI;
+			break;
+		//memoria del sector BD
+		case 21:
+			com = PRO_BD;
+			break;
+		//avanze de estrella
+		case 22:
+			//logica para que avanze formando la estrella
+			if (temp - tempE1 >= tiempo3) {
+    			memo_E = false;        // ir a girar
+    			tempE2 = temp;         // inicia tiempo del giro
+				com = GIRO;
+			}else{
+      			com = DIR_A;
+			}
+      		break;
+		//giro de estrella
+		case 23:
+    		if(temp - tempE2 >= tiempo4){
+    		    memo_E = true;      // Termina giro → pasará a estado 8
+    		    tempE1 = temp;      // Reiniciar timer del avance
+				com = DIR_A;
+    		} else {
+    		    com = GIRO;
+    		}
+            break;
+        default:
+            com = ALTO;
+            break;
+    }
+    xTaskNotify(*motr, com, eSetValueWithOverwrite);
+}
+
+
+void MaquinaEstados::ejecucionE2(){
+	//variable del comandos
+	int com = ALTO;
+
+	//variable que guarda el tiempo
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+	switch (modo) {
+		// detiene el movimiento y retrocede en direccion b
+		case 0:
+	  		com = DIR_B;
+	  		memo_C = 1;
+	  		tempC = temp;
+	  		break;
+	  	// detiene el movimiento y retrocede en direccion a
+		case 1:
+		  	com = DIR_A;
+	  		memo_C = 2;
+	  		tempC = temp;
+	  		break;
+		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
+		case 2:
+	  		com = DIR_B;
+	  		break;
+		// continua avanzando en direccion a por un tiempo definido para alejarse del borde
+		case 3:
+	  		com = DIR_A;
+	  		break;
+         // enemigo inmnente direccion a
+        case 4:
+              com = MAX_A;
+              break;
+        //enemigo detectado en direccion a izquierda
+        case 5:
+			memo_T = 1;
+			tempT = temp;
+            com = ATAQUE_AI;
+			break;
+        //incoherencia, posible falla de los sensores en direccion a(accion por definir que es mejor)
+        case 6:
+            com = MAX_A;
+            break;
+        // enemigo detectado ne direccion a derecha
+        case 7:
+			memo_T = 2;
+			tempT = temp;
+            com = ATAQUE_AD;
+            break;
+        // enemigo detectado muy a la izquierda en direccion a
+        case 8:
+			memo_T = 1;
+			tempT = temp;
+            com = PRO_AI;
+			break;
+        //enemigo detectado lejos en direccion a
+        case 9:
+            com = DIR_A;
+            break;
+        // enemigo detectado muy a la derecha en direccion a
+        case 10:
+			memo_T = 2;
+			tempT = temp;
+            com = PRO_AD;
+            break;
+        // enemigo inminente direccio a
+        case 11:
+            com = MAX_A;
+            break;
+        // enemigo detectado en direccion b izquierda
+        case 12:
+			memo_T = 3;
+			tempT = temp;
+            com = ATAQUE_BI;
+            break;
+        //incoherencia, posible falla de los sensores en direccion b(accion por definir que es mejor)
+        case 13:
+            com = MAX_A;
+            break;
+        // enemigo detectado en direccion b derecha
+        case 14:
+			memo_T = 4;
+			tempT = temp;
+            com = ATAQUE_BD;
+            break;
+        // enemigo detectado muy a la izquierda en direccion b
+        case 15:
+			memo_T = 3;
+			tempT = temp;
+            com = PRO_BI;
+            break;
+        // enemigo detectado lejos en direccion b
+        case 16:
+            com = DIR_B;
+            break;
+        // enemigo detectado muy a la derecha en direccion b
+        case 17:
+			memo_T = 4;
+			tempT = temp;
+            com = PRO_BD;
+            break;
+		//memoria del sector AI
+		case 18:
+			com = PRO_AD;
+			break;
+		//memoria del sector AD
+		case 19:
+			com = PRO_AI;
+			break;
+		//memoria del sector BI
+		case 20:
+			com = PRO_BD;
+			break;
+		//memoria del sector BD
+		case 21:
+			com = PRO_BI;
+			break;
+		//avanze de estrella
+		case 22:
+			//logica para que avanze formando la estrella
+			if (temp - tempE1 >= tiempo3) {
+    			memo_E = false;        // ir a girar
+    			tempE2 = temp;         // inicia tiempo del giro
+				com = GIRO;
+			}else{
+      			com = DIR_A;
+			}
+      		break;
+		//giro de estrella
+		case 23:
+    		if(temp - tempE2 >= tiempo4){
+    		    memo_E = true;      // Termina giro → pasará a estado 8
+    		    tempE1 = temp;      // Reiniciar timer del avance
+				com = DIR_A;
+    		} else {
+    		    com = GIRO;
+    		}
+            break;
+        default:
+            com = ALTO;
+            break;
+    }
+    xTaskNotify(*motr, com, eSetValueWithOverwrite);
 }
 
 void MaquinaEstados::logica(){
 	//evaluacion de tiempos
 	tiempo();
+	if(estrategia == 0){
+		//seleccion de estado del prototipo
+		seleccionP();
+	}else{
+		//seleccion de estado
+		seleccion();
+	}
 
-	//seleccion de estado
-	seleccion();
+	//se ejecuta dependiendo de la estrategia
+	switch (estrategia) {
+		case 0:
+			ejecucionEP();
+			break;
+		case 1:
+			ejecucionE1();
+			break;
+		case 2:
+			ejecucionE2();
+			break;
 
-	//ejecucion del estado
-	ejecucion();
+	}
 }
 
 void MaquinaEstados::nvsLeer(){
@@ -1550,6 +2074,7 @@ void MaquinaEstados::nvsLeer(){
 	tiempo2 = nvs.leer("retroceso",tiempo2);
 	tiempo3 = nvs.leer("recta_star",tiempo3);
 	tiempo4 = nvs.leer("giro_star",tiempo4);
+	estrategia = nvs.leer("estrategia",estrategia);
 }
 
 //metodo que recibe la duracion del ciclo
@@ -1579,9 +2104,17 @@ FILE PATH: ./src/MaquinaEstados.h
 #define ALTO 0
 #define DIR_A 1
 #define DIR_B 2
-#define ATAQUE_A 3
-#define ATAQUE_B 4
-#define GIRO 5
+#define ATAQUE_AI 3
+#define ATAQUE_BI 4
+#define ATAQUE_AD 5
+#define ATAQUE_BD 6
+#define PRO_AI 7
+#define PRO_BI 8
+#define PRO_AD 9
+#define PRO_BD 10
+#define MAX_A 11
+#define MAX_B 12
+#define GIRO 13
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -1591,12 +2124,10 @@ FILE PATH: ./src/MaquinaEstados.h
 class MaquinaEstados{
 	private:
 		// variables que cuentan el tiempo
-		unsigned long temp1;
-		unsigned long temp2;
-		unsigned long temp3;
-		unsigned long temp4;
-		unsigned long temp5;
-		unsigned long temp6;
+		unsigned long tempT;
+		unsigned long tempC;
+		unsigned long tempE1;
+		unsigned long tempE2;
 
 		//tiempos establecidos
 		int tiempo1;
@@ -1613,20 +2144,32 @@ class MaquinaEstados{
 		int ciclo;
 		int ini;
 
-		bool memo1;
-		bool memo2;
-		bool memo3;
-		bool memo4;
-		bool memo5;
+		int memo_T;//control de los ToF
+				   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
+
+		int memo_C;//control de los sc
+							//0 = sin memoria, 1 = sc_1, 2 = sc_2
+
+		bool memo_E;//contol estrella
+
 
 		//metodo de validacion del tiempo
 		void tiempo();
 
-		//seleccion de estado
+		//seleccion de estado(prototipo)
+		void seleccionP();
+
+		//seleccion de estado(final)
 		void seleccion();
 
-		//sejecuta el estado
-		void ejecucion();
+		//se ejecuta el estado(prototipo)
+		void ejecucionEP();
+
+		//se ejecuta el estado(estrategia 1)
+		void ejecucionE1();
+
+		//se ejecutara el estado(estrategia 2)
+		void ejecucionE2();
 
 		//lee los datos de la nvs
 		void nvsLeer();
@@ -1667,6 +2210,8 @@ void Mqtt::begin(){
 	//se configura
 	esp_mqtt_client_config_t mqttC = {};
 	mqttC.broker.address.uri = BROKER;
+	mqttC.credentials.username = USUARIO;
+	mqttC.credentials.authentication.password = CONTRASEÑA;
 
 	//se inicializa
 	this->cliente = esp_mqtt_client_init(&mqttC);
@@ -1798,6 +2343,8 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraer(motores, "tiempo_rampa", "motores");
 		extraerM(motores, "normal", "velocidad_nI", "velocidad_nD");
 		extraerM(motores, "ataque", "velocidad_aI", "velocidad_aD");
+		extraerM(motores, "pronunciado", "velocidad_pI", "velocidad_pD");
+		extraerM(motores, "maximo", "velocidad_mI", "velocidad_mD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
 	}
 
@@ -1822,6 +2369,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	if(sistema != NULL){
 		extraer(sistema, "modo", "sistema");
 		extraer(sistema, "monitor", "sistema");
+		extraer(sistema, "estrategia", "sistema");
 	}
 
 	cJSON_Delete(maestro);
@@ -1842,7 +2390,9 @@ FILE PATH: ./src/Mqtt.h
 #include <string>
 #include "cJSON.h"
 
-#define BROKER "mqtt://dante-arch.local:1883"
+#define BROKER "mqtt://137.184.188.101"
+#define USUARIO "robot"
+#define CONTRASEÑA "2846"
 
 class Mqtt{
 	private:
@@ -1866,6 +2416,7 @@ FILE PATH: ./src/Multiplexor.cpp
 ==========================================
 
 #include "Multiplexor.h"       // Tu propia cabecera
+#include "sdkconfig.h"
 
 // Librerías del sistema ESP-IDF
 #include "esp_log.h"           // Para usar ESP_LOGE, ESP_LOGI (Debugging)
@@ -1876,8 +2427,14 @@ FILE PATH: ./src/Multiplexor.cpp
 #include "rgb.h"               // Para llamar a rgb(0, 1023) si falla el inicio
 							   //
 //pines ic2
-#define I2C_MASTER_SCL_IO GPIO_NUM_22
-#define I2C_MASTER_SDA_IO GPIO_NUM_21
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    // Pines estandar I2C para ESP32-S3 (DevKitC-1)
+    #define I2C_MASTER_SCL_IO GPIO_NUM_9
+    #define I2C_MASTER_SDA_IO GPIO_NUM_8
+#else
+    #define I2C_MASTER_SCL_IO GPIO_NUM_22
+    #define I2C_MASTER_SDA_IO GPIO_NUM_21
+#endif
 #define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 400000
 #define I2C_MASTER_TX_BUF_DISABLE 0
@@ -3211,16 +3768,12 @@ void Wifi::wifi(){
 
 	//se establece en modo sta
 	esp_wifi_set_mode(WIFI_MODE_STA);
-	wifi_config_t w = {
-		.sta = {
-			.ssid = 0,
-			.password = 0,
-			.threshold = {
-				.authmode = WIFI_AUTH_WPA2_PSK,
-			},
-		}
-	};
+	wifi_config_t w = {};
+    strcpy((char*)w.sta.ssid, WIFI);
+    strcpy((char*)w.sta.password, WIFI_PASS_CRED);
+    w.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
 
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &w));
 	esp_wifi_start();
 	//mobjeto del wifimanager
 	esp_wifi_set_ps(WIFI_PS_NONE);
@@ -3281,7 +3834,9 @@ void Wifi::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 }
 
 void Wifi::espera(){
+    ESP_LOGW(TAG, "ESPERA: El programa está pausado esperando conexión WiFi...");
 	xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
+    ESP_LOGI(TAG, "ESPERA: WiFi conectado con éxito, continuando...");
 }
 
 //metodo para inicializar el mDNS
@@ -3303,7 +3858,11 @@ void Wifi::smart(){
 	//inicializar smart config
 	esp_err_t sm = esp_smartconfig_start(&con);
 	if(sm == ESP_OK){
-		ESP_LOGI("smartconfig", "funciono");
+		ESP_LOGW("smartconfig", "========================================================");
+		ESP_LOGW("smartconfig", "SMARTCONFIG ACTIVADO: El robot no tiene internet.");
+		ESP_LOGW("smartconfig", "Por favor, usa la App 'ESPTouch' en tu celular para");
+		ESP_LOGW("smartconfig", "enviar el nombre y contraseña de tu red WiFi.");
+		ESP_LOGW("smartconfig", "========================================================");
 	}
 }
 
@@ -3329,8 +3888,8 @@ FILE PATH: ./src/Wifi.h
 #include "esp_event.h"
 #include "esp_bit_defs.h"
 
-//#define WIFI "INFINITUM288C_2.4"
-//#define CONTRASEÑA "2465364457"
+#define WIFI "INFINITUM288C_2.4"
+#define WIFI_PASS_CRED "2465364457"
 #define WIFI_CONNECTED BIT0
 
 class Wifi{
