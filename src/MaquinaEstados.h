@@ -50,7 +50,7 @@ class MaquinaEstados{
 				   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
 
 		int memo_C;//control de los sc
-							//0 = sin memoria, 1 = sc_1, 2 = sc_2
+					//0 = sin memoria, 1 = sc_1, 2 = sc_2
 
 		bool memo_E;//contol estrella
 

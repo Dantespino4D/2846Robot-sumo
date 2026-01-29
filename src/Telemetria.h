@@ -7,7 +7,6 @@
 #include "ControlMotores.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
-#include "SensorTof.h"
 #include "Wifi.h"
 
 #define NJSON 2048
@@ -20,14 +19,14 @@ class Telemetria{
 		MaquinaEstados* me;
 		ControlMotores* cm;
 		SensorLimite* sc;
-		SensorRival* su;
+		SensorRival* sr; // Polimorfismo!
 		Mqtt* mq;
 		Wifi* wf;
 		//se arma el struct
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w);
 		//envia el stuct
 		void enviar();
 };

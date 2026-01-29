@@ -43,8 +43,9 @@ void MaquinaEstados::tiempo(){
 
 // selecciona el estado del prototipo
 void MaquinaEstados::seleccionP(){
-	uint32_t noti;
+	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
 	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+
 	// si detecta el limite por sc_1
 	if (noti & (1 << 0)) {
   		modo = 0;
@@ -88,8 +89,9 @@ void MaquinaEstados::seleccionP(){
 
 //selecciona el estado
 void MaquinaEstados::seleccion(){
-	uint32_t noti;
+	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
 	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+
 	// si detecta el limite por sc_1
 	if (noti & (1 << 0)) {
 		modo = 0;

@@ -2,13 +2,14 @@
 #define SENSORTOF_H
 
 #include "vl53l.hpp"
+#include "SensorRival.h"
 #include "Multiplexor.h"
 #include <vector>
 
 //numero de sensores ToF
 #define NUM_TOF 6
 
-class SensorTof{
+class SensorTof : public SensorRival {
 	private:
 		//el multiplexor
 		Multiplexor* mu;
@@ -26,14 +27,16 @@ class SensorTof{
 		uint16_t dist(int n);
 		//metodo que lee si hay una distancia maxima en nvs
 		void nvsLeer();
+		//verifica si detecto un enemigo en determinado sensor
+		bool verify(int n);
 	public:
 		//constructor
 		SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd);
 		//inicializa los sensores ToF
-		bool begin();
-		//verifica si detecto un enemigo
-		bool verify(int n);
+		bool begin() override;
+		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
+		void procesar(TaskHandle_t* Robot) override;
 		//metodo que envia las medidas de cada sensor a la telemetria
-		void distancias(uint16_t* t1, uint16_t* t2, uint16_t* t3, uint16_t* t4, uint16_t* t5, uint16_t* t6 );
+		void getDistancias(uint16_t* buffer) override;
 };
 #endif

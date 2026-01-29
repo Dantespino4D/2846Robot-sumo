@@ -4,7 +4,7 @@
 #include "MaquinaEstados.h"
 #include "ControlMotores.h"
 #include "SensorLimite.h"
-#include "SensorRival.h"
+#include "SensorUltra.h"
 #include "SensorTof.h"
 #include "Wifi.h"
 #include "freertos/portmacro.h"
@@ -16,11 +16,11 @@
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
 	me(e),
 	cm(m),
 	sc(c),
-	su(u),
+	sr(r),
 	mq(q),
 	wf(w)
 {}
@@ -31,13 +31,22 @@ void Telemetria::recopilar(){
 	wf->señalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
 	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
-	su->distancias(&d.ojos1, &d.ojos2);
-	d.ToF1 = 0;
-	d.ToF2 = 0;
-	d.ToF3 = 0;
-	d.ToF4 = 0;
-	d.ToF5 = 0;
-	d.ToF6 = 0;
+
+    // Polimorfismo: Obtenemos todas las lecturas en un buffer unificado
+    uint16_t distBuffer[8];
+	sr->getDistancias(distBuffer);
+
+    // Mapeamos según tu esquema: [0-1]=Ultra, [2-7]=ToF
+    d.ojos1 = distBuffer[0];
+    d.ojos2 = distBuffer[1];
+	d.ToF1 = distBuffer[2];
+	d.ToF2 = distBuffer[3];
+	d.ToF3 = distBuffer[4];
+	d.ToF4 = distBuffer[5];
+	d.ToF5 = distBuffer[6];
+	d.ToF6 = distBuffer[7];
+
+    // Fiabilidad y otros datos (asumo ceros por ahora o lógica aparte)
 	d.fToF1 = 0;
 	d.fToF2 = 0;
 	d.fToF3 = 0;

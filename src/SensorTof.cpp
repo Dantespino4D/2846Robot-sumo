@@ -1,6 +1,7 @@
 #include "SensorTof.h"
 #include "Nvs.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
@@ -86,6 +87,7 @@ uint16_t SensorTof::dist(int n){
     return dis[n];
 }
 
+//metodo que verifica cada sensor
 bool SensorTof::verify(int n){
 	//variable que registrara el resultado
 	bool res = false;
@@ -101,6 +103,19 @@ bool SensorTof::verify(int n){
 	return res;
 }
 
+//metodo que lee todos los sensores
+void SensorTof::procesar(TaskHandle_t* Robot){
+	uint32_t pac = 0;
+	for(int i = 0; i < NUM_TOF; i++){
+		if(verify(i)){
+            // se manda el bit para notificar lo sucedido
+            int bit = 2 + i;
+			pac |= (1 << bit);
+		}
+	}
+	xTaskNotify(*Robot, pac, eSetBits);
+}
+
 //metodo que lee la Nvs
 void SensorTof::nvsLeer(){
 	//se crea el objeto del nvs
@@ -111,12 +126,13 @@ void SensorTof::nvsLeer(){
 	maxd = maxd * 10;
 }
 
-//metodo de la telemetria
-void SensorTof::distancias(uint16_t* t1, uint16_t* t2, uint16_t* t3, uint16_t* t4, uint16_t* t5, uint16_t* t6 ){
-	*t1 = dis[0];
-	*t2 = dis[1];
-	*t3 = dis[2];
-	*t4 = dis[3];
-	*t5 = dis[4];
-	*t6 = dis[5];
+//metodo que envia las medidas de cada sensor a la telemetria
+void SensorTof::getDistancias(uint16_t* buffer){
+    // Posiciones 0 y 1 reservadas para Ultrasonido
+    buffer[0] = 0;
+    buffer[1] = 0;
+    // Copiamos los 6 sensores ToF a las posiciones 2-7
+    for(int i=0; i<NUM_TOF; i++){
+        buffer[i+2] = dis[i];
+    }
 }

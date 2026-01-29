@@ -1131,6 +1131,8 @@ FILE PATH: ./src/main.cpp
 #include "Multiplexor.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
+#include "SensorTof.h"
+#include "SensorUltra.h"
 #include "Telemetria.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -1162,7 +1164,7 @@ int tiempo3 = 2000;//tiempo que avanza en linea recta para buscar al oponente
 
 int tiempo4 = 500; //tiempo en el que gira para buscar al oponente
 // variables que definen limites
-int maxd = 40;    // limite de los sensores ultrasonicos
+int maxd = 400;    // limite de los sensores ultrasonicos (mm)
 int limCol = 200; // tolerancia del sendor de color
 
 //creamos el mutex
@@ -1173,27 +1175,25 @@ SemaphoreHandle_t mutex = NULL;
 
 // variables de los pines
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-    // Pines seguros para ESP32-S3 (evitando Flash, USB y JTAG 39-42)
-    gpio_num_t mus = GPIO_NUM_47;       // Buzzer (Safe)
-    gpio_num_t ini = GPIO_NUM_2;        // Boton (Boot/Safe)
-    
-    // Ultrasonicos (Safe GPIOs)
+    gpio_num_t mus = GPIO_NUM_47;
+    gpio_num_t ini = GPIO_NUM_2;
+
+    // Ultrasonicos
     gpio_num_t trig_1 = GPIO_NUM_15;
     gpio_num_t echo_1 = GPIO_NUM_21;
     gpio_num_t trig_2 = GPIO_NUM_38;
     gpio_num_t echo_2 = GPIO_NUM_48;
 
-    // Pines de motores S3 (Safe 4-7)
-    // Evitamos 39-42 (JTAG) que pueden bloquear el arranque
+
     gpio_num_t mot[2][2] = {{GPIO_NUM_4, GPIO_NUM_5},{GPIO_NUM_6, GPIO_NUM_7}};
 #else
     // Configuración original ESP32
     gpio_num_t mus = GPIO_NUM_4;
     gpio_num_t ini = GPIO_NUM_2;
     gpio_num_t trig_1 = GPIO_NUM_19;
-    gpio_num_t echo_1 = GPIO_NUM_34;
+    gpio_num_t echo_1 = GPIO_NUM_23;
     gpio_num_t trig_2 = GPIO_NUM_18;
-    gpio_num_t echo_2 = GPIO_NUM_35;
+    gpio_num_t echo_2 = GPIO_NUM_25;
 
     // variables de los pines de los motores
     gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
@@ -1211,8 +1211,8 @@ Multiplexor mu;
 // objeto de los sensores de color
 SensorLimite* sc = nullptr;
 
-// objeto de los sensores ultrasonicos
-SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
+// objeto del sensor rival
+SensorRival* sr = nullptr;
 
 // objeto del controlador de motores
 ControlMotores cm(mot[0][1], mot[1][1], mot[0][0], mot[1][0]);
@@ -1225,6 +1225,7 @@ Telemetria* tm = nullptr;
 
 //objeto de handle de la tarea del robot
 TaskHandle_t rob = NULL;
+
 
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
@@ -1278,7 +1279,6 @@ void motores(void *pvParameters) {
   		}
 	}
 }
-
 // TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
 
 void senColor(void *pvParameters) {
@@ -1301,12 +1301,7 @@ void senColor(void *pvParameters) {
 void senUltra(void *pvParameters) {
 	while (true) {
 		if(start){
-    		if (su.ojos_1Verify()) {
-        		xTaskNotify(rob, (1 << 2), eSetBits);
-    		}
-    		if (su.ojos_2Verify()) {
-        		xTaskNotify(rob, (1 << 3), eSetBits);
-    		}
+    		sr->procesar(&rob);
 		}
     	vTaskDelay(pdMS_TO_TICKS(20));
   	}
@@ -1365,7 +1360,6 @@ extern "C" void app_main(void){
         modo = sys.leer("modo", 1);
 	}
 	int32_t val = sys.leer("monitor", 2);
-
 	//se aplica el valor elegido
     switch(val){
 		case 0:
@@ -1439,14 +1433,14 @@ extern "C" void app_main(void){
         // configuracion de los objetos de sensores de color y ultrasonicos
         sc->begin();
     }
-	su.nvsLeer();
-	su.begin();
 
+	//se inicializa el sensor rival
+	sr = new SensorUltra(maxd, trig_1, echo_1, trig_2, echo_2);
+	sr->begin();
 
-  	// se inicializa el objeto de la maquina de estados
-    // CORRECCION CRITICA: Usar new para asegurar que el objeto vive en el heap
-    // y el puntero 'me' es valido en todas las tareas.
+	//se inicializa la maquina de estados
     me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
+	ESP_LOGI(TAG, "se inicializo todo");
 
 	if(modo == 0){
 		//modo de prueba
@@ -1462,20 +1456,21 @@ extern "C" void app_main(void){
  		mq.begin();
 
 		//se inicializa el objeto de telemetria
-		tm = new Telemetria(me, &cm, sc, &su, &mq, &wi);
+		tm = new Telemetria(me, &cm, sc, sr, &mq, &wi); // sr pasado DIRECTAMENTE
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
 	}else{
-		esp_log_level_set("*", ESP_LOG_NONE);
+		//esp_log_level_set("*", ESP_LOG_NONE);
 	}
 
   	// se crean las tareas
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
   	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
-	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 4096, NULL, 3, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
+	ESP_LOGI(TAG, "se inicializo las tareas");
 }
    // DESCRIPCIONES A TOMAR EN CUENTA:
   	// ojos_1 y sc_1 en direccion "a"
@@ -1485,6 +1480,7 @@ extern "C" void app_main(void){
   	// sc_1 alerta
   	// sc_2 alerta2
   	// y se verifique que este todo correcto
+
 
 ==========================================
 FILE PATH: ./src/MaquinaEstados.cpp
@@ -1535,8 +1531,9 @@ void MaquinaEstados::tiempo(){
 
 // selecciona el estado del prototipo
 void MaquinaEstados::seleccionP(){
-	uint32_t noti;
+	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
 	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+
 	// si detecta el limite por sc_1
 	if (noti & (1 << 0)) {
   		modo = 0;
@@ -1580,8 +1577,9 @@ void MaquinaEstados::seleccionP(){
 
 //selecciona el estado
 void MaquinaEstados::seleccion(){
-	uint32_t noti;
+	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
 	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+
 	// si detecta el limite por sc_1
 	if (noti & (1 << 0)) {
 		modo = 0;
@@ -2148,7 +2146,7 @@ class MaquinaEstados{
 				   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
 
 		int memo_C;//control de los sc
-							//0 = sin memoria, 1 = sc_1, 2 = sc_2
+					//0 = sin memoria, 1 = sc_1, 2 = sc_2
 
 		bool memo_E;//contol estrella
 
@@ -2681,11 +2679,11 @@ FILE PATH: ./src/rgb.h
 #define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
 
 // --- Configuración Pin 16 ---
-#define LEDC_PIN_16             GPIO_NUM_16
+#define LEDC_PIN_16             GPIO_NUM_32
 #define LEDC_CHANNEL_16         LEDC_CHANNEL_4
 
 // --- Configuración Pin 17 ---
-#define LEDC_PIN_17             GPIO_NUM_17
+#define LEDC_PIN_17             GPIO_NUM_33
 #define LEDC_CHANNEL_17         LEDC_CHANNEL_5
 
 static inline void pwm_rgb() {
@@ -3111,312 +3109,23 @@ class SensorLimite{
 
 
 ==========================================
-FILE PATH: ./src/SensorRival.cpp
-==========================================
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_err.h"
-#include "esp_timer.h"
-#include "SensorRival.h"
-#include "Nvs.h"
-#include "driver/gpio.h"
-#include "freertos/projdefs.h"
-#include "rom/ets_sys.h"
-#include "driver/rmt_tx.h"
-#include "driver/rmt_rx.h"
-#include "driver/rmt_encoder.h"
-#include "driver/rmt_types.h"
-#include <cstdint>
-
-SensorRival::SensorRival(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
-	trig_1(_trig_1),
-	trig_2(_trig_2),
-	echo_1(_echo_1),
-	echo_2(_echo_2),
-	txC1(NULL),
-	txC2(NULL),
-	rxC1(NULL),
-	rxC2(NULL),
-	encoder(NULL),
-    maxd(_maxd),
-	ind1(0),
-	ind2(0),
-	total1(0),
-	total2(0)
-{
-for(int i = 0; i < N_MUESTRAS; i++) {
-        mem1[i] = 0;
-        mem2[i] = 0;
-    }
-}
-
-//metodo que inicializa cosas
-void SensorRival::begin(){
-	//creamos el encoder
-	rmt_copy_encoder_config_t confE = {};
-	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
-
-	//configuracion de canal tx1
-	rmt_tx_channel_config_t confT1 = {
-		.gpio_num = trig_1,
-		.clk_src = RMT_CLK_SRC_DEFAULT,
-		.resolution_hz = 1000000,
-		.mem_block_symbols = 64,
-		.trans_queue_depth = 4,
-	};
-	//handle del canal tx1
-	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT1, &txC1));
-
-	//configuracion de canal tx2
-	rmt_tx_channel_config_t confT2 = {
-		.gpio_num = trig_2,
-		.clk_src = RMT_CLK_SRC_DEFAULT,
-		.resolution_hz = 1000000,
-		.mem_block_symbols = 64,
-		.trans_queue_depth = 4,
-	};
-	//handle del canal tx2
-	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT2, &txC2));
-
-	//configuracion del canal rx1
-	rmt_rx_channel_config_t confR1 = {
-		.gpio_num = echo_1,
-		.clk_src = RMT_CLK_SRC_DEFAULT,
-		.resolution_hz = 1000000,
-		.mem_block_symbols = 64,
-	};
-	//handle del canal rx1
-	ESP_ERROR_CHECK(rmt_new_rx_channel(&confR1, &rxC1));
-
-	//configuracion del canal rx2
-	rmt_rx_channel_config_t confR2 = {
-		.gpio_num = echo_2,
-		.clk_src = RMT_CLK_SRC_DEFAULT,
-		.resolution_hz = 1000000,
-		.mem_block_symbols = 64,
-	};
-	//handle del canal rx2
-	ESP_ERROR_CHECK(rmt_new_rx_channel(&confR2, &rxC2));
-
-	//se registrar los callback
-	rmt_rx_event_callbacks_t cb = {
-		.on_recv_done = evento,
-	};
-
-	ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rxC1, &cb, this));
-	ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rxC2, &cb, this));
-
-	//habilitamos los canales
-	ESP_ERROR_CHECK(rmt_enable(txC1));
-	ESP_ERROR_CHECK(rmt_enable(txC2));
-	ESP_ERROR_CHECK(rmt_enable(rxC1));
-	ESP_ERROR_CHECK(rmt_enable(rxC2));
-}
-
-uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC){
-	rmt_symbol_word_t pul[3];
-
-	//se guarda el handle
-	this->task = xTaskGetCurrentTaskHandle();
-
-	//configuracion inicial del payload
-	pul[0].level0 = 1;
-	pul[0].duration0 = 10;
-	pul[0].level1 = 0;
-	pul[0].duration1 = 0;
-
-	//cofiguracion de la transmision
-	rmt_transmit_config_t confT = {
-		.loop_count = 0,
-	};
-
-	//configuracion de la recepcion dl pulso
-	rmt_receive_config_t confR = {
-		.signal_range_min_ns = 1000,
-		.signal_range_max_ns = 25000000,
-	};
-	//detectar por echo (ponemos a escuchar ANTES de disparar)
-	ESP_ERROR_CHECK(rmt_receive(rxC, buf, sizeof(buf), &confR));
-
-	//pulso trigger
-	ESP_ERROR_CHECK(rmt_transmit(txC, encoder, pul, sizeof(pul), &confT));
-
-	//espera los datos del callback
-	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50)) == 0){
-        // Timeout: El sensor no respondio, reseteamos el canal
-		rmt_disable(rxC);
-		rmt_enable(rxC);
-        return 0;
-    }
-
-    //Retornamos el valor correspondiente al canal que acabamos de usar
-    if(rxC == rxC1) {
-		return dis1;
-	}else if(rxC == rxC2) {
-		return dis2;
-	}
-    return 0;
-}
-
-uint16_t SensorRival::filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total){
-	//se eliminaba del total la lectura mas vieja
-	total = total - mem[ind];
-
-	//se le la nueva lectura
-	int lec = dist_cm(trig, echo, rxC, txC);
-
-	//se agrega a la lista
-	mem[ind] = lec;
-
-	//se agrega al total
-	total = total + mem[ind];
-
-	//se suma 1 al indice o lo restablecemos a 0 si llega al maximo
-	ind++;
-	if(ind >= N_MUESTRAS){
-		ind = 0;
-	}
-
-	//retorna el promedio
-	return total / N_MUESTRAS;
-}
-
-//metodo que procesara los eventos del callback
-bool IRAM_ATTR SensorRival::evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user){
-	BaseType_t high_task_wakeup = pdFALSE;
-	SensorRival *self = (SensorRival *)user;
-	rmt_symbol_word_t *sim = (rmt_symbol_word_t *)data->received_symbols;
-	int tiempo = 0;
-	//extraemos el tiempo
-	for(size_t i = 0; i < data->num_symbols; i++){
-		if(sim[i].level0 == 1){
-			tiempo = sim[i].duration0;
-            break;
-		}
-	}
-	uint16_t dis = tiempo / 58;
-	//calculamos la distancia
-	if(tiempo > 0){
-		if(rxC == self->rxC1){
-			self->dis1 = dis;
-		}else if(rxC == self->rxC2){
-			self->dis2 = dis;
-		}
-	}
-	vTaskNotifyGiveFromISR(self->task, &high_task_wakeup);
-    return high_task_wakeup == pdTRUE;
-}
-
-//metodo que verifica ojos 1
-bool SensorRival::ojos_1Verify(){
-	dis2 = filtro(trig_1, echo_1, rxC1, txC1, mem1, ind1, total1);
-	return (dis2 > 0 && dis2 <= maxd);
-}
-
-//metodo que verifica ojos 2
-bool SensorRival::ojos_2Verify(){
-	dis1 = filtro(trig_2, echo_2, rxC2, txC2, mem2, ind2, total2);
-	return (dis1 > 0 && dis1 <= maxd);
-}
-
-//metodo que lee de la nvs la distancia maxima guardada
-void SensorRival::nvsLeer(){
-	Nvs nvs("sensores");
-	maxd = nvs.leer("dist_max", maxd);
-}
-
-//metodo que da las distancias para telemetria
-void SensorRival::distancias(uint16_t* d1, uint16_t* d2){
-			*d1 = dis1;
-			*d2 = dis2;
-}
-
-
-==========================================
 FILE PATH: ./src/SensorRival.h
 ==========================================
 
 #ifndef SENSORRIVAL_H
 #define SENSORRIVAL_H
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-#include "driver/gpio.h"
-#include "driver/rmt_tx.h"
-#include "driver/rmt_rx.h"
-#include "driver/rmt_encoder.h"
-#include "driver/rmt_types.h"
-
-#define N_MUESTRAS 5
-
-class SensorRival{
-	private:
-		//pines de los sensores
-		gpio_num_t trig_1;
-		gpio_num_t trig_2;
-		gpio_num_t echo_1;
-		gpio_num_t echo_2;
-
-		//handles del rmt
-		rmt_channel_handle_t txC1;
-		rmt_channel_handle_t txC2;
-		rmt_channel_handle_t rxC1;
-		rmt_channel_handle_t rxC2;
-
-		//el handle del encoder
-		rmt_encoder_handle_t encoder;
-
-		//buffer de los datos recibidos por echo
-		rmt_symbol_word_t buf[9];
-
-		//vaiables de las distancias leidas
-		uint16_t dis1;
-		uint16_t dis2;
-
-		//handle de la tarea
-		TaskHandle_t task;
-
-		//limite de distancia
-		int maxd;
-
-		//variables que almacenan muestas
-		uint16_t mem1[N_MUESTRAS];
-		uint16_t mem2[N_MUESTRAS];
-
-		//variables que de los indices
-		int ind1;
-		int ind2;
-
-		//variables de los totales promedio
-		long total1;
-		long total2;
-
-		//metodo para medir distancia
-		uint16_t dist_cm(gpio_num_t trig_pin, gpio_num_t echo_pin, rmt_channel_handle_t rxC, rmt_channel_handle_t txC);
-
-		uint16_t filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total);
-
-		//metodo del callback
-		static bool IRAM_ATTR evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user);
+class SensorRival {
 	public:
-		//costructor
-		SensorRival(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2);
-
-		//inicializamos el RMT
-		void begin();
-
-		//metodo para leer los valores del nvs
-		void nvsLeer();
-
-		//metodos de verificacion
-		bool ojos_1Verify();
-		bool ojos_2Verify();
-
-		//metodo para devolver las distancias
-		void distancias(uint16_t* d1, uint16_t* d2);
+		virtual ~SensorRival() {}
+		virtual bool begin() = 0;
+		virtual void procesar(TaskHandle_t* Robot) = 0;
+		virtual void getDistancias(uint16_t* buffer) = 0;
 };
-
-#endif // !SENSORRIVAL_H
+#endif // SENSORRIVAL_H
 
 
 ==========================================
@@ -3426,6 +3135,7 @@ FILE PATH: ./src/SensorTof.cpp
 #include "SensorTof.h"
 #include "Nvs.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
@@ -3511,6 +3221,7 @@ uint16_t SensorTof::dist(int n){
     return dis[n];
 }
 
+//metodo que verifica cada sensor
 bool SensorTof::verify(int n){
 	//variable que registrara el resultado
 	bool res = false;
@@ -3526,6 +3237,19 @@ bool SensorTof::verify(int n){
 	return res;
 }
 
+//metodo que lee todos los sensores
+void SensorTof::procesar(TaskHandle_t* Robot){
+	uint32_t pac = 0;
+	for(int i = 0; i < NUM_TOF; i++){
+		if(verify(i)){
+            // se manda el bit para notificar lo sucedido
+            int bit = 2 + i;
+			pac |= (1 << bit);
+		}
+	}
+	xTaskNotify(*Robot, pac, eSetBits);
+}
+
 //metodo que lee la Nvs
 void SensorTof::nvsLeer(){
 	//se crea el objeto del nvs
@@ -3536,14 +3260,15 @@ void SensorTof::nvsLeer(){
 	maxd = maxd * 10;
 }
 
-//metodo de la telemetria
-void SensorTof::distancias(uint16_t* t1, uint16_t* t2, uint16_t* t3, uint16_t* t4, uint16_t* t5, uint16_t* t6 ){
-	*t1 = dis[0];
-	*t2 = dis[1];
-	*t3 = dis[2];
-	*t4 = dis[3];
-	*t5 = dis[4];
-	*t6 = dis[5];
+//metodo que envia las medidas de cada sensor a la telemetria
+void SensorTof::getDistancias(uint16_t* buffer){
+    // Posiciones 0 y 1 reservadas para Ultrasonido
+    buffer[0] = 0;
+    buffer[1] = 0;
+    // Copiamos los 6 sensores ToF a las posiciones 2-7
+    for(int i=0; i<NUM_TOF; i++){
+        buffer[i+2] = dis[i];
+    }
 }
 
 
@@ -3555,13 +3280,14 @@ FILE PATH: ./src/SensorTof.h
 #define SENSORTOF_H
 
 #include "vl53l.hpp"
+#include "SensorRival.h"
 #include "Multiplexor.h"
 #include <vector>
 
 //numero de sensores ToF
 #define NUM_TOF 6
 
-class SensorTof{
+class SensorTof : public SensorRival {
 	private:
 		//el multiplexor
 		Multiplexor* mu;
@@ -3579,17 +3305,367 @@ class SensorTof{
 		uint16_t dist(int n);
 		//metodo que lee si hay una distancia maxima en nvs
 		void nvsLeer();
+		//verifica si detecto un enemigo en determinado sensor
+		bool verify(int n);
 	public:
 		//constructor
 		SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd);
 		//inicializa los sensores ToF
-		bool begin();
-		//verifica si detecto un enemigo
-		bool verify(int n);
+		bool begin() override;
+		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
+		void procesar(TaskHandle_t* Robot) override;
 		//metodo que envia las medidas de cada sensor a la telemetria
-		void distancias(uint16_t* t1, uint16_t* t2, uint16_t* t3, uint16_t* t4, uint16_t* t5, uint16_t* t6 );
+		void getDistancias(uint16_t* buffer) override;
 };
 #endif
+
+
+==========================================
+FILE PATH: ./src/SensorUltra.cpp
+==========================================
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "esp_err.h"
+#include "esp_timer.h"
+#include "SensorUltra.h"
+#include "Nvs.h"
+#include "driver/gpio.h"
+#include "freertos/projdefs.h"
+#include "rom/ets_sys.h"
+#include "driver/rmt_tx.h"
+#include "driver/rmt_rx.h"
+#include "driver/rmt_encoder.h"
+#include "driver/rmt_types.h"
+#include "esp_log.h" // Added for logging
+#include <cstdint>
+
+SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
+	trig_1(_trig_1),
+	trig_2(_trig_2),
+	echo_1(_echo_1),
+	echo_2(_echo_2),
+	txC1(NULL),
+	txC2(NULL),
+	rxC1(NULL),
+	rxC2(NULL),
+	encoder(NULL),
+    maxd(_maxd),
+	ind1(0),
+	ind2(0),
+	total1(0),
+	total2(0)
+{
+for(int i = 0; i < N_MUESTRAS; i++) {
+        mem1[i] = 0;
+        mem2[i] = 0;
+    }
+}
+
+//metodo que inicializa cosas
+bool SensorUltra::begin(){
+	nvsLeer();
+	//creamos el encoder
+	rmt_copy_encoder_config_t confE = {};
+	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
+
+	//configuracion de canal tx1
+	rmt_tx_channel_config_t confT1 = {
+		.gpio_num = trig_1,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
+		.resolution_hz = 1000000,
+		.mem_block_symbols = 64,
+		.trans_queue_depth = 4,
+	};
+	//handle del canal tx1
+	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT1, &txC1));
+
+	//configuracion de canal tx2
+	rmt_tx_channel_config_t confT2 = {
+		.gpio_num = trig_2,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
+		.resolution_hz = 1000000,
+		.mem_block_symbols = 64,
+		.trans_queue_depth = 4,
+	};
+	//handle del canal tx2
+	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT2, &txC2));
+
+	//configuracion del canal rx1
+	rmt_rx_channel_config_t confR1 = {
+		.gpio_num = echo_1,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
+		.resolution_hz = 1000000,
+		.mem_block_symbols = 64,
+	};
+	//handle del canal rx1
+	ESP_ERROR_CHECK(rmt_new_rx_channel(&confR1, &rxC1));
+
+	//configuracion del canal rx2
+	rmt_rx_channel_config_t confR2 = {
+		.gpio_num = echo_2,
+		.clk_src = RMT_CLK_SRC_DEFAULT,
+		.resolution_hz = 1000000,
+		.mem_block_symbols = 64,
+	};
+	//handle del canal rx2
+	ESP_ERROR_CHECK(rmt_new_rx_channel(&confR2, &rxC2));
+
+	//se registrar los callback
+	rmt_rx_event_callbacks_t cb = {
+		.on_recv_done = evento,
+	};
+
+	ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rxC1, &cb, this));
+	ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rxC2, &cb, this));
+
+	//habilitamos los canales
+	ESP_ERROR_CHECK(rmt_enable(txC1));
+	ESP_ERROR_CHECK(rmt_enable(txC2));
+	ESP_ERROR_CHECK(rmt_enable(rxC1));
+	ESP_ERROR_CHECK(rmt_enable(rxC2));
+	return true;
+}
+
+uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC){
+	rmt_symbol_word_t pul[3];
+
+	//se guarda el handle
+	this->task = xTaskGetCurrentTaskHandle();
+
+	//configuracion inicial del payload
+	pul[0].level0 = 1;
+	pul[0].duration0 = 10;
+	pul[0].level1 = 0;
+	pul[0].duration1 = 0;
+
+	//cofiguracion de la transmision
+	rmt_transmit_config_t confT = {
+		.loop_count = 0,
+	};
+
+	//configuracion de la recepcion dl pulso
+	rmt_receive_config_t confR = {
+		.signal_range_min_ns = 1000,
+		.signal_range_max_ns = 25000000,
+	};
+	//detectar por echo (ponemos a escuchar ANTES de disparar)
+	esp_err_t err = rmt_receive(rxC, buf, sizeof(buf), &confR);
+	if(err != ESP_OK){
+		if(err == ESP_ERR_INVALID_STATE){
+			ESP_LOGE("SENSOR", "Error RMT: Canal RX no habilitado");
+			rmt_disable(rxC);
+			ets_delay_us(200);
+			rmt_enable(rxC);
+		}
+		return 0;
+	}
+
+	//pulso trigger
+	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);
+	if(err != ESP_OK){
+		rmt_disable(rxC);
+		rmt_enable(rxC);
+		return 0;
+	}
+
+	//espera los datos del callback
+	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(30)) == 0){
+		rmt_disable(rxC);
+        ets_delay_us(200);
+		rmt_enable(rxC);
+        return 0;
+    }
+
+    //Retornamos el valor correspondiente al canal que acabamos de usar
+    if(rxC == rxC1) {
+		return dis1;
+	}else if(rxC == rxC2) {
+		return dis2;
+	}
+    return 0;
+}
+
+uint16_t SensorUltra::filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total){
+	//se eliminaba del total la lectura mas vieja
+	total = total - mem[ind];
+
+	//se le la nueva lectura
+	int lec = dist_mm(trig, echo, rxC, txC);
+
+	//se agrega a la lista
+	mem[ind] = lec;
+
+	//se agrega al total
+	total = total + mem[ind];
+
+	//se suma 1 al indice o lo restablecemos a 0 si llega al maximo
+	ind++;
+	if(ind >= N_MUESTRAS){
+		ind = 0;
+	}
+
+	//retorna el promedio
+	return total / N_MUESTRAS;
+}
+
+//metodo que procesara los eventos del callback
+bool IRAM_ATTR SensorUltra::evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user){
+	BaseType_t high_task_wakeup = pdFALSE;
+	SensorUltra *self = (SensorUltra *)user;
+	rmt_symbol_word_t *sim = (rmt_symbol_word_t *)data->received_symbols;
+	int tiempo = 0;
+	//extraemos el tiempo
+	for(size_t i = 0; i < data->num_symbols; i++){
+		if(sim[i].level0 == 1){
+			tiempo = sim[i].duration0;
+            break;
+		}
+	}
+	uint16_t dis = (tiempo * 10) / 58;
+	//calculamos la distancia
+	if(tiempo > 0){
+		if(rxC == self->rxC1){
+			self->dis1 = dis;
+		}else if(rxC == self->rxC2){
+			self->dis2 = dis;
+		}
+	}
+	vTaskNotifyGiveFromISR(self->task, &high_task_wakeup);
+    return high_task_wakeup == pdTRUE;
+}
+
+//metodo que verifica ojos 1
+bool SensorUltra::ojos_1Verify(){
+	dis1 = filtro(trig_1, echo_1, rxC1, txC1, mem1, ind1, total1);
+	return (dis1 > 0 && dis1 <= maxd);
+}
+
+//metodo que verifica ojos 2
+bool SensorUltra::ojos_2Verify(){
+	dis2 = filtro(trig_2, echo_2, rxC2, txC2, mem2, ind2, total2);
+	return (dis2 > 0 && dis2 <= maxd);
+}
+
+void SensorUltra::procesar(TaskHandle_t* Robot){
+	uint32_t pac = 0;
+	if(ojos_1Verify()){
+		pac |=(1 << 2);
+	}
+	if(ojos_2Verify()){
+		pac |= (1 << 3);
+	}
+	if(pac > 0){
+		xTaskNotify(*Robot, pac, eSetBits);
+	}
+}
+
+//metodo que lee de la nvs la distancia maxima guardada
+void SensorUltra::nvsLeer(){
+	Nvs nvs("sensores");
+	maxd = nvs.leer("dist_max", maxd);
+}
+
+//metodo que da las distancias para telemetria
+void SensorUltra::getDistancias(uint16_t* buffer){
+    buffer[0] = dis1;
+    buffer[1] = dis2;
+    // Rellenamos el resto (reservado para ToF) con 0
+    for(int i=2; i<8; i++) {
+        buffer[i] = 0;
+    }
+}
+
+
+==========================================
+FILE PATH: ./src/SensorUltra.h
+==========================================
+
+#ifndef SENSORULTRA_H
+#define SENSORULTRA_H
+
+
+#include "SensorRival.h"
+#include "driver/gpio.h"
+#include "driver/rmt_tx.h"
+#include "driver/rmt_rx.h"
+#include "driver/rmt_encoder.h"
+#include "driver/rmt_types.h"
+
+#define N_MUESTRAS 5
+
+class SensorUltra : public SensorRival {
+	private:
+		//pines de los sensores
+		gpio_num_t trig_1;
+		gpio_num_t trig_2;
+		gpio_num_t echo_1;
+		gpio_num_t echo_2;
+
+		//handles del rmt
+		rmt_channel_handle_t txC1;
+		rmt_channel_handle_t txC2;
+		rmt_channel_handle_t rxC1;
+		rmt_channel_handle_t rxC2;
+
+		//el handle del encoder
+		rmt_encoder_handle_t encoder;
+
+		//buffer de los datos recibidos por echo
+		rmt_symbol_word_t buf[9];
+
+		//vaiables de las distancias leidas
+		uint16_t dis1;
+		uint16_t dis2;
+
+		//handle de la tarea
+		TaskHandle_t task;
+
+		//limite de distancia
+		int maxd;
+
+		//variables que almacenan muestas
+		uint16_t mem1[N_MUESTRAS];
+		uint16_t mem2[N_MUESTRAS];
+
+		//variables que de los indices
+		int ind1;
+		int ind2;
+
+		//variables de los totales promedio
+		long total1;
+		long total2;
+
+		//metodo para medir distancia
+		uint16_t dist_mm(gpio_num_t trig_pin, gpio_num_t echo_pin, rmt_channel_handle_t rxC, rmt_channel_handle_t txC);
+
+		//metodo que filtra las lecturas
+		uint16_t filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total);
+
+		//metodo del callback
+		static bool IRAM_ATTR evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user);
+
+		//metodo para leer los valores del nvs
+		void nvsLeer();
+	public:
+		//costructor
+		SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2);
+
+		//metodos de verificacion
+		bool ojos_1Verify();
+		bool ojos_2Verify();
+
+		//inicializamos el RMT
+		bool begin()override;
+
+		//metodo que lee ambos sensores ultrasonicos
+		void procesar(TaskHandle_t* Robot)override;
+
+		//metodo para devolver las distancias estandarizado
+		void getDistancias(uint16_t* buffer) override;
+};
+
+#endif // !SENSORULTRA_H
 
 
 ==========================================
@@ -3602,7 +3678,7 @@ FILE PATH: ./src/Telemetria.cpp
 #include "MaquinaEstados.h"
 #include "ControlMotores.h"
 #include "SensorLimite.h"
-#include "SensorRival.h"
+#include "SensorUltra.h"
 #include "SensorTof.h"
 #include "Wifi.h"
 #include "freertos/portmacro.h"
@@ -3614,11 +3690,11 @@ FILE PATH: ./src/Telemetria.cpp
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
 	me(e),
 	cm(m),
 	sc(c),
-	su(u),
+	sr(r),
 	mq(q),
 	wf(w)
 {}
@@ -3629,13 +3705,22 @@ void Telemetria::recopilar(){
 	wf->señalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
 	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
-	su->distancias(&d.ojos1, &d.ojos2);
-	d.ToF1 = 0;
-	d.ToF2 = 0;
-	d.ToF3 = 0;
-	d.ToF4 = 0;
-	d.ToF5 = 0;
-	d.ToF6 = 0;
+
+    // Polimorfismo: Obtenemos todas las lecturas en un buffer unificado
+    uint16_t distBuffer[8];
+	sr->getDistancias(distBuffer);
+
+    // Mapeamos según tu esquema: [0-1]=Ultra, [2-7]=ToF
+    d.ojos1 = distBuffer[0];
+    d.ojos2 = distBuffer[1];
+	d.ToF1 = distBuffer[2];
+	d.ToF2 = distBuffer[3];
+	d.ToF3 = distBuffer[4];
+	d.ToF4 = distBuffer[5];
+	d.ToF5 = distBuffer[6];
+	d.ToF6 = distBuffer[7];
+
+    // Fiabilidad y otros datos (asumo ceros por ahora o lógica aparte)
 	d.fToF1 = 0;
 	d.fToF2 = 0;
 	d.fToF3 = 0;
@@ -3691,7 +3776,6 @@ FILE PATH: ./src/Telemetria.h
 #include "ControlMotores.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
-#include "SensorTof.h"
 #include "Wifi.h"
 
 #define NJSON 2048
@@ -3704,20 +3788,19 @@ class Telemetria{
 		MaquinaEstados* me;
 		ControlMotores* cm;
 		SensorLimite* sc;
-		SensorRival* su;
+		SensorRival* sr; // Polimorfismo!
 		Mqtt* mq;
 		Wifi* wf;
 		//se arma el struct
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* u, Mqtt* q, Wifi* w);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w);
 		//envia el stuct
 		void enviar();
 };
 
 #endif
-
 
 ==========================================
 FILE PATH: ./src/Wifi.cpp

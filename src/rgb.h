@@ -10,11 +10,11 @@
 #define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
 
 // --- Configuración Pin 16 ---
-#define LEDC_PIN_16             GPIO_NUM_16
+#define LEDC_PIN_16             GPIO_NUM_32
 #define LEDC_CHANNEL_16         LEDC_CHANNEL_4
 
 // --- Configuración Pin 17 ---
-#define LEDC_PIN_17             GPIO_NUM_17
+#define LEDC_PIN_17             GPIO_NUM_33
 #define LEDC_CHANNEL_17         LEDC_CHANNEL_5
 
 static inline void pwm_rgb() {

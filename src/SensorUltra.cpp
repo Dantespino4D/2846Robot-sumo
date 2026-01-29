@@ -2,7 +2,7 @@
 #include "freertos/task.h"
 #include "esp_err.h"
 #include "esp_timer.h"
-#include "SensorRival.h"
+#include "SensorUltra.h"
 #include "Nvs.h"
 #include "driver/gpio.h"
 #include "freertos/projdefs.h"
@@ -11,9 +11,10 @@
 #include "driver/rmt_rx.h"
 #include "driver/rmt_encoder.h"
 #include "driver/rmt_types.h"
+#include "esp_log.h" // Added for logging
 #include <cstdint>
 
-SensorRival::SensorRival(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
+SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
 	trig_1(_trig_1),
 	trig_2(_trig_2),
 	echo_1(_echo_1),
@@ -36,7 +37,8 @@ for(int i = 0; i < N_MUESTRAS; i++) {
 }
 
 //metodo que inicializa cosas
-void SensorRival::begin(){
+bool SensorUltra::begin(){
+	nvsLeer();
 	//creamos el encoder
 	rmt_copy_encoder_config_t confE = {};
 	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
@@ -96,9 +98,10 @@ void SensorRival::begin(){
 	ESP_ERROR_CHECK(rmt_enable(txC2));
 	ESP_ERROR_CHECK(rmt_enable(rxC1));
 	ESP_ERROR_CHECK(rmt_enable(rxC2));
+	return true;
 }
 
-uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC){
+uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC){
 	rmt_symbol_word_t pul[3];
 
 	//se guarda el handle
@@ -121,15 +124,29 @@ uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 		.signal_range_max_ns = 25000000,
 	};
 	//detectar por echo (ponemos a escuchar ANTES de disparar)
-	ESP_ERROR_CHECK(rmt_receive(rxC, buf, sizeof(buf), &confR));
+	esp_err_t err = rmt_receive(rxC, buf, sizeof(buf), &confR);
+	if(err != ESP_OK){
+		if(err == ESP_ERR_INVALID_STATE){
+			ESP_LOGE("SENSOR", "Error RMT: Canal RX no habilitado");
+			rmt_disable(rxC);
+			ets_delay_us(200);
+			rmt_enable(rxC);
+		}
+		return 0;
+	}
 
 	//pulso trigger
-	ESP_ERROR_CHECK(rmt_transmit(txC, encoder, pul, sizeof(pul), &confT));
+	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);
+	if(err != ESP_OK){
+		rmt_disable(rxC);
+		rmt_enable(rxC);
+		return 0;
+	}
 
 	//espera los datos del callback
-	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50)) == 0){
-        // Timeout: El sensor no respondio, reseteamos el canal
+	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(30)) == 0){
 		rmt_disable(rxC);
+        ets_delay_us(200);
 		rmt_enable(rxC);
         return 0;
     }
@@ -143,12 +160,12 @@ uint16_t SensorRival::dist_cm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
     return 0;
 }
 
-uint16_t SensorRival::filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total){
+uint16_t SensorUltra::filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total){
 	//se eliminaba del total la lectura mas vieja
 	total = total - mem[ind];
 
 	//se le la nueva lectura
-	int lec = dist_cm(trig, echo, rxC, txC);
+	int lec = dist_mm(trig, echo, rxC, txC);
 
 	//se agrega a la lista
 	mem[ind] = lec;
@@ -167,9 +184,9 @@ uint16_t SensorRival::filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handl
 }
 
 //metodo que procesara los eventos del callback
-bool IRAM_ATTR SensorRival::evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user){
+bool IRAM_ATTR SensorUltra::evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user){
 	BaseType_t high_task_wakeup = pdFALSE;
-	SensorRival *self = (SensorRival *)user;
+	SensorUltra *self = (SensorUltra *)user;
 	rmt_symbol_word_t *sim = (rmt_symbol_word_t *)data->received_symbols;
 	int tiempo = 0;
 	//extraemos el tiempo
@@ -179,7 +196,7 @@ bool IRAM_ATTR SensorRival::evento(rmt_channel_handle_t rxC, const rmt_rx_done_e
             break;
 		}
 	}
-	uint16_t dis = tiempo / 58;
+	uint16_t dis = (tiempo * 10) / 58;
 	//calculamos la distancia
 	if(tiempo > 0){
 		if(rxC == self->rxC1){
@@ -193,25 +210,42 @@ bool IRAM_ATTR SensorRival::evento(rmt_channel_handle_t rxC, const rmt_rx_done_e
 }
 
 //metodo que verifica ojos 1
-bool SensorRival::ojos_1Verify(){
-	dis2 = filtro(trig_1, echo_1, rxC1, txC1, mem1, ind1, total1);
-	return (dis2 > 0 && dis2 <= maxd);
-}
-
-//metodo que verifica ojos 2
-bool SensorRival::ojos_2Verify(){
-	dis1 = filtro(trig_2, echo_2, rxC2, txC2, mem2, ind2, total2);
+bool SensorUltra::ojos_1Verify(){
+	dis1 = filtro(trig_1, echo_1, rxC1, txC1, mem1, ind1, total1);
 	return (dis1 > 0 && dis1 <= maxd);
 }
 
+//metodo que verifica ojos 2
+bool SensorUltra::ojos_2Verify(){
+	dis2 = filtro(trig_2, echo_2, rxC2, txC2, mem2, ind2, total2);
+	return (dis2 > 0 && dis2 <= maxd);
+}
+
+void SensorUltra::procesar(TaskHandle_t* Robot){
+	uint32_t pac = 0;
+	if(ojos_1Verify()){
+		pac |=(1 << 2);
+	}
+	if(ojos_2Verify()){
+		pac |= (1 << 3);
+	}
+	if(pac > 0){
+		xTaskNotify(*Robot, pac, eSetBits);
+	}
+}
+
 //metodo que lee de la nvs la distancia maxima guardada
-void SensorRival::nvsLeer(){
+void SensorUltra::nvsLeer(){
 	Nvs nvs("sensores");
 	maxd = nvs.leer("dist_max", maxd);
 }
 
 //metodo que da las distancias para telemetria
-void SensorRival::distancias(uint16_t* d1, uint16_t* d2){
-			*d1 = dis1;
-			*d2 = dis2;
+void SensorUltra::getDistancias(uint16_t* buffer){
+    buffer[0] = dis1;
+    buffer[1] = dis2;
+    // Rellenamos el resto (reservado para ToF) con 0
+    for(int i=2; i<8; i++) {
+        buffer[i] = 0;
+    }
 }

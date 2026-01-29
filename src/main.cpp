@@ -6,6 +6,8 @@
 #include "Multiplexor.h"
 #include "SensorLimite.h"
 #include "SensorRival.h"
+#include "SensorTof.h"
+#include "SensorUltra.h"
 #include "Telemetria.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -37,7 +39,7 @@ int tiempo3 = 2000;//tiempo que avanza en linea recta para buscar al oponente
 
 int tiempo4 = 500; //tiempo en el que gira para buscar al oponente
 // variables que definen limites
-int maxd = 40;    // limite de los sensores ultrasonicos
+int maxd = 400;    // limite de los sensores ultrasonicos (mm)
 int limCol = 200; // tolerancia del sendor de color
 
 //creamos el mutex
@@ -48,27 +50,25 @@ SemaphoreHandle_t mutex = NULL;
 
 // variables de los pines
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-    // Pines seguros para ESP32-S3 (evitando Flash, USB y JTAG 39-42)
-    gpio_num_t mus = GPIO_NUM_47;       // Buzzer (Safe)
-    gpio_num_t ini = GPIO_NUM_2;        // Boton (Boot/Safe)
-    
-    // Ultrasonicos (Safe GPIOs)
+    gpio_num_t mus = GPIO_NUM_47;
+    gpio_num_t ini = GPIO_NUM_2;
+
+    // Ultrasonicos
     gpio_num_t trig_1 = GPIO_NUM_15;
     gpio_num_t echo_1 = GPIO_NUM_21;
     gpio_num_t trig_2 = GPIO_NUM_38;
     gpio_num_t echo_2 = GPIO_NUM_48;
 
-    // Pines de motores S3 (Safe 4-7)
-    // Evitamos 39-42 (JTAG) que pueden bloquear el arranque
+
     gpio_num_t mot[2][2] = {{GPIO_NUM_4, GPIO_NUM_5},{GPIO_NUM_6, GPIO_NUM_7}};
 #else
     // Configuración original ESP32
     gpio_num_t mus = GPIO_NUM_4;
     gpio_num_t ini = GPIO_NUM_2;
     gpio_num_t trig_1 = GPIO_NUM_19;
-    gpio_num_t echo_1 = GPIO_NUM_34;
+    gpio_num_t echo_1 = GPIO_NUM_23;
     gpio_num_t trig_2 = GPIO_NUM_18;
-    gpio_num_t echo_2 = GPIO_NUM_35;
+    gpio_num_t echo_2 = GPIO_NUM_25;
 
     // variables de los pines de los motores
     gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
@@ -86,8 +86,8 @@ Multiplexor mu;
 // objeto de los sensores de color
 SensorLimite* sc = nullptr;
 
-// objeto de los sensores ultrasonicos
-SensorRival su(maxd, trig_1, echo_1, trig_2, echo_2);
+// objeto del sensor rival
+SensorRival* sr = nullptr;
 
 // objeto del controlador de motores
 ControlMotores cm(mot[0][1], mot[1][1], mot[0][0], mot[1][0]);
@@ -100,6 +100,7 @@ Telemetria* tm = nullptr;
 
 //objeto de handle de la tarea del robot
 TaskHandle_t rob = NULL;
+
 
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
@@ -153,7 +154,6 @@ void motores(void *pvParameters) {
   		}
 	}
 }
-
 // TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
 
 void senColor(void *pvParameters) {
@@ -176,12 +176,7 @@ void senColor(void *pvParameters) {
 void senUltra(void *pvParameters) {
 	while (true) {
 		if(start){
-    		if (su.ojos_1Verify()) {
-        		xTaskNotify(rob, (1 << 2), eSetBits);
-    		}
-    		if (su.ojos_2Verify()) {
-        		xTaskNotify(rob, (1 << 3), eSetBits);
-    		}
+    		sr->procesar(&rob);
 		}
     	vTaskDelay(pdMS_TO_TICKS(20));
   	}
@@ -240,7 +235,6 @@ extern "C" void app_main(void){
         modo = sys.leer("modo", 1);
 	}
 	int32_t val = sys.leer("monitor", 2);
-
 	//se aplica el valor elegido
     switch(val){
 		case 0:
@@ -314,14 +308,14 @@ extern "C" void app_main(void){
         // configuracion de los objetos de sensores de color y ultrasonicos
         sc->begin();
     }
-	su.nvsLeer();
-	su.begin();
 
+	//se inicializa el sensor rival
+	sr = new SensorUltra(maxd, trig_1, echo_1, trig_2, echo_2);
+	sr->begin();
 
-  	// se inicializa el objeto de la maquina de estados
-    // CORRECCION CRITICA: Usar new para asegurar que el objeto vive en el heap
-    // y el puntero 'me' es valido en todas las tareas.
+	//se inicializa la maquina de estados
     me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
+	ESP_LOGI(TAG, "se inicializo todo");
 
 	if(modo == 0){
 		//modo de prueba
@@ -337,20 +331,21 @@ extern "C" void app_main(void){
  		mq.begin();
 
 		//se inicializa el objeto de telemetria
-		tm = new Telemetria(me, &cm, sc, &su, &mq, &wi);
+		tm = new Telemetria(me, &cm, sc, sr, &mq, &wi); // sr pasado DIRECTAMENTE
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
 	}else{
-		esp_log_level_set("*", ESP_LOG_NONE);
+		//esp_log_level_set("*", ESP_LOG_NONE);
 	}
 
   	// se crean las tareas
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
   	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
-	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 2048, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 4096, NULL, 3, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
+	ESP_LOGI(TAG, "se inicializo las tareas");
 }
    // DESCRIPCIONES A TOMAR EN CUENTA:
   	// ojos_1 y sc_1 en direccion "a"
