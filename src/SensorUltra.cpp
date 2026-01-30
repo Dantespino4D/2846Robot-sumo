@@ -139,12 +139,13 @@ uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);
 	if(err != ESP_OK){
 		rmt_disable(rxC);
+		ets_delay_us(200);
 		rmt_enable(rxC);
 		return 0;
 	}
 
 	//espera los datos del callback
-	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(30)) == 0){
+	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(35)) == 0){
 		rmt_disable(rxC);
         ets_delay_us(200);
 		rmt_enable(rxC);
@@ -226,9 +227,9 @@ void SensorUltra::procesar(TaskHandle_t* Robot){
 	if(ojos_1Verify()){
 		pac |=(1 << 2);
 	}
-	if(ojos_2Verify()){
+	/*if(ojos_2Verify()){
 		pac |= (1 << 3);
-	}
+	}*/
 	if(pac > 0){
 		xTaskNotify(*Robot, pac, eSetBits);
 	}

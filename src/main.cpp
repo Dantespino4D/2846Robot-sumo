@@ -64,7 +64,7 @@ SemaphoreHandle_t mutex = NULL;
 #else
     // Configuración original ESP32
     gpio_num_t mus = GPIO_NUM_4;
-    gpio_num_t ini = GPIO_NUM_2;
+    gpio_num_t ini = GPIO_NUM_26;
     gpio_num_t trig_1 = GPIO_NUM_19;
     gpio_num_t echo_1 = GPIO_NUM_23;
     gpio_num_t trig_2 = GPIO_NUM_18;

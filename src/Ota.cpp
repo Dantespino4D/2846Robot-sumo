@@ -49,13 +49,12 @@ void Ota::ota(const char* url){
 
 void Ota::tareaOta(void *pvParameter){
 	char *url = (char*)pvParameter;
-	esp_http_client_config_t confH = {
-		.url = url,
-		.cert_pem = NULL,
-		.crt_bundle_attach = NULL,
-		//.skip_cert_common_name_check = true,
-		.keep_alive_enable = true
-	};
+	esp_http_client_config_t confH = {};
+	confH.url = url;
+	confH.cert_pem = NULL;
+	confH.crt_bundle_attach = NULL;
+	confH.keep_alive_enable = true;
+	confH.skip_cert_common_name_check = true;
 
 	esp_https_ota_config_t confO = {
 		.http_config = &confH,

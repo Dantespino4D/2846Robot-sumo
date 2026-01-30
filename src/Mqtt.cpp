@@ -41,7 +41,7 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 			ESP_LOGI(TAG, "mqtt exitoso");
 			esp_mqtt_client_subscribe(self->cliente, "robot/ota", 1);
 			esp_mqtt_client_subscribe(self->cliente, "robot/conf", 1);
-			self->pub("funciona", "robot/ota/log", 1, 0);
+			self->pub("", "robot/ota/log", 1, 0);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			ESP_LOGE(TAG, "mqtt se desconecto");
@@ -56,6 +56,7 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 				}
 				memcpy(urlT, event->data, event->data_len);
                 urlT[event->data_len] = '\0';
+				self->pub("ejecutando ota", "robot/ota/log", 1, 0);
 
 				Ota ota;
 				ota.ota(urlT);
@@ -130,6 +131,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	char *jsonT = (char*)malloc(evento->data_len + 1);
 	if(jsonT == NULL){
 		ESP_LOGE(TAG, "erro al procesar la configuracion del json");
+		pub("no se pudo procesar", "robot/conf/log", 1, 0);
 		return;
 	}
 	memcpy(jsonT, evento->data, evento->data_len);
@@ -139,6 +141,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	free(jsonT);
 	if(maestro == NULL){
 		ESP_LOGE(TAG, "estructura del json invalida");
+		pub("json invalido", "robot/conf/log", 1, 0);
 		return;
 	}
 
@@ -176,6 +179,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraer(sistema, "monitor", "sistema");
 		extraer(sistema, "estrategia", "sistema");
 	}
+	pub("configuracion recibida", "robot/conf/log", 1, 0);
 
 	cJSON_Delete(maestro);
 	esp_restart();

@@ -204,7 +204,7 @@ void MaquinaEstados::ejecucionEP(){
       	// detiene el movimiento y retrocede en direccion a
     	case 1:
     	  	com = DIR_A;
-      		memo_C = 0;
+      		memo_C = 2;
       		tempC = temp;
       		break;
 		// continua avanzando en direccion b por un tiempo definido para alejarse del borde

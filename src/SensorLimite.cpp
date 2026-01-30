@@ -221,7 +221,7 @@ bool SensorLimite::sc_2Verify(){
 				b2 = bt;
 				c2 = ct;
       			// sc_2 determina si el color detectado es el mismo del limite
-      			long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
+      			long difCol = labs(r2 - lcr2) + labs(g2 - lcg2) + labs(b2 - lcb2);
       			if (difCol > limCol) {
         			// retorna verdadero al detectar el limite
 					res = true;

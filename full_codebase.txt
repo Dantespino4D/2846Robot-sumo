@@ -1189,7 +1189,7 @@ SemaphoreHandle_t mutex = NULL;
 #else
     // Configuración original ESP32
     gpio_num_t mus = GPIO_NUM_4;
-    gpio_num_t ini = GPIO_NUM_2;
+    gpio_num_t ini = GPIO_NUM_26;
     gpio_num_t trig_1 = GPIO_NUM_19;
     gpio_num_t echo_1 = GPIO_NUM_23;
     gpio_num_t trig_2 = GPIO_NUM_18;
@@ -1692,7 +1692,7 @@ void MaquinaEstados::ejecucionEP(){
       	// detiene el movimiento y retrocede en direccion a
     	case 1:
     	  	com = DIR_A;
-      		memo_C = 0;
+      		memo_C = 2;
       		tempC = temp;
       		break;
 		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
@@ -2234,7 +2234,7 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 			ESP_LOGI(TAG, "mqtt exitoso");
 			esp_mqtt_client_subscribe(self->cliente, "robot/ota", 1);
 			esp_mqtt_client_subscribe(self->cliente, "robot/conf", 1);
-			self->pub("funciona", "robot/ota/log", 1, 0);
+			self->pub("", "robot/ota/log", 1, 0);
 			break;
 		case MQTT_EVENT_DISCONNECTED:
 			ESP_LOGE(TAG, "mqtt se desconecto");
@@ -2249,6 +2249,7 @@ void Mqtt::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 				}
 				memcpy(urlT, event->data, event->data_len);
                 urlT[event->data_len] = '\0';
+				self->pub("ejecutando ota", "robot/ota/log", 1, 0);
 
 				Ota ota;
 				ota.ota(urlT);
@@ -2323,6 +2324,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	char *jsonT = (char*)malloc(evento->data_len + 1);
 	if(jsonT == NULL){
 		ESP_LOGE(TAG, "erro al procesar la configuracion del json");
+		pub("no se pudo procesar", "robot/conf/log", 1, 0);
 		return;
 	}
 	memcpy(jsonT, evento->data, evento->data_len);
@@ -2332,6 +2334,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	free(jsonT);
 	if(maestro == NULL){
 		ESP_LOGE(TAG, "estructura del json invalida");
+		pub("json invalido", "robot/conf/log", 1, 0);
 		return;
 	}
 
@@ -2369,6 +2372,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraer(sistema, "monitor", "sistema");
 		extraer(sistema, "estrategia", "sistema");
 	}
+	pub("configuracion recibida", "robot/conf/log", 1, 0);
 
 	cJSON_Delete(maestro);
 	esp_restart();
@@ -2618,13 +2622,12 @@ void Ota::ota(const char* url){
 
 void Ota::tareaOta(void *pvParameter){
 	char *url = (char*)pvParameter;
-	esp_http_client_config_t confH = {
-		.url = url,
-		.cert_pem = NULL,
-		.crt_bundle_attach = NULL,
-		//.skip_cert_common_name_check = true,
-		.keep_alive_enable = true
-	};
+	esp_http_client_config_t confH = {};
+	confH.url = url;
+	confH.cert_pem = NULL;
+	confH.crt_bundle_attach = NULL;
+	confH.keep_alive_enable = true;
+	confH.skip_cert_common_name_check = true;
 
 	esp_https_ota_config_t confO = {
 		.http_config = &confH,
@@ -2973,7 +2976,7 @@ bool SensorLimite::sc_2Verify(){
 				b2 = bt;
 				c2 = ct;
       			// sc_2 determina si el color detectado es el mismo del limite
-      			long difCol = labs(r2 - lcr) + labs(g2 - lcg) + labs(b2 - lcb);
+      			long difCol = labs(r2 - lcr2) + labs(g2 - lcg2) + labs(b2 - lcb2);
       			if (difCol > limCol) {
         			// retorna verdadero al detectar el limite
 					res = true;
@@ -3465,12 +3468,13 @@ uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);
 	if(err != ESP_OK){
 		rmt_disable(rxC);
+		ets_delay_us(200);
 		rmt_enable(rxC);
 		return 0;
 	}
 
 	//espera los datos del callback
-	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(30)) == 0){
+	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(35)) == 0){
 		rmt_disable(rxC);
         ets_delay_us(200);
 		rmt_enable(rxC);
@@ -3552,9 +3556,9 @@ void SensorUltra::procesar(TaskHandle_t* Robot){
 	if(ojos_1Verify()){
 		pac |=(1 << 2);
 	}
-	if(ojos_2Verify()){
+	/*if(ojos_2Verify()){
 		pac |= (1 << 3);
-	}
+	}*/
 	if(pac > 0){
 		xTaskNotify(*Robot, pac, eSetBits);
 	}
