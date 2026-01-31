@@ -24,6 +24,8 @@ SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio
 	rxC1(NULL),
 	rxC2(NULL),
 	encoder(NULL),
+	dis1(0),
+	dis2(0),
     maxd(_maxd),
 	ind1(0),
 	ind2(0),
@@ -129,7 +131,7 @@ uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 		if(err == ESP_ERR_INVALID_STATE){
 			ESP_LOGE("SENSOR", "Error RMT: Canal RX no habilitado");
 			rmt_disable(rxC);
-			ets_delay_us(200);
+			vTaskDelay(1);
 			rmt_enable(rxC);
 		}
 		return 0;
@@ -139,15 +141,15 @@ uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);
 	if(err != ESP_OK){
 		rmt_disable(rxC);
-		ets_delay_us(200);
+		vTaskDelay(1);
 		rmt_enable(rxC);
 		return 0;
 	}
 
 	//espera los datos del callback
-	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(35)) == 0){
+	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5)) == 0){
 		rmt_disable(rxC);
-        ets_delay_us(200);
+        vTaskDelay(1);
 		rmt_enable(rxC);
         return 0;
     }

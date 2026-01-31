@@ -17,6 +17,7 @@
 
 //constructor
 Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
+	d{},
 	me(e),
 	cm(m),
 	sc(c),
@@ -28,7 +29,7 @@ Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, Se
 void Telemetria::recopilar(){
 	//se arma el struct con los valores correspondientes
 	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
-	wf->señalW(&d.wifi);
+	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
 	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
 

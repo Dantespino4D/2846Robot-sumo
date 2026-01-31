@@ -16,7 +16,7 @@ void Mqtt::begin(){
 	esp_mqtt_client_config_t mqttC = {};
 	mqttC.broker.address.uri = BROKER;
 	mqttC.credentials.username = USUARIO;
-	mqttC.credentials.authentication.password = CONTRASEÑA;
+	mqttC.credentials.authentication.password = PASSWORD;
 
 	//se inicializa
 	this->cliente = esp_mqtt_client_init(&mqttC);

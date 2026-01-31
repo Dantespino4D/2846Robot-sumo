@@ -343,7 +343,7 @@ extern "C" void app_main(void){
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
   	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
-	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 4096, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 	ESP_LOGI(TAG, "se inicializo las tareas");
 }

@@ -635,6 +635,10 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 	//valor del tiempo de la rampa
 	tRam(200),
+	paso(10),
+
+	vActual1(0),
+	vActual2(0),
 
 	//velocidades por defecto
 	vel_nI(700),
@@ -646,7 +650,10 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_pI(950),
 	vel_pD(600),
 	vel_gI(950),
-	vel_gD(-800)
+	vel_gD(-800),
+
+	vel1(0),
+	vel2(0)
 {
 	//pines pwm
 	mot2[0] = motA2;
@@ -691,7 +698,7 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	}else if(vActual1 < 0){
     	ledc_set_duty(MODO_PWM, pwmC_1, 0);
 		ledc_set_duty(MODO_PWM, pwmC_3, abs(vActual1));
-	}else if(vActual1 == 0){
+	}else{
     	ledc_set_duty(MODO_PWM, pwmC_1, 1023);
 		ledc_set_duty(MODO_PWM, pwmC_3, 1023);
 	}
@@ -702,7 +709,7 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	}else if(vActual2 < 0){
     	ledc_set_duty(MODO_PWM, pwmC_2, 0);
 		ledc_set_duty(MODO_PWM, pwmC_4, abs(vActual2));
-	}else if(vActual2 == 0){
+	}else{
 	    ledc_set_duty(MODO_PWM, pwmC_2, 1023);
 		ledc_set_duty(MODO_PWM, pwmC_4, 1023);
 	}
@@ -716,7 +723,6 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 //metodo que para el robot
 void ControlMotores::alto(){
 	velocidad(0, 0, false);
-	ets_delay_us(100);
 }
 
 //metodo que avanza en direccion a
@@ -798,7 +804,7 @@ void ControlMotores::pronunciado_bd(){
 //metodo de giro
 void ControlMotores::giro(){
 	//alto();
-	velocidad(vel_gI, vel_gD, true);
+	velocidad(vel_gI, vel_gD, false);
 }
 
 void ControlMotores::begin(){
@@ -1468,7 +1474,7 @@ extern "C" void app_main(void){
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
   	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
-	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 4096, NULL, 3, NULL, 0);
+	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 	ESP_LOGI(TAG, "se inicializo las tareas");
 }
@@ -2209,7 +2215,7 @@ void Mqtt::begin(){
 	esp_mqtt_client_config_t mqttC = {};
 	mqttC.broker.address.uri = BROKER;
 	mqttC.credentials.username = USUARIO;
-	mqttC.credentials.authentication.password = CONTRASEÑA;
+	mqttC.credentials.authentication.password = PASSWORD;
 
 	//se inicializa
 	this->cliente = esp_mqtt_client_init(&mqttC);
@@ -2394,7 +2400,7 @@ FILE PATH: ./src/Mqtt.h
 
 #define BROKER "mqtt://137.184.188.101"
 #define USUARIO "robot"
-#define CONTRASEÑA "2846"
+#define PASSWORD "2846"
 
 class Mqtt{
 	private:
@@ -2791,7 +2797,20 @@ SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mu
     blue(50),
     lcr(50),
 	lcg(50),
-    lcb(50)
+    lcb(50),
+	lcc(50),
+	lcr2(50),
+	lcg2(50),
+	lcb2(50),
+	lcc2(50),
+	r1(0),
+	g1(0),
+	b1(0),
+	c1(0),
+	r2(0),
+	g2(0),
+	b2(0),
+	c2(0)
 {}
 
 
@@ -3149,11 +3168,14 @@ static const char* TAG = "SensorToF";
 SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd):
 	mu(_mu),
 	mutex(_mutex),
-	maxd(_maxd)
+	maxd(_maxd),
+	tur(0),
+	pac(0)
 {
 	for(int i = 0; i < NUM_TOF; i++){
 		can[i] = _can[i];
 		tof[i] = nullptr;
+		dis[i] = 0;
 	}
 }
 
@@ -3189,6 +3211,8 @@ bool SensorTof::begin(){
 
 		//variable de error
 		std::error_code ec;
+
+        tof[i]->set_inter_measurement_period_ms(0, ec);
 
 		//los inicializamos
 		if(!tof[i]->start_ranging(ec)){
@@ -3242,15 +3266,23 @@ bool SensorTof::verify(int n){
 
 //metodo que lee todos los sensores
 void SensorTof::procesar(TaskHandle_t* Robot){
-	uint32_t pac = 0;
-	for(int i = 0; i < NUM_TOF; i++){
-		if(verify(i)){
-            // se manda el bit para notificar lo sucedido
-            int bit = 2 + i;
+    if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		//se lee la distancia
+	    uint16_t distancia = dist(tur);
+		//se verifica si esta en el rango
+		if(distancia > 10 && distancia < maxd && distancia < 8000){
+            // se define el bit para notificar lo sucedido
+            int bit = 2 + tur;
 			pac |= (1 << bit);
 		}
+		tur++;
+        xSemaphoreGive(*mutex);
+    }
+	if(tur >= NUM_TOF){
+		tur = 0;
+		xTaskNotify(*Robot, pac, eSetBits);
+		pac = 0;
 	}
-	xTaskNotify(*Robot, pac, eSetBits);
 }
 
 //metodo que lee la Nvs
@@ -3304,6 +3336,10 @@ class SensorTof : public SensorRival {
 		int maxd;
 		//variables de las lecturas de los sensores
 		uint16_t dis[NUM_TOF];
+		//contador que define de quien es turno
+		int tur;
+		//variable en la que se enviaran en paquetes las lecturas de los 6 sensores
+		uint32_t pac;
 		//lee determinado sensor ToF
 		uint16_t dist(int n);
 		//metodo que lee si hay una distancia maxima en nvs
@@ -3353,6 +3389,8 @@ SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio
 	rxC1(NULL),
 	rxC2(NULL),
 	encoder(NULL),
+	dis1(0),
+	dis2(0),
     maxd(_maxd),
 	ind1(0),
 	ind2(0),
@@ -3458,7 +3496,7 @@ uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 		if(err == ESP_ERR_INVALID_STATE){
 			ESP_LOGE("SENSOR", "Error RMT: Canal RX no habilitado");
 			rmt_disable(rxC);
-			ets_delay_us(200);
+			vTaskDelay(1);
 			rmt_enable(rxC);
 		}
 		return 0;
@@ -3468,15 +3506,15 @@ uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);
 	if(err != ESP_OK){
 		rmt_disable(rxC);
-		ets_delay_us(200);
+		vTaskDelay(1);
 		rmt_enable(rxC);
 		return 0;
 	}
 
 	//espera los datos del callback
-	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(35)) == 0){
+	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5)) == 0){
 		rmt_disable(rxC);
-        ets_delay_us(200);
+        vTaskDelay(1);
 		rmt_enable(rxC);
         return 0;
     }
@@ -3695,6 +3733,7 @@ FILE PATH: ./src/Telemetria.cpp
 
 //constructor
 Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
+	d{},
 	me(e),
 	cm(m),
 	sc(c),
@@ -3706,7 +3745,7 @@ Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, Se
 void Telemetria::recopilar(){
 	//se arma el struct con los valores correspondientes
 	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
-	wf->señalW(&d.wifi);
+	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
 	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
 
@@ -3828,6 +3867,8 @@ FILE PATH: ./src/Wifi.cpp
 #include "esp_log.h"
 #include "mdns.h"
 #include "esp_smartconfig.h"
+#include "Nvs.h"
+#include "esp_system.h"
 
 const char* TAG = "wifi";
 
@@ -3922,8 +3963,15 @@ void Wifi::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 
 void Wifi::espera(){
     ESP_LOGW(TAG, "ESPERA: El programa está pausado esperando conexión WiFi...");
-	xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
-    ESP_LOGI(TAG, "ESPERA: WiFi conectado con éxito, continuando...");
+	EventBits_t bits = xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, pdMS_TO_TICKS(20000));
+	if(bits & WIFI_CONNECTED){
+    	ESP_LOGI(TAG, "ESPERA: WiFi conectado con éxito, continuando...");
+	}else{
+		ESP_LOGE(TAG, "TIMEOUT: No se pudo conectar al WiFi. Cambiando a modo combate y reiniciando...");
+        Nvs sys("sistema");
+        sys.guardar("modo", 1);
+        esp_restart();
+	}
 }
 
 //metodo para inicializar el mDNS
@@ -3953,13 +4001,13 @@ void Wifi::smart(){
 	}
 }
 
-void Wifi::señalW(int* _señal){
+void Wifi::signalW(int* _signal){
 	wifi_ap_record_t info;
-	int señal = 0;
+	int signal = 0;
 	if(esp_wifi_sta_get_ap_info(&info) == ESP_OK) {
-		señal = info.rssi;
+		signal = info.rssi;
 	}
-	*_señal = señal;
+	*_signal = signal;
 }
 
 
@@ -3992,6 +4040,6 @@ class Wifi{
 	public:
 		void begin();
 		void espera();
-		void señalW(int* _señal);
+		void signalW(int* _signal);
 };
 #endif

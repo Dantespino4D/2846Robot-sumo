@@ -12,3 +12,4 @@ sdkconfig.test_motores
 .idea/
 telemetria_S.db-journal
 telemetria_S.db
+reporte_cppcheck.txt

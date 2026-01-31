@@ -16,6 +16,8 @@
 #include "esp_log.h"
 #include "mdns.h"
 #include "esp_smartconfig.h"
+#include "Nvs.h"
+#include "esp_system.h"
 
 const char* TAG = "wifi";
 
@@ -110,8 +112,15 @@ void Wifi::evento(void* arg, esp_event_base_t base, int32_t id, void* data){
 
 void Wifi::espera(){
     ESP_LOGW(TAG, "ESPERA: El programa está pausado esperando conexión WiFi...");
-	xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, portMAX_DELAY);
-    ESP_LOGI(TAG, "ESPERA: WiFi conectado con éxito, continuando...");
+	EventBits_t bits = xEventGroupWaitBits(e, WIFI_CONNECTED, pdFALSE, pdFALSE, pdMS_TO_TICKS(20000));
+	if(bits & WIFI_CONNECTED){
+    	ESP_LOGI(TAG, "ESPERA: WiFi conectado con éxito, continuando...");
+	}else{
+		ESP_LOGE(TAG, "TIMEOUT: No se pudo conectar al WiFi. Cambiando a modo combate y reiniciando...");
+        Nvs sys("sistema");
+        sys.guardar("modo", 1);
+        esp_restart();
+	}
 }
 
 //metodo para inicializar el mDNS
@@ -141,11 +150,11 @@ void Wifi::smart(){
 	}
 }
 
-void Wifi::señalW(int* _señal){
+void Wifi::signalW(int* _signal){
 	wifi_ap_record_t info;
-	int señal = 0;
+	int signal = 0;
 	if(esp_wifi_sta_get_ap_info(&info) == ESP_OK) {
-		señal = info.rssi;
+		signal = info.rssi;
 	}
-	*_señal = señal;
+	*_signal = signal;
 }

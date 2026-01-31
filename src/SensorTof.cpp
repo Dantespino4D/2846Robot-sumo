@@ -12,11 +12,14 @@ static const char* TAG = "SensorToF";
 SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd):
 	mu(_mu),
 	mutex(_mutex),
-	maxd(_maxd)
+	maxd(_maxd),
+	tur(0),
+	pac(0)
 {
 	for(int i = 0; i < NUM_TOF; i++){
 		can[i] = _can[i];
 		tof[i] = nullptr;
+		dis[i] = 0;
 	}
 }
 
@@ -52,6 +55,8 @@ bool SensorTof::begin(){
 
 		//variable de error
 		std::error_code ec;
+
+        tof[i]->set_inter_measurement_period_ms(0, ec);
 
 		//los inicializamos
 		if(!tof[i]->start_ranging(ec)){
@@ -105,15 +110,23 @@ bool SensorTof::verify(int n){
 
 //metodo que lee todos los sensores
 void SensorTof::procesar(TaskHandle_t* Robot){
-	uint32_t pac = 0;
-	for(int i = 0; i < NUM_TOF; i++){
-		if(verify(i)){
-            // se manda el bit para notificar lo sucedido
-            int bit = 2 + i;
+    if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+		//se lee la distancia
+	    uint16_t distancia = dist(tur);
+		//se verifica si esta en el rango
+		if(distancia > 10 && distancia < maxd && distancia < 8000){
+            // se define el bit para notificar lo sucedido
+            int bit = 2 + tur;
 			pac |= (1 << bit);
 		}
+		tur++;
+        xSemaphoreGive(*mutex);
+    }
+	if(tur >= NUM_TOF){
+		tur = 0;
+		xTaskNotify(*Robot, pac, eSetBits);
+		pac = 0;
 	}
-	xTaskNotify(*Robot, pac, eSetBits);
 }
 
 //metodo que lee la Nvs

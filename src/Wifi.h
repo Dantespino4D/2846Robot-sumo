@@ -23,6 +23,6 @@ class Wifi{
 	public:
 		void begin();
 		void espera();
-		void señalW(int* _señal);
+		void signalW(int* _signal);
 };
 #endif

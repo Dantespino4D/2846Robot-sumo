@@ -14,8 +14,8 @@
     "giro_star": 500
   },
   "sensores": {
-    "dist_max": 40,
-    "umbral_color": 200
+    "dist_max": 400,
+    "umbral_color": 50
   },
   "sistema": {
     "modo": 0,

@@ -22,6 +22,10 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 	//valor del tiempo de la rampa
 	tRam(200),
+	paso(10),
+
+	vActual1(0),
+	vActual2(0),
 
 	//velocidades por defecto
 	vel_nI(700),
@@ -33,7 +37,10 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_pI(950),
 	vel_pD(600),
 	vel_gI(950),
-	vel_gD(-800)
+	vel_gD(-800),
+
+	vel1(0),
+	vel2(0)
 {
 	//pines pwm
 	mot2[0] = motA2;
@@ -78,7 +85,7 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	}else if(vActual1 < 0){
     	ledc_set_duty(MODO_PWM, pwmC_1, 0);
 		ledc_set_duty(MODO_PWM, pwmC_3, abs(vActual1));
-	}else if(vActual1 == 0){
+	}else{
     	ledc_set_duty(MODO_PWM, pwmC_1, 1023);
 		ledc_set_duty(MODO_PWM, pwmC_3, 1023);
 	}
@@ -89,7 +96,7 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	}else if(vActual2 < 0){
     	ledc_set_duty(MODO_PWM, pwmC_2, 0);
 		ledc_set_duty(MODO_PWM, pwmC_4, abs(vActual2));
-	}else if(vActual2 == 0){
+	}else{
 	    ledc_set_duty(MODO_PWM, pwmC_2, 1023);
 		ledc_set_duty(MODO_PWM, pwmC_4, 1023);
 	}
@@ -103,7 +110,6 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 //metodo que para el robot
 void ControlMotores::alto(){
 	velocidad(0, 0, false);
-	ets_delay_us(100);
 }
 
 //metodo que avanza en direccion a
@@ -185,7 +191,7 @@ void ControlMotores::pronunciado_bd(){
 //metodo de giro
 void ControlMotores::giro(){
 	//alto();
-	velocidad(vel_gI, vel_gD, true);
+	velocidad(vel_gI, vel_gD, false);
 }
 
 void ControlMotores::begin(){

@@ -9,7 +9,7 @@
 
 #define BROKER "mqtt://137.184.188.101"
 #define USUARIO "robot"
-#define CONTRASEÑA "2846"
+#define PASSWORD "2846"
 
 class Mqtt{
 	private:

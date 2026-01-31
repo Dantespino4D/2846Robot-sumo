@@ -36,7 +36,20 @@ SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mu
     blue(50),
     lcr(50),
 	lcg(50),
-    lcb(50)
+    lcb(50),
+	lcc(50),
+	lcr2(50),
+	lcg2(50),
+	lcb2(50),
+	lcc2(50),
+	r1(0),
+	g1(0),
+	b1(0),
+	c1(0),
+	r2(0),
+	g2(0),
+	b2(0),
+	c2(0)
 {}
 
 

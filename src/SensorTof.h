@@ -23,6 +23,10 @@ class SensorTof : public SensorRival {
 		int maxd;
 		//variables de las lecturas de los sensores
 		uint16_t dis[NUM_TOF];
+		//contador que define de quien es turno
+		int tur;
+		//variable en la que se enviaran en paquetes las lecturas de los 6 sensores
+		uint32_t pac;
 		//lee determinado sensor ToF
 		uint16_t dist(int n);
 		//metodo que lee si hay una distancia maxima en nvs
