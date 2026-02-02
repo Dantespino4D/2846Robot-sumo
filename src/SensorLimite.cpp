@@ -60,12 +60,14 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	//definir donde empezar a escribir los datos leidos
 	esp_err_t err = i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
+		mu->error();
         return false;
     }
 
 	//leer datos del color
 	err = i2c_master_read_from_device(mu->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
+		mu->error();
         return false;
     }
 
@@ -75,6 +77,7 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
     *g = (read_buf[5] << 8) | read_buf[4];
     *b = (read_buf[7] << 8) | read_buf[6];
 
+	mu->reset();
 	return true;
 }
 
@@ -88,12 +91,11 @@ void SensorLimite::calCol(){
   	const int NUMM = 15;
 
 	//se detecta recibe el mutex
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
 		//primero sensor
   		for (int i = 0; i < NUMM; i++) {
   		  	// Leer sensor 1
   		  	mu->sel(0);
-			ets_delay_us(10);
   		  	if(read(&r, &g, &b, &c)){
 				t_r += r;
   		  		t_g += g;
@@ -102,7 +104,7 @@ void SensorLimite::calCol(){
 			}
 		    vTaskDelay(pdMS_TO_TICKS(10));
   		}
-  		// calcula el promedio de las muestras
+		// calcula el promedio de las muestras
  		lcr = t_r / NUMM;
 		lcg = t_g / NUMM;
   		lcb = t_b / NUMM;
@@ -112,17 +114,18 @@ void SensorLimite::calCol(){
 
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
+	}else{
+		rgb(0, 1023);
 	}
 	//segundo sensor
 	t_r = 0;
 	t_g = 0;
 	t_b = 0;
 	t_c = 0;
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
   		for (int i = 0; i < NUMM; i++) {
   	  		// Leer sensor 2
   	  		mu->sel(3);
-			ets_delay_us(10);
   	  		if(read(&r, &g, &b, &c)){
 				t_r += r;
   	  			t_g += g;
@@ -142,6 +145,9 @@ void SensorLimite::calCol(){
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
 	}
+	else{
+		rgb(0, 1023);
+	}
 }
 
 void SensorLimite::begin(){
@@ -155,7 +161,6 @@ void SensorLimite::begin(){
 
 	// selecciona sc_1
 	mu->sel(0);
-	ets_delay_us(10);
 	// verifica el funcionamiento de sc_1
 	if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
         i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
@@ -169,7 +174,6 @@ void SensorLimite::begin(){
 
 	mu->sel(3);
 
-	ets_delay_us(10);
 
     // Intentamos escribir la configuración
     if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
@@ -193,7 +197,6 @@ bool SensorLimite::sc_1Verify(){
     	if (estado) {
     		// selecciona sc_1
     	  	mu->sel(0);
-			ets_delay_us(10);
       		// sc_1 lee el color
       		if(read(&rt, &gt, &bt, &ct)){
 				//se aplican
@@ -226,7 +229,6 @@ bool SensorLimite::sc_2Verify(){
 		if (estado2) {
       		// selecciona sc_2
       		mu->sel(3);
-			ets_delay_us(10);
       		// sc_2 lee el color
       		if(read(&rt, &gt, &bt, &ct)){
 				r2 = rt;

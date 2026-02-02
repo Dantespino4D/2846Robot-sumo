@@ -19,8 +19,8 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
 #include "nvs.h"
+#include "driver/gpio.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include <cstddef>
@@ -125,6 +125,21 @@ void robot(void *pvParameters) {
 	while (true) {
 		// inicia
 
+		//verifica si hay algun error en el i2c
+		if(!mu.verify()){
+			//se detecta error, parar por seguridad
+			rgb(0, 1023);
+			cm.alto();
+			if(xSemaphoreTake(mutex, pdMS_TO_TICKS(50)) == pdTRUE){
+				//porceso para reiniciar el i2c
+				mu.reinicio();
+				mu.begin();
+				sc->begin();
+				sr->begin();
+				rgb(1023, 0);
+				xSemaphoreGive(mutex);
+			}
+		}
 	  	uint64_t Tini = esp_timer_get_time();
     	// MAQUINA DE ESTADOS
     	me->logica();
@@ -257,7 +272,7 @@ extern "C" void app_main(void){
 
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
-  	rgb(1023, 512);
+  	rgb(1023, 800);
 
 	//inicializamos el mutex
 	mutex = xSemaphoreCreateMutex();

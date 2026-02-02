@@ -1150,8 +1150,8 @@ FILE PATH: ./src/main.cpp
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
 #include "nvs.h"
+#include "driver/gpio.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include <cstddef>
@@ -1256,6 +1256,21 @@ void robot(void *pvParameters) {
 	while (true) {
 		// inicia
 
+		//verifica si hay algun error en el i2c
+		if(!mu.verify()){
+			//se detecta error, parar por seguridad
+			rgb(0, 1023);
+			cm.alto();
+			if(xSemaphoreTake(mutex, pdMS_TO_TICKS(50)) == pdTRUE){
+				//porceso para reiniciar el i2c
+				mu.reinicio();
+				mu.begin();
+				sc->begin();
+				sr->begin();
+				rgb(1023, 0);
+				xSemaphoreGive(mutex);
+			}
+		}
 	  	uint64_t Tini = esp_timer_get_time();
     	// MAQUINA DE ESTADOS
     	me->logica();
@@ -1388,7 +1403,7 @@ extern "C" void app_main(void){
 
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
-  	rgb(1023, 512);
+  	rgb(1023, 800);
 
 	//inicializamos el mutex
 	mutex = xSemaphoreCreateMutex();
@@ -2423,20 +2438,15 @@ class Mqtt{
 FILE PATH: ./src/Multiplexor.cpp
 ==========================================
 
-#include "Multiplexor.h"       // Tu propia cabecera
+#include "Multiplexor.h"
 #include "sdkconfig.h"
-
-// Librerías del sistema ESP-IDF
-#include "esp_log.h"           // Para usar ESP_LOGE, ESP_LOGI (Debugging)
-#include "freertos/FreeRTOS.h" // Necesario para definiciones base de RTOS
-#include "freertos/task.h"     // Necesario para vTaskDelay y pdMS_TO_TICKS
-
-// Librerías de tu proyecto
-#include "rgb.h"               // Para llamar a rgb(0, 1023) si falla el inicio
-							   //
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "rgb.h"
 //pines ic2
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-    // Pines estandar I2C para ESP32-S3 (DevKitC-1)
     #define I2C_MASTER_SCL_IO GPIO_NUM_9
     #define I2C_MASTER_SDA_IO GPIO_NUM_8
 #else
@@ -2455,8 +2465,10 @@ FILE PATH: ./src/Multiplexor.cpp
 static const char* TAG = "Multiplexor";
 
 void Multiplexor::begin(){
+	//se establecen los errores en 0
+	err = 0;
 	//configuracion del i2c
-	i2c_config_t conf = {};
+	conf = {};
 	conf.mode = I2C_MODE_MASTER;
 	conf.sda_io_num = I2C_MASTER_SDA_IO;
 	conf.scl_io_num = I2C_MASTER_SCL_IO;
@@ -2483,13 +2495,77 @@ void Multiplexor::sel(uint8_t i){
 	if (err != ESP_OK) {
         ESP_LOGE(TAG, "Fallo al seleccionar canal del MUX I2C: %s", esp_err_to_name(err));
 		rgb(0, 1023);
+		error();
+		return;
     }
+	reset();
 }
 
  i2c_port_t Multiplexor::port(){
 	return I2C_MASTER_NUM;
 }
 
+//metodo que suma errores
+void Multiplexor::error(){
+	err++;
+}
+
+//metodo que resetea los errores
+void Multiplexor::reset(){
+	err = 0;
+}
+
+//verifica si hay varios errores seguidos
+bool Multiplexor::verify(){
+	if(err >= ERR_MAX){
+		ESP_LOGE(TAG, "Multiplexor I2C ha tenido varios errores seguidos");
+		rgb(0, 1023);
+		return false;
+	}
+	return true;
+}
+
+//metodo que reinicia el i2c
+void Multiplexor::reinicio(){
+	//log
+	ESP_LOGW(TAG, "Fallo critico, reiniciando el bus I2C para desbloquear");
+	//elimina el driver
+	i2c_driver_delete(I2C_MASTER_NUM);
+	//vuelve a iniciar el i2c
+
+	//configurar pines como salida
+	gpio_config_t conf_o;
+	conf_o.pin_bit_mask = (1ULL << I2C_MASTER_SCL_IO) | (1ULL << I2C_MASTER_SDA_IO);
+	conf_o.mode = GPIO_MODE_OUTPUT_OD;
+	conf_o.pull_up_en = GPIO_PULLUP_ENABLE;
+	conf_o.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	conf_o.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&conf_o);
+
+	//secuencia de desbloqueo
+	gpio_set_level(I2C_MASTER_SDA_IO, 1);
+	for(int i = 0; i < 9; i++){
+		gpio_set_level(I2C_MASTER_SCL_IO, 0);
+		esp_rom_delay_us(10);
+		gpio_set_level(I2C_MASTER_SCL_IO, 1);
+		esp_rom_delay_us(10);
+	}
+
+	gpio_set_level(I2C_MASTER_SCL_IO, 0);
+	gpio_set_level(I2C_MASTER_SDA_IO, 0);
+	esp_rom_delay_us(10);
+	gpio_set_level(I2C_MASTER_SCL_IO, 1);
+	esp_rom_delay_us(10);
+	gpio_set_level(I2C_MASTER_SDA_IO, 1);
+	esp_rom_delay_us(10);
+
+	//volvemos a iniciar el i2c
+	i2c_param_config(I2C_MASTER_NUM, &conf);
+	i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+	//resetea los errores
+	reset();
+	ESP_LOGI(TAG, "Bus I2C reiniciado correctamente");
+}
 
 
 ==========================================
@@ -2502,11 +2578,20 @@ FILE PATH: ./src/Multiplexor.h
 #include "driver/i2c.h"
 #include "driver/gpio.h"
 
+#define ERR_MAX 10
+
 class Multiplexor{
+	private:
+		int err;
+		i2c_config_t conf;
 	public:
 		void begin();
 		void sel(uint8_t i);
 		i2c_port_t port();
+		void error();
+		void reset();
+		bool verify();
+		void reinicio();
 };
 
 #endif
@@ -2821,12 +2906,14 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	//definir donde empezar a escribir los datos leidos
 	esp_err_t err = i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
+		mu->error();
         return false;
     }
 
 	//leer datos del color
 	err = i2c_master_read_from_device(mu->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
+		mu->error();
         return false;
     }
 
@@ -2836,6 +2923,7 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
     *g = (read_buf[5] << 8) | read_buf[4];
     *b = (read_buf[7] << 8) | read_buf[6];
 
+	mu->reset();
 	return true;
 }
 
@@ -2849,12 +2937,11 @@ void SensorLimite::calCol(){
   	const int NUMM = 15;
 
 	//se detecta recibe el mutex
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
 		//primero sensor
   		for (int i = 0; i < NUMM; i++) {
   		  	// Leer sensor 1
   		  	mu->sel(0);
-			ets_delay_us(10);
   		  	if(read(&r, &g, &b, &c)){
 				t_r += r;
   		  		t_g += g;
@@ -2863,7 +2950,7 @@ void SensorLimite::calCol(){
 			}
 		    vTaskDelay(pdMS_TO_TICKS(10));
   		}
-  		// calcula el promedio de las muestras
+		// calcula el promedio de las muestras
  		lcr = t_r / NUMM;
 		lcg = t_g / NUMM;
   		lcb = t_b / NUMM;
@@ -2873,17 +2960,18 @@ void SensorLimite::calCol(){
 
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
+	}else{
+		rgb(0, 1023);
 	}
 	//segundo sensor
 	t_r = 0;
 	t_g = 0;
 	t_b = 0;
 	t_c = 0;
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
   		for (int i = 0; i < NUMM; i++) {
   	  		// Leer sensor 2
   	  		mu->sel(3);
-			ets_delay_us(10);
   	  		if(read(&r, &g, &b, &c)){
 				t_r += r;
   	  			t_g += g;
@@ -2903,6 +2991,9 @@ void SensorLimite::calCol(){
 		//se libera el mutex
 		xSemaphoreGive(*mutex);
 	}
+	else{
+		rgb(0, 1023);
+	}
 }
 
 void SensorLimite::begin(){
@@ -2916,7 +3007,6 @@ void SensorLimite::begin(){
 
 	// selecciona sc_1
 	mu->sel(0);
-	ets_delay_us(10);
 	// verifica el funcionamiento de sc_1
 	if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
         i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
@@ -2930,7 +3020,6 @@ void SensorLimite::begin(){
 
 	mu->sel(3);
 
-	ets_delay_us(10);
 
     // Intentamos escribir la configuración
     if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
@@ -2954,7 +3043,6 @@ bool SensorLimite::sc_1Verify(){
     	if (estado) {
     		// selecciona sc_1
     	  	mu->sel(0);
-			ets_delay_us(10);
       		// sc_1 lee el color
       		if(read(&rt, &gt, &bt, &ct)){
 				//se aplican
@@ -2987,7 +3075,6 @@ bool SensorLimite::sc_2Verify(){
 		if (estado2) {
       		// selecciona sc_2
       		mu->sel(3);
-			ets_delay_us(10);
       		// sc_2 lee el color
       		if(read(&rt, &gt, &bt, &ct)){
 				r2 = rt;
@@ -3156,6 +3243,7 @@ FILE PATH: ./src/SensorTof.cpp
 
 #include "SensorTof.h"
 #include "Nvs.h"
+#include "rgb.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
@@ -3191,12 +3279,18 @@ bool SensorTof::begin(){
 	//funcion de escritura
 	config.write = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
         esp_err_t err = i2c_master_write_to_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+		if(err != ESP_OK){
+			rgb(0, 1023);
+		}
     	return (err == ESP_OK);
     };
 
 	//funcion de lectura
 	config.read = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
         esp_err_t err = i2c_master_read_from_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+		if(err != ESP_OK){
+			rgb(0, 1023);
+		}
     	return (err == ESP_OK);
     };
 
@@ -3213,6 +3307,9 @@ bool SensorTof::begin(){
 		std::error_code ec;
 
         tof[i]->set_inter_measurement_period_ms(0, ec);
+
+        // Configurar en modo High Speed (20ms timing budget)
+        tof[i]->set_timing_budget_ms(20, ec);
 
 		//los inicializamos
 		if(!tof[i]->start_ranging(ec)){
@@ -3242,9 +3339,10 @@ uint16_t SensorTof::dist(int n){
 
 	//detecta si hubo algun error
 	if (ec) {
+		mu->error();
         return 8190;
     }
-
+	mu->reset();
     return dis[n];
 }
 
@@ -3252,7 +3350,7 @@ uint16_t SensorTof::dist(int n){
 bool SensorTof::verify(int n){
 	//variable que registrara el resultado
 	bool res = false;
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
 		//se lee la distancia
 		uint16_t distancia = dist(n);
 		//se verifica si esta en el rango
@@ -3260,6 +3358,8 @@ bool SensorTof::verify(int n){
 			res = true;
 		}
 		xSemaphoreGive(*mutex);
+	}else{
+		rgb(0, 1023);
 	}
 	return res;
 }

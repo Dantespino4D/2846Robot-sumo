@@ -1,5 +1,6 @@
 #include "SensorTof.h"
 #include "Nvs.h"
+#include "rgb.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
@@ -35,12 +36,18 @@ bool SensorTof::begin(){
 	//funcion de escritura
 	config.write = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
         esp_err_t err = i2c_master_write_to_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+		if(err != ESP_OK){
+			rgb(0, 1023);
+		}
     	return (err == ESP_OK);
     };
 
 	//funcion de lectura
 	config.read = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
         esp_err_t err = i2c_master_read_from_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+		if(err != ESP_OK){
+			rgb(0, 1023);
+		}
     	return (err == ESP_OK);
     };
 
@@ -57,6 +64,9 @@ bool SensorTof::begin(){
 		std::error_code ec;
 
         tof[i]->set_inter_measurement_period_ms(0, ec);
+
+        // Configurar en modo High Speed (20ms timing budget)
+        tof[i]->set_timing_budget_ms(20, ec);
 
 		//los inicializamos
 		if(!tof[i]->start_ranging(ec)){
@@ -86,9 +96,10 @@ uint16_t SensorTof::dist(int n){
 
 	//detecta si hubo algun error
 	if (ec) {
+		mu->error();
         return 8190;
     }
-
+	mu->reset();
     return dis[n];
 }
 
@@ -96,7 +107,7 @@ uint16_t SensorTof::dist(int n){
 bool SensorTof::verify(int n){
 	//variable que registrara el resultado
 	bool res = false;
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
+	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
 		//se lee la distancia
 		uint16_t distancia = dist(n);
 		//se verifica si esta en el rango
@@ -104,6 +115,8 @@ bool SensorTof::verify(int n){
 			res = true;
 		}
 		xSemaphoreGive(*mutex);
+	}else{
+		rgb(0, 1023);
 	}
 	return res;
 }
