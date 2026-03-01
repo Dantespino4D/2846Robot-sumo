@@ -7,9 +7,6 @@
 #include "esp_netif.h"
 #include "esp_event.h"
 #include "esp_wifi_types.h"
-#include "freertos/projdefs.h"
-#include "nvs.h"
-#include "nvs_flash.h"
 #include <cstdint>
 #include <cstring>
 #include "freertos/event_groups.h"

@@ -3,8 +3,6 @@
 #include "rgb.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
-#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
@@ -127,19 +125,20 @@ void SensorTof::procesar(TaskHandle_t* Robot){
 		//se lee la distancia
 	    uint16_t distancia = dist(tur);
 		//se verifica si esta en el rango
+		int bit = 2 + tur;
 		if(distancia > 10 && distancia < maxd && distancia < 8000){
-            // se define el bit para notificar lo sucedido
-            int bit = 2 + tur;
 			pac |= (1 << bit);
+		} else {
+			pac &= ~(1 << bit);
 		}
 		tur++;
         xSemaphoreGive(*mutex);
     }
 	if(tur >= NUM_TOF){
 		tur = 0;
-		xTaskNotify(*Robot, pac, eSetBits);
-		pac = 0;
 	}
+	// Se notifica el estado actualizado en cada ciclo (Streaming Real)
+	xTaskNotify(*Robot, pac, eSetBits);
 }
 
 //metodo que lee la Nvs

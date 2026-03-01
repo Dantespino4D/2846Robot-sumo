@@ -11,21 +11,16 @@
 #include "Telemetria.h"
 #include "esp_log.h"
 #include "esp_timer.h"
-#include "freertos/projdefs.h"
-#include "portmacro.h"
 #include "rgb.h"
 #include "Nvs.h"
 #include <Musica.h>
-#include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs.h"
 #include "driver/gpio.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
-#include <cstddef>
 #include <cstdint>
-#include <string>
 
 static const char* TAG = "main";
 
@@ -71,7 +66,7 @@ SemaphoreHandle_t mutex = NULL;
     gpio_num_t echo_2 = GPIO_NUM_25;
 
     // variables de los pines de los motores
-    gpio_num_t mot[2][2] = {{GPIO_NUM_14, GPIO_NUM_13},{GPIO_NUM_27, GPIO_NUM_12}};
+    gpio_num_t mot[2][2] = {{GPIO_NUM_13, GPIO_NUM_14},{GPIO_NUM_16, GPIO_NUM_27}};
 #endif
 
 //objeto de Wifi
@@ -119,7 +114,6 @@ void robot(void *pvParameters) {
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
   	start = true;
-	uint64_t Tpas = 0;
 
 	//bucle del robot
 	while (true) {
@@ -223,7 +217,7 @@ extern "C" void app_main(void){
     #ifdef CONFIG_IDF_TARGET_ESP32S3
         ESP_LOGI(TAG, "TARGET DETECTADO: ESP32-S3");
     #else
-        ESP_LOGW(TAG, "TARGET DETECTADO: ESP32 ESTANDAR (O MACRO NO DEFINIDA)");
+        ESP_LOGW(TAG, "DETECTADO: ESP32 ESTANDAR");
     #endif
 
 	//inicializar la memoria nvs
@@ -253,18 +247,23 @@ extern "C" void app_main(void){
 	//se aplica el valor elegido
     switch(val){
 		case 0:
+			ESP_LOGI(TAG, "desactivando monitor");
 			esp_log_level_set("*", ESP_LOG_NONE);
 			break;
         case 1:
+			ESP_LOGI(TAG, "monitor solo errores");
 			esp_log_level_set("*", ESP_LOG_ERROR);
 			break;
 		case 2:
+			ESP_LOGI(TAG, "monitor solo info");
 			esp_log_level_set("*", ESP_LOG_INFO);
 			break;
 		case 3:
+			ESP_LOGI(TAG, "monitor todo");
 			esp_log_level_set("*", ESP_LOG_VERBOSE);
 			break;
 		default:
+			ESP_LOGI(TAG, "monitor solo info");
 			esp_log_level_set("*", ESP_LOG_INFO);
 			break;
 	}
@@ -351,6 +350,7 @@ extern "C" void app_main(void){
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
 	}else{
+		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		//esp_log_level_set("*", ESP_LOG_NONE);
 	}
 

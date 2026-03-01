@@ -1,14 +1,9 @@
 #include "SensorLimite.h"
 #include "Nvs.h"
 #include "driver/i2c.h"
-#include "freertos/portmacro.h"
-#include "freertos/projdefs.h"
 #include "rgb.h"
 #include "esp_log.h"
 #include "freertos/task.h"
-#include "rgb.h"
-#include "esp_rom_sys.h"
-#include "rom/ets_sys.h"
 #include <cstdint>
 
 #define TCSADDR 0x29 // Dirección I2C estándar del TCS34725

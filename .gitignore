@@ -13,3 +13,5 @@ sdkconfig.test_motores
 telemetria_S.db-journal
 telemetria_S.db
 reporte_cppcheck.txt
+clean_code.txt
+strip_comments.py

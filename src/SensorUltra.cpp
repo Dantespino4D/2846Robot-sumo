@@ -1,18 +1,19 @@
+#include "driver/rmt_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_err.h"
-#include "esp_timer.h"
 #include "SensorUltra.h"
 #include "Nvs.h"
 #include "driver/gpio.h"
-#include "freertos/projdefs.h"
-#include "rom/ets_sys.h"
 #include "driver/rmt_tx.h"
 #include "driver/rmt_rx.h"
 #include "driver/rmt_encoder.h"
 #include "driver/rmt_types.h"
 #include "esp_log.h" // Added for logging
 #include <cstdint>
+
+//TAG
+#define TAG "ultra"
 
 SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
 	trig_1(_trig_1),
@@ -125,17 +126,21 @@ uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_hand
 		.signal_range_min_ns = 1000,
 		.signal_range_max_ns = 25000000,
 	};
-	//detectar por echo (ponemos a escuchar ANTES de disparar)
+	//detectar por echo
 	esp_err_t err = rmt_receive(rxC, buf, sizeof(buf), &confR);
+	if(err == ESP_ERR_INVALID_STATE){
+		rmt_disable(rxC);
+		vTaskDelay(1);
+		rmt_enable(rxC);
+		err = rmt_receive(rxC, buf, sizeof(buf), &confR);
+	}
 	if(err != ESP_OK){
-		if(err == ESP_ERR_INVALID_STATE){
-			ESP_LOGE("SENSOR", "Error RMT: Canal RX no habilitado");
-			rmt_disable(rxC);
-			vTaskDelay(1);
-			rmt_enable(rxC);
-		}
+		rmt_disable(rxC);
+		vTaskDelay(1);
+		rmt_enable(rxC);
 		return 0;
 	}
+
 
 	//pulso trigger
 	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);

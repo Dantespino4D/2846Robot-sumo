@@ -4,7 +4,6 @@
 #include "esp_event_base.h"
 #include "mqtt_client.h"
 #include <cstdint>
-#include <string>
 #include "cJSON.h"
 
 #define BROKER "mqtt://137.184.188.101"

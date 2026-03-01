@@ -7,7 +7,6 @@
 #include "esp_system.h"
 #include "cJSON.h"
 #include <cstdint>
-#include <string>
 
 static const char *TAG = "MQTT";
 

@@ -4,10 +4,7 @@
 #include "MaquinaEstados.h"
 #include "ControlMotores.h"
 #include "SensorLimite.h"
-#include "SensorUltra.h"
-#include "SensorTof.h"
 #include "Wifi.h"
-#include "freertos/portmacro.h"
 #include "esp_system.h"
 #include <cstdio>
 
