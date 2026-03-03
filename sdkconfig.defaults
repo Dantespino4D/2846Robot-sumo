@@ -1,0 +1,8 @@
+# Default WiFi and MQTT credentials
+# Override these values using 'idf.py menuconfig' or by editing this file.
+# DO NOT commit real credentials to version control.
+CONFIG_WIFI_SSID="myssid"
+CONFIG_WIFI_PASSWORD="mypassword"
+CONFIG_MQTT_BROKER="mqtt://192.168.1.1"
+CONFIG_MQTT_USER="robot"
+CONFIG_MQTT_PASSWORD="password"

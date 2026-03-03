@@ -1,0 +1,37 @@
+menu "Robot Sumo Configuration"
+
+    menu "WiFi"
+        config WIFI_SSID
+            string "WiFi SSID"
+            default "myssid"
+            help
+                Nombre de la red WiFi a la que se conectará el robot en modo telemetría.
+
+        config WIFI_PASSWORD
+            string "WiFi Password"
+            default "mypassword"
+            help
+                Contraseña de la red WiFi.
+    endmenu
+
+    menu "MQTT"
+        config MQTT_BROKER
+            string "MQTT Broker URI"
+            default "mqtt://192.168.1.1"
+            help
+                URI del broker MQTT (ej: mqtt://192.168.1.100).
+
+        config MQTT_USER
+            string "MQTT Username"
+            default "robot"
+            help
+                Usuario para autenticarse en el broker MQTT.
+
+        config MQTT_PASSWORD
+            string "MQTT Password"
+            default "password"
+            help
+                Contraseña para autenticarse en el broker MQTT.
+    endmenu
+
+endmenu
