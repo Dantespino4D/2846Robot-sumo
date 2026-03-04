@@ -6,9 +6,9 @@
 #include <cstdint>
 #include "cJSON.h"
 
-#define BROKER "mqtt://137.184.188.101"
-#define USUARIO "robot"
-#define PASSWORD "2846"
+#define BROKER CONFIG_MQTT_BROKER
+#define USUARIO CONFIG_MQTT_USER
+#define PASSWORD CONFIG_MQTT_PASSWORD
 
 class Mqtt{
 	private:
