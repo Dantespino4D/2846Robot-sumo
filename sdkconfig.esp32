@@ -432,6 +432,26 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# Robot Sumo Configuration
+#
+
+#
+# WiFi
+#
+CONFIG_WIFI_SSID="myssid"
+CONFIG_WIFI_PASSWORD="mypassword"
+# end of WiFi
+
+#
+# MQTT
+#
+CONFIG_MQTT_BROKER="mqtt://192.168.1.1"
+CONFIG_MQTT_USER="robot"
+CONFIG_MQTT_PASSWORD="password"
+# end of MQTT
+# end of Robot Sumo Configuration
+
+#
 # Compiler options
 #
 CONFIG_COMPILER_OPTIMIZATION_DEBUG=y

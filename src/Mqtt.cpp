@@ -158,7 +158,8 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	//se revisa y aplican cambios en la configuracion de los tiempo
 	cJSON *tiempos = cJSON_GetObjectItemCaseSensitive(maestro, "tiempos");
 	if(tiempos != NULL){
-		extraer(tiempos, "ataque_ciego", "tiempos");
+		extraer(tiempos, "tof_corto_plazo", "tiempos");
+		extraer(tiempos, "tof_largo_plazo", "tiempos");
 		extraer(tiempos, "retroceso", "tiempos");
 		extraer(tiempos, "recta_star", "tiempos");
 		extraer(tiempos, "giro_star", "tiempos");

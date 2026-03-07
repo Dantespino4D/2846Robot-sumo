@@ -9,17 +9,16 @@
 #define LEDC_DUTY_RES           LEDC_TIMER_10_BIT   // Resolución (0-1023)
 #define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
 
-// --- Configuración Pin 16 ---
-#define LEDC_PIN_16             GPIO_NUM_32
-#define LEDC_CHANNEL_16         LEDC_CHANNEL_4
+// --- Configuración LED RGB ---
+// Usamos los GPIO 32 y 33 para evitar conflictos con los motores (16 y 17)
+#define RGB_PIN_A               GPIO_NUM_32
+#define RGB_CHANNEL_A           LEDC_CHANNEL_4
 
-// --- Configuración Pin 17 ---
-#define LEDC_PIN_17             GPIO_NUM_33
-#define LEDC_CHANNEL_17         LEDC_CHANNEL_5
+#define RGB_PIN_B               GPIO_NUM_33
+#define RGB_CHANNEL_B           LEDC_CHANNEL_5
 
 static inline void pwm_rgb() {
-    // 1. Configurar el Timer (Solo se hace una vez)
-    // Este timer será compartido por ambos pines
+    // 1. Configurar el Timer
     ledc_timer_config_t ledc_timer = {
         .speed_mode       = LEDC_MODE,
         .duty_resolution  = LEDC_DUTY_RES,
@@ -31,47 +30,50 @@ static inline void pwm_rgb() {
     ledc_timer_config(&ledc_timer);
 
 
-    // 2. Configurar el Canal 0 (para el Pin 16)
-    ledc_channel_config_t ledc_channel_16 = {
-        .gpio_num       = LEDC_PIN_16,
+    // 2. Configurar el Canal A
+    ledc_channel_config_t ledc_channel_a = {
+        .gpio_num       = RGB_PIN_A,
         .speed_mode     = LEDC_MODE,
-        .channel        = LEDC_CHANNEL_16,
-		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
-        .timer_sel      = LEDC_TIMER, // <-- Vinculado al Timer 0
+        .channel        = RGB_CHANNEL_A,
+		.intr_type      = LEDC_INTR_DISABLE,
+        .timer_sel      = LEDC_TIMER,
         .duty           = 0,
         .hpoint         = 0,
-    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
-    	.flags = 0
+    	.sleep_mode     = LEDC_SLEEP_MODE_KEEP_ALIVE,
+    	.flags          = 0
     };
-    ledc_channel_config(&ledc_channel_16);
+    ledc_channel_config(&ledc_channel_a);
 
 
-    // 3. Configurar el Canal 1 (para el Pin 17)
-    ledc_channel_config_t ledc_channel_17 = {
-        .gpio_num       = LEDC_PIN_17,
+    // 3. Configurar el Canal B
+    ledc_channel_config_t ledc_channel_b = {
+        .gpio_num       = RGB_PIN_B,
         .speed_mode     = LEDC_MODE,
-        .channel        = LEDC_CHANNEL_17,
-		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
-        .timer_sel      = LEDC_TIMER, // <-- Vinculado al mismo Timer 0
+        .channel        = RGB_CHANNEL_B,
+		.intr_type      = LEDC_INTR_DISABLE,
+        .timer_sel      = LEDC_TIMER,
         .duty           = 0,
         .hpoint         = 0,
-    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
-    	.flags = 0
+    	.sleep_mode     = LEDC_SLEEP_MODE_KEEP_ALIVE,
+    	.flags          = 0
     };
-    ledc_channel_config(&ledc_channel_17);
+    ledc_channel_config(&ledc_channel_b);
 }
-static inline void set_16(uint32_t duty) {
-    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_16, duty);
-    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_16);
+
+static inline void set_rgb_a(uint32_t duty) {
+    ledc_set_duty(LEDC_MODE, RGB_CHANNEL_A, duty);
+    ledc_update_duty(LEDC_MODE, RGB_CHANNEL_A);
 }
-static inline void set_17(uint32_t duty) {
-    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_17, duty);
-    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_17);
+
+static inline void set_rgb_b(uint32_t duty) {
+    ledc_set_duty(LEDC_MODE, RGB_CHANNEL_B, duty);
+    ledc_update_duty(LEDC_MODE, RGB_CHANNEL_B);
 }
-// funcion que prende un led para detectar errores, etc.
+
+// Función principal para el LED RGB
 static inline void rgb(int a, int b) {
-    set_16(a);
-    set_17(b);
+    set_rgb_a(a);
+    set_rgb_b(b);
 }
 
 #endif

@@ -8,7 +8,8 @@
     "giro": { "izq": 950, "der": -800 }
   },
   "tiempos": {
-    "ataque_Ciego": 2000,
+    "tof_corto_plazo": 250,
+		"tof_largo_plazo": 2000,
     "retroceso": 400,
     "recta_star": 2000,
     "giro_star": 500

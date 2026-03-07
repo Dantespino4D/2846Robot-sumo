@@ -56,7 +56,7 @@ Musica (Prio: 1)               Robot / Lógica (Prio: 2)
 
 ### Módulos principales
 
-- **`MaquinaEstados`** — Máquina de estados que decide el movimiento del robot. Soporta tres estrategias: prototipo (EP), estrategia 1 (E1) y estrategia 2 (E2), seleccionables desde NVS sin recompilar.
+- **`MaquinaEstados`** — Núcleo táctico del robot. Soporta múltiples estrategias seleccionables desde NVS (prototipo, E1, E2). Implementa un avanzado sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados para evitar "tartamudeos" por el parpadeo o multiplexado de los sensores, y un sistema de **memoria a largo plazo** para la persecución ciega y predictiva del rival.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
 - **`SensorLimite`** — Lectura en hilo secundario de los sensores de color TCS34725 para evadir el borde blanco del dohyo.
 - **`SensorRival`** — Interfaz abstracta diseñada para facilitar la migración de los ultrasónicos HC-SR04 a los sensores ToF VL53L0X sin alterar la lógica superior.
@@ -98,10 +98,13 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 * **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
 * **Arquitectura FreeRTOS:** La segregación de la lógica del robot, la lectura del ADC/I2C de sensores de color y la interrupción de motores en distintas tareas priorizadas asegura tiempos de respuesta de milisegundos en combate.
 * **Potencia Desacoplada:** El uso de 4 drivers DRV8871 permite aprovechar la máxima corriente de pico por cada rueda de manera individual, previniendo cuellos de botella térmicos frente al empuje extremo.
+* **Sistema Anti-Jitter (Zero-Order Hold):** La máquina de estados procesa las lecturas multiplexadas de los sensores a través de una matriz de memorias a corto plazo. Esto permite que el robot mantenga una fluidez perfecta de ataque y previene tirones en los motores si se pierde una lectura de sensor por milisegundos.
+
+---
 
 ## Estructura de Archivos
 
-```
+
 ├── src/
 │   ├── main.cpp              # Punto de entrada, inicialización de tareas
 │   ├── MaquinaEstados.*      # Lógica de combate (máquina de estados)

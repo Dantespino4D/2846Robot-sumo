@@ -26,7 +26,8 @@
 class MaquinaEstados{
 	private:
 		// variables que cuentan el tiempo
-		unsigned long tempT;
+		unsigned long tempTC;
+		unsigned long tempTL;
 		unsigned long tempC;
 		unsigned long tempE1;
 		unsigned long tempE2;
@@ -36,6 +37,7 @@ class MaquinaEstados{
 		int tiempo2;
 		int tiempo3;
 		int tiempo4;
+		int tiempo5;
 
 		// handle de la tarea de los motores
 		TaskHandle_t* motr;
@@ -46,8 +48,11 @@ class MaquinaEstados{
 		int ciclo;
 		int ini;
 
-		int memo_T;//control de los ToF
-				   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
+		int memo_TC;//control de los ToF a corto plazo
+				   //0 = sin memoria, 1 = AI pro, 2 = AD pro, 3 = BI pro, 4 = BD pro, 5 = AI suave, 6 = AD suave, 7 = BI suave, 8 = BD suave, 9 = frente, 10 = atras
+
+		int memo_TL;//control de los ToF a largo plazo
+			   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
 
 		int memo_C;//control de los sc
 					//0 = sin memoria, 1 = sc_1, 2 = sc_2
@@ -77,7 +82,7 @@ class MaquinaEstados{
 		void nvsLeer();
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, TaskHandle_t* _motr);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
 
 		//maquina de estados
 		void logica();

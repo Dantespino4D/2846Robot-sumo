@@ -26,13 +26,16 @@ static const char* TAG = "main";
 
 
 // variables que establecen el tiemṕo
-int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
-                    // al rival
-int tiempo2 = 400; // tiempo que retrocede al detectar el borde
+int tiempo1 = 400; // tiempo que retrocede al detectar el borde
 
-int tiempo3 = 2000;//tiempo que avanza en linea recta para buscar al oponente
+int tiempo2 = 250; //tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
 
-int tiempo4 = 500; //tiempo en el que gira para buscar al oponente
+int tiempo3 = 2000; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
+
+int tiempo4 = 2000;//tiempo que avanza en linea recta para buscar al oponente
+
+int tiempo5 = 500; //tiempo en el que gira para buscar al oponente
+
 // variables que definen limites
 int maxd = 400;    // limite de los sensores ultrasonicos (mm)
 int limCol = 200; // tolerancia del sendor de color
@@ -59,14 +62,14 @@ SemaphoreHandle_t mutex = NULL;
 #else
     // Configuración original ESP32
     gpio_num_t mus = GPIO_NUM_4;
-    gpio_num_t ini = GPIO_NUM_26;
+    gpio_num_t ini = GPIO_NUM_2;
     gpio_num_t trig_1 = GPIO_NUM_19;
     gpio_num_t echo_1 = GPIO_NUM_23;
     gpio_num_t trig_2 = GPIO_NUM_18;
     gpio_num_t echo_2 = GPIO_NUM_25;
 
     // variables de los pines de los motores
-    gpio_num_t mot[2][2] = {{GPIO_NUM_13, GPIO_NUM_14},{GPIO_NUM_16, GPIO_NUM_27}};
+    gpio_num_t mot[2][2] = {{GPIO_NUM_13, GPIO_NUM_14},{GPIO_NUM_16, GPIO_NUM_17}};
 #endif
 
 //objeto de Wifi
@@ -153,14 +156,12 @@ void motores(void *pvParameters) {
 
   	while (true) {
     	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(10)) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
       		accion = accionNueva;
-
-      		// Aplica el nuevo movimiento
-
-      		cm.controlador(accion);
-  		}
+		}
+      	// Aplica el nuevo movimiento
+      	cm.controlador(accion);
 	}
 }
 // TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
@@ -328,7 +329,7 @@ extern "C" void app_main(void){
 	sr->begin();
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr);
 	ESP_LOGI(TAG, "se inicializo todo");
 
 	if(modo == 0){
