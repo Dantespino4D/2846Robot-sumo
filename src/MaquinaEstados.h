@@ -23,7 +23,16 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 
+class EstrategiaBase;
+class EstrategiaPrototipo;
+class Estrategia1;
+class Estrategia2;
+
 class MaquinaEstados{
+	friend class EstrategiaPrototipo;
+	friend class EstrategiaEstandar;
+	friend class Estrategia1;
+	friend class Estrategia2;
 	private:
 		// variables que cuentan el tiempo
 		unsigned long tempTC;
@@ -59,24 +68,16 @@ class MaquinaEstados{
 
 		bool memo_E;//contol estrella
 
+		// Instancias de estrategias
+		EstrategiaPrototipo* estPrototipo;
+		Estrategia1* estE1;
+		Estrategia2* estE2;
+
+		//puntero de la estrategia actual
+		EstrategiaBase* estActual;
 
 		//metodo de validacion del tiempo
 		void tiempo();
-
-		//seleccion de estado(prototipo)
-		void seleccionP();
-
-		//seleccion de estado(final)
-		void seleccion();
-
-		//se ejecuta el estado(prototipo)
-		void ejecucionEP();
-
-		//se ejecuta el estado(estrategia 1)
-		void ejecucionE1();
-
-		//se ejecutara el estado(estrategia 2)
-		void ejecucionE2();
 
 		//lee los datos de la nvs
 		void nvsLeer();

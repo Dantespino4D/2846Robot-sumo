@@ -56,7 +56,11 @@ Musica (Prio: 1)               Robot / Lógica (Prio: 2)
 
 ### Módulos principales
 
-- **`MaquinaEstados`** — Núcleo táctico del robot. Soporta múltiples estrategias seleccionables desde NVS (prototipo, E1, E2). Implementa un avanzado sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados para evitar "tartamudeos" por el parpadeo o multiplexado de los sensores, y un sistema de **memoria a largo plazo** para la persecución ciega y predictiva del rival.
+- **`MaquinaEstados`** — Núcleo táctico del robot. Utiliza un **Patrón Strategy** con un puntero polimórfico (`estActual`) para ejecutar diferentes comportamientos en tiempo real. Gestiona la limpieza de memorias por tiempo (`tiempo()`) de manera global. Soporta múltiples estrategias seleccionables desde NVS (prototipo, E1, E2). Implementa un avanzado sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados para evitar "tartamudeos" por el parpadeo o multiplexado de los sensores, y un sistema de **memoria a largo plazo** para la persecución ciega y predictiva del rival.
+- **`Estrategias`** — Sistema modular de combate:
+    - `EstrategiaBase.h`: Interfaz abstracta que define el contrato de `seleccion()` y `ejecucion()`.
+    - `EstrategiaEstandar.*`: Clase intermedia que implementa la lógica común de los 6 sensores ToF y sensores de línea para evitar duplicidad de código.
+    - `EstrategiaPrototipo.*`, `Estrategia1.*`, `Estrategia2.*`: Implementaciones específicas de movimiento y ataque.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
 - **`SensorLimite`** — Lectura en hilo secundario de los sensores de color TCS34725 para evadir el borde blanco del dohyo.
 - **`SensorRival`** — Interfaz abstracta diseñada para facilitar la migración de los ultrasónicos HC-SR04 a los sensores ToF VL53L0X sin alterar la lógica superior.
@@ -94,6 +98,7 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 
 ## Fortalezas del Diseño
 
+* **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate (ej. flanqueo, evasión, estrella) simplemente heredando de `EstrategiaEstandar`. Esto aísla el código de cada estrategia, facilitando el debug y permitiendo cambios en caliente sin riesgo de afectar otras tácticas.
 * **Abstracción Orientada a Hardware Evolutivo:** El uso de herencia y polimorfismo en `SensorRival` facilita la transición planificada a los sensores ToF VL53L0X.
 * **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
 * **Arquitectura FreeRTOS:** La segregación de la lógica del robot, la lectura del ADC/I2C de sensores de color y la interrupción de motores en distintas tareas priorizadas asegura tiempos de respuesta de milisegundos en combate.
@@ -107,7 +112,12 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 
 ├── src/
 │   ├── main.cpp              # Punto de entrada, inicialización de tareas
-│   ├── MaquinaEstados.*      # Lógica de combate (máquina de estados)
+│   ├── MaquinaEstados.*      # Gestor de estados y tiempos
+│   ├── EstrategiaBase.h      # Interfaz de estrategias
+│   ├── EstrategiaEstandar.*  # Lógica de sensores compartida
+│   ├── EstrategiaPrototipo.* # Estrategia inicial (Legacy)
+│   ├── Estrategia1.*         # Estrategia de combate 1
+│   ├── Estrategia2.*         # Estrategia de combate 2
 │   ├── ControlMotores.*      # Control PWM de motores
 │   ├── SensorLimite.*        # Sensores de borde (color)
 │   ├── SensorRival.h         # Interfaz abstracta para sensores de rival

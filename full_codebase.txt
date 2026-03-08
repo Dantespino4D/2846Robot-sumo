@@ -1124,6 +1124,758 @@ struct Datos{
 
 
 ==========================================
+FILE PATH: ./src/Estrategia1.cpp
+==========================================
+
+#include "Estrategia1.h"
+#include "MaquinaEstados.h"
+
+void Estrategia1::ejecucion(MaquinaEstados* ctx){
+	int com = ALTO;
+
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+	switch (ctx->modo) {
+		case 0:
+	  		com = DIR_B;
+	  		ctx->memo_C = 1;
+	  		ctx->tempC = temp;
+	  		break;
+		case 1:
+		  	com = DIR_A;
+	  		ctx->memo_C = 2;
+	  		ctx->tempC = temp;
+	  		break;
+		case 2:
+	  		com = DIR_B;
+	  		break;
+		case 3:
+	  		com = DIR_A;
+	  		break;
+        case 4:
+            com = MAX_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 5:
+            com = ATAQUE_AI;
+			ctx->memo_TC = 5;
+			ctx->tempTC = temp;
+			break;
+        case 6:
+            com = MAX_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 7:
+            com = ATAQUE_AD;
+			ctx->memo_TC = 6;
+			ctx->tempTC = temp;
+            break;
+        case 8:
+            com = PRO_AI;
+			ctx->memo_TC = 1;
+			ctx->tempTC = temp;
+			break;
+        case 9:
+            com = DIR_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 10:
+            com = PRO_AD;
+			ctx->memo_TC = 2;
+			ctx->tempTC = temp;
+            break;
+        case 11:
+            com = MAX_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 12:
+            com = ATAQUE_BI;
+			ctx->memo_TC = 7;
+			ctx->tempTC = temp;
+            break;
+        case 13:
+            com = MAX_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 14:
+            com = ATAQUE_BD;
+			ctx->memo_TC = 8;
+			ctx->tempTC = temp;
+            break;
+        case 15:
+            com = PRO_BI;
+			ctx->memo_TC = 3;
+			ctx->tempTC = temp;
+            break;
+        case 16:
+            com = DIR_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 17:
+            com = PRO_BD;
+			ctx->memo_TC = 4;
+			ctx->tempTC = temp;
+            break;
+		case 18:
+			com = PRO_AI;
+			ctx->memo_TL = 1;
+			ctx->tempTL = temp;
+			break;
+		case 19:
+			com = PRO_AD;
+			ctx->memo_TL = 2;
+			ctx->tempTL = temp;
+			break;
+		case 20:
+			com = PRO_BI;
+			ctx->memo_TL = 3;
+			ctx->tempTL = temp;
+			break;
+		case 21:
+			com = PRO_BD;
+			ctx->memo_TL = 4;
+			ctx->tempTL = temp;
+			break;
+		case 22:
+			com = ATAQUE_AI;
+			ctx->memo_TL = 1;
+			ctx->tempTL = temp;
+			break;
+		case 23:
+			com = ATAQUE_AD;
+			ctx->memo_TL = 2;
+			ctx->tempTL = temp;
+			break;
+		case 24:
+			com = ATAQUE_BI;
+			ctx->memo_TL = 3;
+			ctx->tempTL = temp;
+			break;
+		case 25:
+			com = ATAQUE_BD;
+			ctx->memo_TL = 4;
+			ctx->tempTL = temp;
+			break;
+		case 26:
+			com = MAX_A;
+			ctx->memo_TL = 0;
+			break;
+		case 27:
+			com = MAX_B;
+			ctx->memo_TL = 0;
+			break;
+		case 28:
+			com = PRO_AI;
+			break;
+		case 29:
+			com = PRO_AD;
+			break;
+		case 30:
+			com = PRO_BI;
+			break;
+		case 31:
+			com = PRO_BD;
+			break;
+		case 32:
+			if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
+				com = GIRO;
+    			ctx->memo_E = false;
+    			ctx->tempE2 = temp;
+			}else{
+      			com = DIR_A;
+			}
+      		break;
+		case 33:
+    		if(temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5){
+				com = DIR_A;
+    		    ctx->memo_E = true;
+    		    ctx->tempE1 = temp;
+    		} else {
+    		    com = GIRO;
+    		}
+            break;
+        default:
+            com = ALTO;
+            break;
+    }
+    xTaskNotify(*(ctx->motr), com, eSetValueWithOverwrite);
+}
+
+
+==========================================
+FILE PATH: ./src/Estrategia1.h
+==========================================
+
+#ifndef ESTRATEGIA1_H
+#define ESTRATEGIA1_H
+
+#include "EstrategiaEstandar.h"
+
+class MaquinaEstados;
+
+class Estrategia1 : public EstrategiaEstandar {
+public:
+	void ejecucion(MaquinaEstados* ctx) override;
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/Estrategia2.cpp
+==========================================
+
+#include "Estrategia2.h"
+#include "MaquinaEstados.h"
+
+void Estrategia2::ejecucion(MaquinaEstados* ctx) {
+	int com = ALTO;
+
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+	switch (ctx->modo) {
+		case 0:
+	  		com = DIR_B;
+	  		ctx->memo_C = 1;
+	  		ctx->tempC = temp;
+	  		break;
+		case 1:
+		  	com = DIR_A;
+	  		ctx->memo_C = 2;
+	  		ctx->tempC = temp;
+	  		break;
+		case 2:
+	  		com = DIR_B;
+	  		break;
+		case 3:
+	  		com = DIR_A;
+	  		break;
+        case 4:
+            com = MAX_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 5:
+            com = ATAQUE_AI;
+			ctx->memo_TC = 5;
+			ctx->tempTC = temp;
+			break;
+        case 6:
+            com = MAX_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 7:
+            com = ATAQUE_AD;
+			ctx->memo_TC = 6;
+			ctx->tempTC = temp;
+            break;
+        case 8:
+            com = PRO_AI;
+			ctx->memo_TC = 1;
+			ctx->tempTC = temp;
+			break;
+        case 9:
+            com = DIR_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 10:
+            com = PRO_AD;
+			ctx->memo_TC = 2;
+			ctx->tempTC = temp;
+            break;
+        case 11:
+            com = MAX_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 12:
+            com = ATAQUE_BI;
+			ctx->memo_TC = 7;
+			ctx->tempTC = temp;
+            break;
+        case 13:
+            com = MAX_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 14:
+            com = ATAQUE_BD;
+			ctx->memo_TC = 8;
+			ctx->tempTC = temp;
+            break;
+        case 15:
+            com = PRO_BI;
+			ctx->memo_TC = 3;
+			ctx->tempTC = temp;
+            break;
+        case 16:
+            com = DIR_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 17:
+            com = PRO_BD;
+			ctx->memo_TC = 4;
+			ctx->tempTC = temp;
+            break;
+		case 18:
+			com = PRO_AI;
+			ctx->memo_TL = 1;
+			ctx->tempTL = temp;
+			break;
+		case 19:
+			com = PRO_AD;
+			ctx->memo_TL = 2;
+			ctx->tempTL = temp;
+			break;
+		case 20:
+			com = PRO_BI;
+			ctx->memo_TL = 3;
+			ctx->tempTL = temp;
+			break;
+		case 21:
+			com = PRO_BD;
+			ctx->memo_TL = 4;
+			ctx->tempTL = temp;
+			break;
+		case 22:
+			com = ATAQUE_AI;
+			ctx->memo_TL = 1;
+			ctx->tempTL = temp;
+			break;
+		case 23:
+			com = ATAQUE_AD;
+			ctx->memo_TL = 2;
+			ctx->tempTL = temp;
+			break;
+		case 24:
+			com = ATAQUE_BI;
+			ctx->memo_TL = 3;
+			ctx->tempTL = temp;
+			break;
+		case 25:
+			com = ATAQUE_BD;
+			ctx->memo_TL = 4;
+			ctx->tempTL = temp;
+			break;
+		case 26:
+			com = MAX_A;
+			ctx->memo_TL = 0;
+			break;
+		case 27:
+			com = MAX_B;
+			ctx->memo_TL = 0;
+			break;
+		case 28:
+			com = PRO_AD;
+			break;
+		case 29:
+			com = PRO_AI;
+			break;
+		case 30:
+			com = PRO_BD;
+			break;
+		case 31:
+			com = PRO_BI;
+			break;
+		case 32:
+			if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
+				com = GIRO;
+    			ctx->memo_E = false;
+    			ctx->tempE2 = temp;
+			}else{
+      			com = DIR_A;
+			}
+      		break;
+		case 33:
+    		if(temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5){
+				com = DIR_A;
+    		    ctx->memo_E = true;
+    		    ctx->tempE1 = temp;
+    		} else {
+    		    com = GIRO;
+    		}
+            break;
+        default:
+            com = ALTO;
+            break;
+    }
+    xTaskNotify(*(ctx->motr), com, eSetValueWithOverwrite);
+}
+
+
+==========================================
+FILE PATH: ./src/Estrategia2.h
+==========================================
+
+#ifndef ESTRATEGIA2_H
+#define ESTRATEGIA2_H
+
+#include "EstrategiaEstandar.h"
+
+class MaquinaEstados;
+
+class Estrategia2 : public EstrategiaEstandar {
+	public:
+		void ejecucion(MaquinaEstados* ctx) override;
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/EstrategiaBase.h
+==========================================
+
+#ifndef ESTRATEGIA_BASE_H
+#define ESTRATEGIA_BASE_H
+
+class MaquinaEstados; // Forward declaration
+
+class EstrategiaBase {
+public:
+    virtual void seleccion(MaquinaEstados* ctx) = 0;
+    virtual void ejecucion(MaquinaEstados* ctx) = 0;
+    virtual ~EstrategiaBase() {}
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/EstrategiaEstandar.cpp
+==========================================
+
+#include "EstrategiaEstandar.h"
+#include "MaquinaEstados.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+//selecciona el estado
+void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
+	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
+	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+
+	// si detecta el limite por sc_1
+	if (noti & (1 << 0)) {
+		ctx->modo = 0;
+	}
+	// si detecta el limite por sc_2
+	else if (noti & (1 << 1)) {
+	 	 ctx->modo = 1;
+	}
+	// si deja de detectar el limite por sc 1
+	else if (ctx->memo_C == 1) {
+		ctx->modo = 2;
+	}
+	// si deja de detectar el limite por sc 2
+	else if (ctx->memo_C == 2) {
+		ctx->modo = 3;
+	}
+	//si detecta al robot por ToF1, ToF2 y ToF3
+	else if((noti & (1 << 2)) && (noti & (1 << 3)) && (noti & (1 << 4))) {
+		ctx->modo = 4;
+	}
+	//si detecta al robot por ToF1 y Tof2
+	else if((noti & (1 << 2)) && (noti & (1 << 3))) {
+		ctx->modo = 5;
+	}
+	//si detecta al robot por ToF1 y ToF3
+	else if((noti & (1 << 2)) && (noti & (1 << 4))) {
+		ctx->modo = 6;
+	}
+	//si detecta al robot por ToF2 y ToF3
+	else if((noti & (1 << 3)) && (noti & (1 << 4))) {
+		ctx->modo = 7;
+	}
+	// si detecta el robot por ToF1
+	else if (noti & (1 << 2)) {
+		ctx->modo = 8;
+	}
+	// si detecta el robot por ToF2
+	else if (noti & (1 << 3)) {
+		ctx->modo = 9;
+	}
+	//si detecta al robot por ToF3
+	else if (noti & (1 << 4)) {
+	  	ctx->modo = 10;
+	}
+	//si detecta al robot por ToF4, ToF5 y ToF6
+	else if((noti & (1 << 5)) && (noti & (1 << 6)) && (noti & (1 << 7))) {
+		ctx->modo = 11;
+	}
+	//si detecta al robot por ToF4 y ToF5
+	else if((noti & (1 << 5)) && (noti & (1 << 6))) {
+		ctx->modo = 12;
+	}
+	//si detecta al robot por ToF4 y ToF6
+	else if((noti & (1 << 5) && (noti & (1 << 7)))){
+		ctx->modo = 13;
+	}
+	//si detecta al robot por ToF5 y ToF6
+	else if((noti & (1 << 6)) && (noti & (1 << 7))) {
+		ctx->modo = 14;
+	}
+	// si detecta al robot por ToF4
+	else if (noti & (1 << 5)) {
+	  	ctx->modo = 15;
+	}
+	// si detecta al robot por ToF5
+	else if (noti & (1 << 6)) {
+		ctx->modo = 16;
+	}
+	//si detecta al robot por ToF6
+	else if (noti & (1 << 7)) {
+		ctx->modo = 17;
+	}
+	//si deja de detectar al robot por direccion AI_P a corto plazo
+	else if (ctx->memo_TC == 1) {
+		ctx->modo = 18;
+	}
+	//si deja de detectar al robot por direccion AD_P a corto plazo
+	else if (ctx->memo_TC == 2) {
+		ctx->modo = 19;
+	}
+	//si deja de detectar al robot por direccion BI_P a corto plazo
+	else if (ctx->memo_TC == 3) {
+		ctx->modo = 20;
+	}
+	//si deja de detectar al robot por direccion BD_P a corto plazo
+	else if (ctx->memo_TC == 4) {
+		ctx->modo = 21;
+	}
+	//si deja de detectar al robot por direccion AI_S a corto plazo
+	else if (ctx->memo_TC == 5) {
+		ctx->modo = 22;
+	}
+	//si deja de detectar al robot por direccion AD_S a corto plazo
+	else if (ctx->memo_TC == 6) {
+		ctx->modo = 23;
+	}
+	//si deja de detectar al robot por direccion BI_S a corto plazo
+	else if (ctx->memo_TC == 7) {
+		ctx->modo = 24;
+	}
+	//si deja de detectar al robot por direccion BD_S a corto plazo
+	else if (ctx->memo_TC == 8) {
+		ctx->modo = 25;
+	}
+	//si deja de detectar al robot de frente a corto plazo
+	else if (ctx->memo_TC == 9) {
+		ctx->modo = 26;
+	}
+	//si deja de detectar al robot por atras a corto plazo
+	else if (ctx->memo_TC == 10) {
+		ctx->modo = 27;
+	}
+	//si deja de detectar al robot por direccion AI a largo plazo
+	else if (ctx->memo_TL == 1) {
+	  	ctx->modo = 28;
+	}
+	//si deja de detectar al robot por direccion AD a largo plazo
+	else if(ctx->memo_TL == 2) {
+	  	ctx->modo = 29;
+	}
+	//si deja de detectar al robot por direccion BI a largo plazo
+	else if (ctx->memo_TL == 3) {
+		ctx->modo = 30;
+	}
+	//si deja de detectar al robot por direccion BD a largo plazo
+	else if (ctx->memo_TL == 4) {
+	  	ctx->modo = 31;
+	}
+	//memoria de avance de estrella
+	else if (ctx->memo_E) {
+		ctx->modo = 32;
+	}
+	// si no detecta nada
+	else{
+		ctx->modo = 33;
+	}
+}
+
+
+==========================================
+FILE PATH: ./src/EstrategiaEstandar.h
+==========================================
+
+#ifndef ESTRATEGIA_ESTANDAR_H
+#define ESTRATEGIA_ESTANDAR_H
+
+#include "EstrategiaBase.h"
+
+class EstrategiaEstandar : public EstrategiaBase {
+public:
+    //selecciona el estado
+    void seleccion(MaquinaEstados* ctx) override;
+    
+    // El método ejecucion sigue siendo obligatorio para los hijos (E1, E2, etc.)
+    virtual void ejecucion(MaquinaEstados* ctx) = 0;
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/EstrategiaPrototipo.cpp
+==========================================
+
+#include "EstrategiaPrototipo.h"
+#include "MaquinaEstados.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
+    uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
+    xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+
+    // si detecta el limite por sc_1
+    if (noti & (1 << 0)) {
+        ctx->modo = 0;
+    }
+    // si detecta el limite por sc_2
+    else if (noti & (1 << 1)) {
+        ctx->modo = 1;
+    }
+    // si deja de detectar el limite por sc 1
+    else if (ctx->memo_C == 1) {
+        ctx->modo = 2;
+    }
+    // si deja de detectar el limite por sc 2
+    else if (ctx->memo_C == 2) {
+        ctx->modo = 3;
+    }
+    // si detecta el robot por ojos 1
+    else if (noti & (1 << 2)) {
+        ctx->modo = 4;
+    }
+    // si detecta el robot por ojos 2
+    else if (noti & (1 << 3)) {
+        ctx->modo = 5;
+    }
+    // si deja de detectar al robot por ojos 1
+    else if (ctx->memo_TL == 1) {
+        ctx->modo = 6;
+    }
+    // si deja de detectar al robot por ojos 2
+    else if (ctx->memo_TL == 2) {
+        ctx->modo = 7;
+    }
+    // si no detecta nada
+    else if (ctx->memo_E) {
+        ctx->modo = 8;
+    }
+    else {
+        ctx->modo = 9;
+    }
+}
+
+void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
+    // variable del comandos
+    int com = ALTO;
+
+    // se guarda el tiempo
+    unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+
+    // ejecuta el estado
+    switch (ctx->modo) {
+        // detiene el movimiento y retrocede en direccion b
+        case 0:
+            com = DIR_B;
+            ctx->memo_C = 1;
+            ctx->tempC = temp;
+            break;
+        // detiene el movimiento y retrocede en direccion a
+        case 1:
+            com = DIR_A;
+            ctx->memo_C = 2;
+            ctx->tempC = temp;
+            break;
+        // continua avanzando en direccion b por un tiempo definido para alejarse del borde
+        case 2:
+            com = DIR_B;
+            break;
+        // continua avanzando en direccion a por un tiempo definido para alejarse del borde
+        case 3:
+            com = DIR_A;
+            break;
+        // avanza en direccion a
+        case 4:
+            com = ATAQUE_AI;
+            ctx->memo_TL = 1;
+            ctx->tempTL = temp;
+            break;
+        // avanza en direccion b
+        case 5:
+            com = ATAQUE_BI;
+            ctx->memo_TL = 2;
+            ctx->tempTL = temp;
+            break;
+        // avanza por un tiempo definido de 4 segundo en direccion a
+        case 6:
+            com = ATAQUE_AI;
+            break;
+        // avanza por un tiempo definido de 4 segundos en direccion b
+        case 7:
+            com = ATAQUE_BI;
+            break;
+        // da vueltas hasta encontrar el robot
+        case 8:
+            // aqui pondre la logica para que avanze formando la estrella
+            if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
+                ctx->memo_E = false; // ir a girar
+                ctx->tempE2 = temp;
+                com = GIRO;
+            } else {
+                com = DIR_A;
+            }
+            break;
+        case 9:
+            if (temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5) {
+                ctx->memo_E = true; // Termina giro → pasará a estado 8
+                ctx->tempE1 = temp; // Reiniciar timer del avance
+                com = DIR_A;
+            } else {
+                com = GIRO;
+            }
+            break;
+        default:
+            com = ALTO;
+            break;
+    }
+    xTaskNotify(*(ctx->motr), com, eSetValueWithOverwrite);
+}
+
+
+==========================================
+FILE PATH: ./src/EstrategiaPrototipo.h
+==========================================
+
+#ifndef ESTRATEGIA_PROTOTIPO_H
+#define ESTRATEGIA_PROTOTIPO_H
+
+#include "EstrategiaBase.h"
+
+class MaquinaEstados;
+
+class EstrategiaPrototipo : public EstrategiaBase {
+public:
+    void seleccion(MaquinaEstados* ctx) override;
+    void ejecucion(MaquinaEstados* ctx) override;
+};
+
+#endif
+
+
+==========================================
 FILE PATH: ./src/main.cpp
 ==========================================
 
@@ -1155,13 +1907,16 @@ static const char* TAG = "main";
 
 
 // variables que establecen el tiemṕo
-int tiempo1 = 2000; // tiempo que sigue avanzando despues de dejar de detectar
-                    // al rival
-int tiempo2 = 400; // tiempo que retrocede al detectar el borde
+int tiempo1 = 400; // tiempo que retrocede al detectar el borde
 
-int tiempo3 = 2000;//tiempo que avanza en linea recta para buscar al oponente
+int tiempo2 = 250; //tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
 
-int tiempo4 = 500; //tiempo en el que gira para buscar al oponente
+int tiempo3 = 2000; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
+
+int tiempo4 = 2000;//tiempo que avanza en linea recta para buscar al oponente
+
+int tiempo5 = 500; //tiempo en el que gira para buscar al oponente
+
 // variables que definen limites
 int maxd = 400;    // limite de los sensores ultrasonicos (mm)
 int limCol = 200; // tolerancia del sendor de color
@@ -1188,14 +1943,14 @@ SemaphoreHandle_t mutex = NULL;
 #else
     // Configuración original ESP32
     gpio_num_t mus = GPIO_NUM_4;
-    gpio_num_t ini = GPIO_NUM_26;
+    gpio_num_t ini = GPIO_NUM_2;
     gpio_num_t trig_1 = GPIO_NUM_19;
     gpio_num_t echo_1 = GPIO_NUM_23;
     gpio_num_t trig_2 = GPIO_NUM_18;
     gpio_num_t echo_2 = GPIO_NUM_25;
 
     // variables de los pines de los motores
-    gpio_num_t mot[2][2] = {{GPIO_NUM_13, GPIO_NUM_14},{GPIO_NUM_16, GPIO_NUM_27}};
+    gpio_num_t mot[2][2] = {{GPIO_NUM_13, GPIO_NUM_14},{GPIO_NUM_16, GPIO_NUM_17}};
 #endif
 
 //objeto de Wifi
@@ -1282,14 +2037,12 @@ void motores(void *pvParameters) {
 
   	while (true) {
     	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(10)) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
       		accion = accionNueva;
-
-      		// Aplica el nuevo movimiento
-
-      		cm.controlador(accion);
-  		}
+		}
+      	// Aplica el nuevo movimiento
+      	cm.controlador(accion);
 	}
 }
 // TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
@@ -1346,7 +2099,7 @@ extern "C" void app_main(void){
     #ifdef CONFIG_IDF_TARGET_ESP32S3
         ESP_LOGI(TAG, "TARGET DETECTADO: ESP32-S3");
     #else
-        ESP_LOGW(TAG, "DETECTADO: ESP32 ESTANDA");
+        ESP_LOGW(TAG, "DETECTADO: ESP32 ESTANDAR");
     #endif
 
 	//inicializar la memoria nvs
@@ -1457,7 +2210,7 @@ extern "C" void app_main(void){
 	sr->begin();
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, &motr);
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr);
 	ESP_LOGI(TAG, "se inicializo todo");
 
 	if(modo == 0){
@@ -1512,8 +2265,12 @@ FILE PATH: ./src/MaquinaEstados.cpp
 #include "nvs.h"
 #include <cstdint>
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, TaskHandle_t* _motr):
-	tempT(0),
+#include "EstrategiaPrototipo.h"
+#include "Estrategia1.h"
+#include "Estrategia2.h"
+
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr):
+	tempTL(0),
 	tempC(0),
 	tempE1(0),
 	tempE2(0),
@@ -1521,576 +2278,72 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	tiempo2(_tiempo2),
 	tiempo3(_tiempo3),
 	tiempo4(_tiempo4),
+	tiempo5(_tiempo5),
 	motr(_motr),
 	modo(-1),
 	estrategia(0),
 	ciclo(0),
 	ini(0),
-	memo_T(0),
+	memo_TC(0),
+	memo_TL(0),
 	memo_C(0),
 	memo_E(false)
 {
+	estPrototipo = new EstrategiaPrototipo();
+	estE1 = new Estrategia1();
+	estE2 = new Estrategia2();
+
 	nvsLeer();
+	switch(estrategia){
+		case 0:
+			estActual = estPrototipo;
+			break;
+		case 1:
+			estActual = estE1;
+			break;
+		case 2:
+			estActual = estE2;
+			break;
+		default:
+			estActual = estPrototipo;
+			break;
+	}
 }
 
-//se cuentan kis tiempos
+// se cuentan kis tiempos
 void MaquinaEstados::tiempo(){
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
 	// condiciones que evaluan si ya pasaron los tiempos
-    if (temp - tempT >= tiempo1) {
-		//tiempo de ataque ciego dir a derecha
-    	memo_T = 0;
-    }
-    if (temp - tempC >= tiempo2) {
+    if (temp - tempC >= (unsigned long)tiempo1) {
 		//timepo de retroceso dir a
     	memo_C = 0;
     }
-}
-
-// selecciona el estado del prototipo
-void MaquinaEstados::seleccionP(){
-	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
-	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
-
-	// si detecta el limite por sc_1
-	if (noti & (1 << 0)) {
-  		modo = 0;
+	if (temp - tempTC >= (unsigned long)tiempo2) {
+		//tiempo de memoria a corto plazo
+		memo_TC = 0;
 	}
-	// si detecta el limite por sc_2
-	else if (noti & (1 << 1)) {
-	 	 modo = 1;
-	}
-	// si deja de detectar el limite por sc 1
-	else if (memo_C == 1) {
-  		modo = 2;
-	}
-	// si deja de detectar el limite por sc 2
-	else if (memo_C == 2) {
-		modo = 3;
+    if (temp - tempTL >= (unsigned long)tiempo3) {
+		//tiempo de la memoria a largo plazo
+    	memo_TL = 0;
     }
-	// si detecta el robot por ojos 1
-	else if (noti & (1 << 2)) {
-  		modo = 4;
-	}
-    // si detecta el robot por ojos 2
-	else if (noti & (1 << 3)) {
-		modo = 5;
-	}
-	// si deja de detectar al robot por ojos 1
-	else if (memo_T == 1) {
-  		modo = 6;
-	}
-	// si deja de detectar al robot por ojos 2
-	else if (memo_T == 2) {
-		modo = 7;
-    }
-    // si no detecta nada
-	else if(memo_E){
-		modo = 8;
-    }
-	else{
-		modo = 9;
-	}
-}
-
-//selecciona el estado
-void MaquinaEstados::seleccion(){
-	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
-	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
-
-	// si detecta el limite por sc_1
-	if (noti & (1 << 0)) {
-		modo = 0;
-	}
-	// si detecta el limite por sc_2
-	else if (noti & (1 << 1)) {
-	 	 modo = 1;
-	}
-	// si deja de detectar el limite por sc 1
-	else if (memo_C == 1) {
-		modo = 2;
-	}
-	// si deja de detectar el limite por sc 2
-	else if (memo_C == 2) {
-		modo = 3;
-	}
-	//si detecta al robot por ToF1, ToF2 y ToF3
-	else if((noti & (1 << 2)) && (noti & (1 << 3)) && (noti & (1 << 4))) {
-		modo = 4;
-	}
-	//si detecta al robot por ToF1 y Tof2
-	else if((noti & (1 << 2)) && (noti & (1 << 3))) {
-		modo = 5;
-	}
-	//si detecta al robot por ToF1 y ToF3
-	else if((noti & (1 << 2)) && (noti & (1 << 4))) {
-		modo = 6;
-	}
-	//si detecta al robot por ToF2 y ToF3
-	else if((noti & (1 << 3)) && (noti & (1 << 4))) {
-		modo = 7;
-	}
-	// si detecta el robot por ToF1
-	else if (noti & (1 << 2)) {
-		modo = 8;
-	}
-	// si detecta el robot por ToF2
-	else if (noti & (1 << 3)) {
-		modo = 9;
-	}
-	//si detecta al robot por ToF3
-	else if (noti & (1 << 4)) {
-	  	modo = 10;
-	}
-	//si detecta al robot por ToF4, ToF5 y ToF6
-	else if((noti & (1 << 5)) && (noti & (1 << 6)) && (noti & (1 << 7))) {
-		modo = 11;
-	}
-	//si detecta al robot por ToF4 y ToF5
-	else if((noti & (1 << 5)) && (noti & (1 << 6))) {
-		modo = 12;
-	}
-	//si detecta al robot por ToF4 y ToF6
-	else if((noti & (1 << 5) && (noti & (1 << 7)))){
-		modo = 13;
-	}
-	//si detecta al robot por ToF5 y ToF6
-	else if((noti & (1 << 6)) && (noti & (1 << 7))) {
-		modo = 14;
-	}
-	// si detecta al robot por ToF4
-	else if (noti & (1 << 5)) {
-	  	modo = 15;
-	}
-	// si detecta al robot por ToF5
-	else if (noti & (1 << 6)) {
-		modo = 16;
-	}
-	//si detecta al robot por ToF6
-	else if (noti & (1 << 7)) {
-		modo = 17;
-	}
-	else if (memo_T == 1) {
-	  		modo = 18;
-	}
-	else if(memo_T == 2) {
-	  		modo = 19;
-	}
-	else if (memo_T == 3) {
-		modo = 20;
-	}
-	else if (memo_T == 4) {
-	  		modo = 21;
-	}
-	else if (memo_E) {
-		modo = 22;
-	}
-	// si no detecta nada
-	else{
-		modo = 23;
-	}
-}
-
-//la ejecucion de la estrategia del prototipo
-void MaquinaEstados::ejecucionEP(){
-	// variable del comandos
-    int com = ALTO;
-
-	//se guarda el tiempo
-	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-
-    // ejecuta el estado
-    switch (modo) {
-		// detiene el movimiento y retrocede en direccion b
-    	case 0:
-      		com = DIR_B;
-      		memo_C = 1;
-      		tempC = temp;
-      		break;
-      	// detiene el movimiento y retrocede en direccion a
-    	case 1:
-    	  	com = DIR_A;
-      		memo_C = 2;
-      		tempC = temp;
-      		break;
-		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
-    	case 2:
-      		com = DIR_B;
-      		break;
-    	// continua avanzando en direccion a por un tiempo definido para alejarse del borde
-    	case 3:
-      		com = DIR_A;
-      		break;
-    	// avanza en direccion a
-    	case 4:
-      		com = ATAQUE_AI;
-      		memo_T = 1;
-      		tempT = temp;
-      		break;
-    	// avanza en direccion b
-    	case 5:
-      		com = ATAQUE_BI;
-      		memo_T = 2;
-      		tempT = temp;
-      		break;
-    	// avanza por un tiempo definido de 4 segundo en direccion a
-    	case 6:
-      		com = ATAQUE_AI;
-      		break;
-    	// avanza por un tiempo definido de 4 segundos en direccion b
-    	case 7:
-      		com = ATAQUE_BI;
-      		break;
-      	// da vueltas hasta encontrar el robot
-    	case 8:
-      		//aqui pondre la logica para que avanze formando la estrella
-			if (temp - tempE1 >= tiempo3) {
-    			memo_E = false;        // ir a girar
-    			tempE2 = temp;
-				com = GIRO;
-			}else{
-      			com = DIR_A;
-			}
-      		break;
-		case 9:
-    		if(temp - tempE2 >= tiempo4){
-    		    memo_E = true;      // Termina giro → pasará a estado 8
-    		    tempE1 = temp;      // Reiniciar timer del avance
-				com = DIR_A;
-    		} else {
-    		    com = GIRO;
-    		}
-            break;
-		default:
-			com = ALTO;
-			break;
-	}
-    xTaskNotify(*motr, com, eSetValueWithOverwrite);
-}
-
-//ejecucion de la estrategia 1
-void MaquinaEstados::ejecucionE1(){
-	//variable del comandos
-	int com = ALTO;
-
-	//variable que guarda el tiempo
-	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-
-	switch (modo) {
-		// detiene el movimiento y retrocede en direccion b
-		case 0:
-	  		com = DIR_B;
-	  		memo_C = 1;
-	  		tempC = temp;
-	  		break;
-	  	// detiene el movimiento y retrocede en direccion a
-		case 1:
-		  	com = DIR_A;
-	  		memo_C = 2;
-	  		tempC = temp;
-	  		break;
-		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
-		case 2:
-	  		com = DIR_B;
-	  		break;
-		// continua avanzando en direccion a por un tiempo definido para alejarse del borde
-		case 3:
-	  		com = DIR_A;
-	  		break;
-         // enemigo inmnente direccion a
-        case 4:
-              com = MAX_A;
-              break;
-        //enemigo detectado en direccion a izquierda
-        case 5:
-			memo_T = 1;
-			tempT = temp;
-            com = ATAQUE_AI;
-			break;
-        //incoherencia, posible falla de los sensores en direccion a(accion por definir que es mejor)
-        case 6:
-            com = MAX_A;
-            break;
-        // enemigo detectado ne direccion a derecha
-        case 7:
-			memo_T = 2;
-			tempT = temp;
-            com = ATAQUE_AD;
-            break;
-        // enemigo detectado muy a la izquierda en direccion a
-        case 8:
-			memo_T = 1;
-			tempT = temp;
-            com = PRO_AI;
-			break;
-        //enemigo detectado lejos en direccion a
-        case 9:
-            com = DIR_A;
-            break;
-        // enemigo detectado muy a la derecha en direccion a
-        case 10:
-			memo_T = 2;
-			tempT = temp;
-            com = PRO_AD;
-            break;
-        // enemigo inminente direccio a
-        case 11:
-            com = MAX_A;
-            break;
-        // enemigo detectado en direccion b izquierda
-        case 12:
-			memo_T = 3;
-			tempT = temp;
-            com = ATAQUE_BI;
-            break;
-        //incoherencia, posible falla de los sensores en direccion b(accion por definir que es mejor)
-        case 13:
-            com = MAX_A;
-            break;
-        // enemigo detectado en direccion b derecha
-        case 14:
-			memo_T = 4;
-			tempT = temp;
-            com = ATAQUE_BD;
-            break;
-        // enemigo detectado muy a la izquierda en direccion b
-        case 15:
-			memo_T = 3;
-			tempT = temp;
-            com = PRO_BI;
-            break;
-        // enemigo detectado lejos en direccion b
-        case 16:
-            com = DIR_B;
-            break;
-        // enemigo detectado muy a la derecha en direccion b
-        case 17:
-			memo_T = 4;
-			tempT = temp;
-            com = PRO_BD;
-            break;
-		//memoria del sector AI
-		case 18:
-			com = PRO_AI;
-			break;
-		//memoria del sector AD
-		case 19:
-			com = PRO_AD;
-			break;
-		//memoria del sector BI
-		case 20:
-			com = PRO_BI;
-			break;
-		//memoria del sector BD
-		case 21:
-			com = PRO_BD;
-			break;
-		//avanze de estrella
-		case 22:
-			//logica para que avanze formando la estrella
-			if (temp - tempE1 >= tiempo3) {
-    			memo_E = false;        // ir a girar
-    			tempE2 = temp;         // inicia tiempo del giro
-				com = GIRO;
-			}else{
-      			com = DIR_A;
-			}
-      		break;
-		//giro de estrella
-		case 23:
-    		if(temp - tempE2 >= tiempo4){
-    		    memo_E = true;      // Termina giro → pasará a estado 8
-    		    tempE1 = temp;      // Reiniciar timer del avance
-				com = DIR_A;
-    		} else {
-    		    com = GIRO;
-    		}
-            break;
-        default:
-            com = ALTO;
-            break;
-    }
-    xTaskNotify(*motr, com, eSetValueWithOverwrite);
-}
-
-
-void MaquinaEstados::ejecucionE2(){
-	//variable del comandos
-	int com = ALTO;
-
-	//variable que guarda el tiempo
-	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-
-	switch (modo) {
-		// detiene el movimiento y retrocede en direccion b
-		case 0:
-	  		com = DIR_B;
-	  		memo_C = 1;
-	  		tempC = temp;
-	  		break;
-	  	// detiene el movimiento y retrocede en direccion a
-		case 1:
-		  	com = DIR_A;
-	  		memo_C = 2;
-	  		tempC = temp;
-	  		break;
-		// continua avanzando en direccion b por un tiempo definido para alejarse del borde
-		case 2:
-	  		com = DIR_B;
-	  		break;
-		// continua avanzando en direccion a por un tiempo definido para alejarse del borde
-		case 3:
-	  		com = DIR_A;
-	  		break;
-         // enemigo inmnente direccion a
-        case 4:
-              com = MAX_A;
-              break;
-        //enemigo detectado en direccion a izquierda
-        case 5:
-			memo_T = 1;
-			tempT = temp;
-            com = ATAQUE_AI;
-			break;
-        //incoherencia, posible falla de los sensores en direccion a(accion por definir que es mejor)
-        case 6:
-            com = MAX_A;
-            break;
-        // enemigo detectado ne direccion a derecha
-        case 7:
-			memo_T = 2;
-			tempT = temp;
-            com = ATAQUE_AD;
-            break;
-        // enemigo detectado muy a la izquierda en direccion a
-        case 8:
-			memo_T = 1;
-			tempT = temp;
-            com = PRO_AI;
-			break;
-        //enemigo detectado lejos en direccion a
-        case 9:
-            com = DIR_A;
-            break;
-        // enemigo detectado muy a la derecha en direccion a
-        case 10:
-			memo_T = 2;
-			tempT = temp;
-            com = PRO_AD;
-            break;
-        // enemigo inminente direccio a
-        case 11:
-            com = MAX_A;
-            break;
-        // enemigo detectado en direccion b izquierda
-        case 12:
-			memo_T = 3;
-			tempT = temp;
-            com = ATAQUE_BI;
-            break;
-        //incoherencia, posible falla de los sensores en direccion b(accion por definir que es mejor)
-        case 13:
-            com = MAX_A;
-            break;
-        // enemigo detectado en direccion b derecha
-        case 14:
-			memo_T = 4;
-			tempT = temp;
-            com = ATAQUE_BD;
-            break;
-        // enemigo detectado muy a la izquierda en direccion b
-        case 15:
-			memo_T = 3;
-			tempT = temp;
-            com = PRO_BI;
-            break;
-        // enemigo detectado lejos en direccion b
-        case 16:
-            com = DIR_B;
-            break;
-        // enemigo detectado muy a la derecha en direccion b
-        case 17:
-			memo_T = 4;
-			tempT = temp;
-            com = PRO_BD;
-            break;
-		//memoria del sector AI
-		case 18:
-			com = PRO_AD;
-			break;
-		//memoria del sector AD
-		case 19:
-			com = PRO_AI;
-			break;
-		//memoria del sector BI
-		case 20:
-			com = PRO_BD;
-			break;
-		//memoria del sector BD
-		case 21:
-			com = PRO_BI;
-			break;
-		//avanze de estrella
-		case 22:
-			//logica para que avanze formando la estrella
-			if (temp - tempE1 >= tiempo3) {
-    			memo_E = false;        // ir a girar
-    			tempE2 = temp;         // inicia tiempo del giro
-				com = GIRO;
-			}else{
-      			com = DIR_A;
-			}
-      		break;
-		//giro de estrella
-		case 23:
-    		if(temp - tempE2 >= tiempo4){
-    		    memo_E = true;      // Termina giro → pasará a estado 8
-    		    tempE1 = temp;      // Reiniciar timer del avance
-				com = DIR_A;
-    		} else {
-    		    com = GIRO;
-    		}
-            break;
-        default:
-            com = ALTO;
-            break;
-    }
-    xTaskNotify(*motr, com, eSetValueWithOverwrite);
 }
 
 void MaquinaEstados::logica(){
-	//evaluacion de tiempos
 	tiempo();
-	if(estrategia == 0){
-		//seleccion de estado del prototipo
-		seleccionP();
-	}else{
-		//seleccion de estado
-		seleccion();
-	}
-
-	//se ejecuta dependiendo de la estrategia
-	switch (estrategia) {
-		case 0:
-			ejecucionEP();
-			break;
-		case 1:
-			ejecucionE1();
-			break;
-		case 2:
-			ejecucionE2();
-			break;
-
+	if(estActual != nullptr){
+		estActual->seleccion(this);
+		estActual->ejecucion(this);
 	}
 }
 
 void MaquinaEstados::nvsLeer(){
 	Nvs nvs("tiempos");
-	tiempo1 = nvs.leer("ataque_ciego",tiempo1);
-	tiempo2 = nvs.leer("retroceso",tiempo2);
-	tiempo3 = nvs.leer("recta_star",tiempo3);
-	tiempo4 = nvs.leer("giro_star",tiempo4);
+	tiempo1 = nvs.leer("retroceso",tiempo1);
+	tiempo2 = nvs.leer("tof_corto_plazo",tiempo2);
+	tiempo3 = nvs.leer("tof_largo_plazo",tiempo3);
+	tiempo4 = nvs.leer("recta_star",tiempo4);
+	tiempo5 = nvs.leer("giro_star",tiempo5);
 	estrategia = nvs.leer("estrategia",estrategia);
 }
 
@@ -2138,10 +2391,20 @@ FILE PATH: ./src/MaquinaEstados.h
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 
+class EstrategiaBase;
+class EstrategiaPrototipo;
+class Estrategia1;
+class Estrategia2;
+
 class MaquinaEstados{
+	friend class EstrategiaPrototipo;
+	friend class EstrategiaEstandar;
+	friend class Estrategia1;
+	friend class Estrategia2;
 	private:
 		// variables que cuentan el tiempo
-		unsigned long tempT;
+		unsigned long tempTC;
+		unsigned long tempTL;
 		unsigned long tempC;
 		unsigned long tempE1;
 		unsigned long tempE2;
@@ -2151,6 +2414,7 @@ class MaquinaEstados{
 		int tiempo2;
 		int tiempo3;
 		int tiempo4;
+		int tiempo5;
 
 		// handle de la tarea de los motores
 		TaskHandle_t* motr;
@@ -2161,38 +2425,33 @@ class MaquinaEstados{
 		int ciclo;
 		int ini;
 
-		int memo_T;//control de los ToF
-				   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
+		int memo_TC;//control de los ToF a corto plazo
+				   //0 = sin memoria, 1 = AI pro, 2 = AD pro, 3 = BI pro, 4 = BD pro, 5 = AI suave, 6 = AD suave, 7 = BI suave, 8 = BD suave, 9 = frente, 10 = atras
+
+		int memo_TL;//control de los ToF a largo plazo
+			   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
 
 		int memo_C;//control de los sc
 					//0 = sin memoria, 1 = sc_1, 2 = sc_2
 
 		bool memo_E;//contol estrella
 
+		// Instancias de estrategias
+		EstrategiaPrototipo* estPrototipo;
+		Estrategia1* estE1;
+		Estrategia2* estE2;
+
+		//puntero de la estrategia actual
+		EstrategiaBase* estActual;
 
 		//metodo de validacion del tiempo
 		void tiempo();
-
-		//seleccion de estado(prototipo)
-		void seleccionP();
-
-		//seleccion de estado(final)
-		void seleccion();
-
-		//se ejecuta el estado(prototipo)
-		void ejecucionEP();
-
-		//se ejecuta el estado(estrategia 1)
-		void ejecucionE1();
-
-		//se ejecutara el estado(estrategia 2)
-		void ejecucionE2();
 
 		//lee los datos de la nvs
 		void nvsLeer();
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, TaskHandle_t* _motr);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
 
 		//maquina de estados
 		void logica();
@@ -2370,7 +2629,8 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	//se revisa y aplican cambios en la configuracion de los tiempo
 	cJSON *tiempos = cJSON_GetObjectItemCaseSensitive(maestro, "tiempos");
 	if(tiempos != NULL){
-		extraer(tiempos, "ataque_ciego", "tiempos");
+		extraer(tiempos, "tof_corto_plazo", "tiempos");
+		extraer(tiempos, "tof_largo_plazo", "tiempos");
 		extraer(tiempos, "retroceso", "tiempos");
 		extraer(tiempos, "recta_star", "tiempos");
 		extraer(tiempos, "giro_star", "tiempos");
@@ -2409,9 +2669,9 @@ FILE PATH: ./src/Mqtt.h
 #include <cstdint>
 #include "cJSON.h"
 
-#define BROKER "mqtt://137.184.188.101"
-#define USUARIO "robot"
-#define PASSWORD "2846"
+#define BROKER CONFIG_MQTT_BROKER
+#define USUARIO CONFIG_MQTT_USER
+#define PASSWORD CONFIG_MQTT_PASSWORD
 
 class Mqtt{
 	private:
@@ -2764,17 +3024,16 @@ FILE PATH: ./src/rgb.h
 #define LEDC_DUTY_RES           LEDC_TIMER_10_BIT   // Resolución (0-1023)
 #define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
 
-// --- Configuración Pin 16 ---
-#define LEDC_PIN_16             GPIO_NUM_32
-#define LEDC_CHANNEL_16         LEDC_CHANNEL_4
+// --- Configuración LED RGB ---
+// Usamos los GPIO 32 y 33 para evitar conflictos con los motores (16 y 17)
+#define RGB_PIN_A               GPIO_NUM_32
+#define RGB_CHANNEL_A           LEDC_CHANNEL_4
 
-// --- Configuración Pin 17 ---
-#define LEDC_PIN_17             GPIO_NUM_33
-#define LEDC_CHANNEL_17         LEDC_CHANNEL_5
+#define RGB_PIN_B               GPIO_NUM_33
+#define RGB_CHANNEL_B           LEDC_CHANNEL_5
 
 static inline void pwm_rgb() {
-    // 1. Configurar el Timer (Solo se hace una vez)
-    // Este timer será compartido por ambos pines
+    // 1. Configurar el Timer
     ledc_timer_config_t ledc_timer = {
         .speed_mode       = LEDC_MODE,
         .duty_resolution  = LEDC_DUTY_RES,
@@ -2786,47 +3045,50 @@ static inline void pwm_rgb() {
     ledc_timer_config(&ledc_timer);
 
 
-    // 2. Configurar el Canal 0 (para el Pin 16)
-    ledc_channel_config_t ledc_channel_16 = {
-        .gpio_num       = LEDC_PIN_16,
+    // 2. Configurar el Canal A
+    ledc_channel_config_t ledc_channel_a = {
+        .gpio_num       = RGB_PIN_A,
         .speed_mode     = LEDC_MODE,
-        .channel        = LEDC_CHANNEL_16,
-		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
-        .timer_sel      = LEDC_TIMER, // <-- Vinculado al Timer 0
+        .channel        = RGB_CHANNEL_A,
+		.intr_type      = LEDC_INTR_DISABLE,
+        .timer_sel      = LEDC_TIMER,
         .duty           = 0,
         .hpoint         = 0,
-    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
-    	.flags = 0
+    	.sleep_mode     = LEDC_SLEEP_MODE_KEEP_ALIVE,
+    	.flags          = 0
     };
-    ledc_channel_config(&ledc_channel_16);
+    ledc_channel_config(&ledc_channel_a);
 
 
-    // 3. Configurar el Canal 1 (para el Pin 17)
-    ledc_channel_config_t ledc_channel_17 = {
-        .gpio_num       = LEDC_PIN_17,
+    // 3. Configurar el Canal B
+    ledc_channel_config_t ledc_channel_b = {
+        .gpio_num       = RGB_PIN_B,
         .speed_mode     = LEDC_MODE,
-        .channel        = LEDC_CHANNEL_17,
-		.intr_type = LEDC_INTR_DISABLE,              // <--- AGREGAR
-        .timer_sel      = LEDC_TIMER, // <-- Vinculado al mismo Timer 0
+        .channel        = RGB_CHANNEL_B,
+		.intr_type      = LEDC_INTR_DISABLE,
+        .timer_sel      = LEDC_TIMER,
         .duty           = 0,
         .hpoint         = 0,
-    	.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE, // <--- AGREGAR
-    	.flags = 0
+    	.sleep_mode     = LEDC_SLEEP_MODE_KEEP_ALIVE,
+    	.flags          = 0
     };
-    ledc_channel_config(&ledc_channel_17);
+    ledc_channel_config(&ledc_channel_b);
 }
-static inline void set_16(uint32_t duty) {
-    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_16, duty);
-    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_16);
+
+static inline void set_rgb_a(uint32_t duty) {
+    ledc_set_duty(LEDC_MODE, RGB_CHANNEL_A, duty);
+    ledc_update_duty(LEDC_MODE, RGB_CHANNEL_A);
 }
-static inline void set_17(uint32_t duty) {
-    ledc_set_duty(LEDC_MODE, LEDC_CHANNEL_17, duty);
-    ledc_update_duty(LEDC_MODE, LEDC_CHANNEL_17);
+
+static inline void set_rgb_b(uint32_t duty) {
+    ledc_set_duty(LEDC_MODE, RGB_CHANNEL_B, duty);
+    ledc_update_duty(LEDC_MODE, RGB_CHANNEL_B);
 }
-// funcion que prende un led para detectar errores, etc.
+
+// Función principal para el LED RGB
 static inline void rgb(int a, int b) {
-    set_16(a);
-    set_17(b);
+    set_rgb_a(a);
+    set_rgb_b(b);
 }
 
 #endif
@@ -3355,19 +3617,20 @@ void SensorTof::procesar(TaskHandle_t* Robot){
 		//se lee la distancia
 	    uint16_t distancia = dist(tur);
 		//se verifica si esta en el rango
+		int bit = 2 + tur;
 		if(distancia > 10 && distancia < maxd && distancia < 8000){
-            // se define el bit para notificar lo sucedido
-            int bit = 2 + tur;
 			pac |= (1 << bit);
+		} else {
+			pac &= ~(1 << bit);
 		}
 		tur++;
         xSemaphoreGive(*mutex);
     }
 	if(tur >= NUM_TOF){
 		tur = 0;
-		xTaskNotify(*Robot, pac, eSetBits);
-		pac = 0;
 	}
+	// Se notifica el estado actualizado en cada ciclo (Streaming Real)
+	xTaskNotify(*Robot, pac, eSetBits);
 }
 
 //metodo que lee la Nvs
@@ -4107,8 +4370,8 @@ FILE PATH: ./src/Wifi.h
 #include "esp_event.h"
 #include "esp_bit_defs.h"
 
-#define WIFI "INFINITUM288C_2.4"
-#define WIFI_PASS_CRED "2465364457"
+#define WIFI CONFIG_WIFI_SSID
+#define WIFI_PASS_CRED CONFIG_WIFI_PASSWORD
 #define WIFI_CONNECTED BIT0
 
 class Wifi{
