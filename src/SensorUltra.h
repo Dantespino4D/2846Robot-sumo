@@ -66,7 +66,7 @@ class SensorUltra : public SensorRival {
 		void nvsLeer();
 	public:
 		//costructor
-		SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2);
+		SensorUltra(int _maxd);
 
 		//metodos de verificacion
 		bool ojos_1Verify();

@@ -608,6 +608,45 @@ void prueba();
 
 
 ==========================================
+FILE PATH: ./src/configuracion.cpp
+==========================================
+
+#include "configuracion.h"
+
+// variables que establecen el tiemṕo
+int tiempo1 = 400; // tiempo que retrocede al detectar el borde
+int tiempo2 = 250; // tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
+int tiempo3 = 2000; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
+int tiempo4 = 2000; // tiempo que avanza en linea recta para buscar al oponente
+int tiempo5 = 500; // tiempo en el que gira para buscar al oponente
+
+// variables que definen limites
+int maxd = 400;    // limite de los sensores ultrasonicos (mm)
+int limCol = 200; // tolerancia del sendor de color
+
+
+==========================================
+FILE PATH: ./src/configuracion.h
+==========================================
+
+#ifndef CONFIGURACION_H
+#define CONFIGURACION_H
+
+// variables que establecen el tiemṕo
+extern int tiempo1; // tiempo que retrocede al detectar el borde
+extern int tiempo2; // tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
+extern int tiempo3; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
+extern int tiempo4; // tiempo que avanza en linea recta para buscar al oponente
+extern int tiempo5; // tiempo en el que gira para buscar al oponente
+
+// variables que definen limites
+extern int maxd;    // limite de los sensores ultrasonicos (mm)
+extern int limCol; // tolerancia del sendor de color
+
+#endif // CONFIGURACION_H
+
+
+==========================================
 FILE PATH: ./src/ControlMotores.cpp
 ==========================================
 
@@ -1902,56 +1941,17 @@ FILE PATH: ./src/main.cpp
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include <cstdint>
+#include "configuracion.h"
+#include "pines.h"
 
 static const char* TAG = "main";
-
-
-// variables que establecen el tiemṕo
-int tiempo1 = 400; // tiempo que retrocede al detectar el borde
-
-int tiempo2 = 250; //tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
-
-int tiempo3 = 2000; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
-
-int tiempo4 = 2000;//tiempo que avanza en linea recta para buscar al oponente
-
-int tiempo5 = 500; //tiempo en el que gira para buscar al oponente
-
-// variables que definen limites
-int maxd = 400;    // limite de los sensores ultrasonicos (mm)
-int limCol = 200; // tolerancia del sendor de color
 
 //creamos el mutex
 SemaphoreHandle_t mutex = NULL;
 
 // variables de control
  volatile bool start = false;
-
-// variables de los pines
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    gpio_num_t mus = GPIO_NUM_47;
-    gpio_num_t ini = GPIO_NUM_2;
-
-    // Ultrasonicos
-    gpio_num_t trig_1 = GPIO_NUM_15;
-    gpio_num_t echo_1 = GPIO_NUM_21;
-    gpio_num_t trig_2 = GPIO_NUM_38;
-    gpio_num_t echo_2 = GPIO_NUM_48;
-
-
-    gpio_num_t mot[2][2] = {{GPIO_NUM_4, GPIO_NUM_5},{GPIO_NUM_6, GPIO_NUM_7}};
-#else
-    // Configuración original ESP32
-    gpio_num_t mus = GPIO_NUM_4;
-    gpio_num_t ini = GPIO_NUM_2;
-    gpio_num_t trig_1 = GPIO_NUM_19;
-    gpio_num_t echo_1 = GPIO_NUM_23;
-    gpio_num_t trig_2 = GPIO_NUM_18;
-    gpio_num_t echo_2 = GPIO_NUM_25;
-
-    // variables de los pines de los motores
-    gpio_num_t mot[2][2] = {{GPIO_NUM_13, GPIO_NUM_14},{GPIO_NUM_16, GPIO_NUM_17}};
-#endif
+ int32_t modo;
 
 //objeto de Wifi
 Wifi wi;
@@ -1969,7 +1969,7 @@ SensorLimite* sc = nullptr;
 SensorRival* sr = nullptr;
 
 // objeto del controlador de motores
-ControlMotores cm(mot[0][1], mot[1][1], mot[0][0], mot[1][0]);
+ControlMotores cm(MOT_A2, MOT_B2, MOT_A1, MOT_B1);
 
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
@@ -1980,16 +1980,46 @@ Telemetria* tm = nullptr;
 //objeto de handle de la tarea del robot
 TaskHandle_t rob = NULL;
 
-
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
 
+//protoripos de las tareas
+void robot(void *pvParameters);
+void motores(void *pvParameters);
+void senColor(void *pvParameters);
+void senRival(void *pvParameters);
+void musica(void *pvParameters);
+void telemetria(void *pvParameters);
+//prototipos de las funciones
+void begin();
+void begin_hardware();
+void comunicaciones();
 
-// TAREA DE LA LOGICA DEL ROBOT
+// APP MAIN
+
+extern "C" void app_main(void){
+	begin();
+
+    begin_hardware();
+
+    comunicaciones();
+
+  	// se crean las tareas
+  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
+  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
+  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
+	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, NULL, 2, NULL, 0);
+	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
+	ESP_LOGI(TAG, "se inicializo las tareas");
+}
+
+
+// LOGICA DEL ROBOT
+
 
 void robot(void *pvParameters) {
   	// prende al precionar el boton
-  	while (gpio_get_level(ini) == 1) {
+  	while (gpio_get_level(INI) == 1) {
     	vTaskDelay(pdMS_TO_TICKS(100));
   	}
   	ESP_LOGI(TAG, "boton precionado");
@@ -2029,7 +2059,9 @@ void robot(void *pvParameters) {
   	}
 }
 
-// TAREA DE LOS MOTORES
+
+//MOTORES
+
 
 void motores(void *pvParameters) {
   	uint32_t accion = 0;
@@ -2037,7 +2069,7 @@ void motores(void *pvParameters) {
 
   	while (true) {
     	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(10)) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
       		accion = accionNueva;
 		}
@@ -2045,7 +2077,10 @@ void motores(void *pvParameters) {
       	cm.controlador(accion);
 	}
 }
-// TAREA DE LOS SENSORES DE LOS SENSORES DE COLOR
+
+
+// SENSORES DE COLOR
+
 
 void senColor(void *pvParameters) {
 	while (true) {
@@ -2062,9 +2097,11 @@ void senColor(void *pvParameters) {
   	}
 }
 
-// TAREA DE LOS SENSORES ULTRASONICOS
 
-void senUltra(void *pvParameters) {
+// SENSORES RIVAL
+
+
+void senRival(void *pvParameters) {
 	while (true) {
 		if(start){
     		sr->procesar(&rob);
@@ -2073,7 +2110,9 @@ void senUltra(void *pvParameters) {
   	}
 }
 
-//TAREA DE LA MUSICA
+
+// MUSICA
+
 
 void musica(void *pvParameters) {
   	while (true) {
@@ -2085,7 +2124,9 @@ void musica(void *pvParameters) {
   	}
 }
 
-//TAREA DE LA TELEMETRIA
+
+// TELEMETRIA
+
 
 void telemetria(void *pvParameters){
 	while(true){
@@ -2094,8 +2135,10 @@ void telemetria(void *pvParameters){
 	}
 }
 
-// setup
-extern "C" void app_main(void){
+
+
+// funcion que inicializa el sistema
+void begin() {
     #ifdef CONFIG_IDF_TARGET_ESP32S3
         ESP_LOGI(TAG, "TARGET DETECTADO: ESP32-S3");
     #else
@@ -2112,13 +2155,19 @@ extern "C" void app_main(void){
 
 	//se lee las instrucciones del monitor serial
 	Nvs sys("sistema");
-	gpio_reset_pin(ini);
-    gpio_set_direction(ini, GPIO_MODE_INPUT);
-    gpio_set_pull_mode(ini, GPIO_PULLUP_ONLY);
+
+	//se inicializan pines input pullup
+	gpio_config_t io_conf_input;
+	io_conf_input.pin_bit_mask = (1ULL << INI);
+	io_conf_input.mode = GPIO_MODE_INPUT;
+	io_conf_input.pull_up_en = GPIO_PULLUP_ENABLE;
+	io_conf_input.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf_input.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&io_conf_input);
+
 	vTaskDelay(pdMS_TO_TICKS(100));
 
-	int32_t modo;
-	if(gpio_get_level(ini) == 0){
+	if(gpio_get_level(INI) == 0){
 		ESP_LOGI(TAG, "modo de prueba activado por boton");
 		sys.guardar("modo", 0);
 		modo = 0;
@@ -2157,7 +2206,10 @@ extern "C" void app_main(void){
 
 	//inicializamos el mutex
 	mutex = xSemaphoreCreateMutex();
+}
 
+//inicializacion del hardware
+void begin_hardware() {
   	//ajustes iniciales
     ESP_LOGI(TAG, "Iniciando hardware...");
   	mu.begin();
@@ -2165,35 +2217,7 @@ extern "C" void app_main(void){
   	cm.alto();
 
   	//pin de la musica
-  	pinMus(mus);
-
-
-  	// se inicializan los pines output
-	gpio_config_t io_conf_output;
-	io_conf_output.pin_bit_mask = (1ULL << trig_1) | (1ULL << trig_2);
-	io_conf_output.mode = GPIO_MODE_OUTPUT;
-	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
-	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;
-	io_conf_output.intr_type = GPIO_INTR_DISABLE;
-	gpio_config(&io_conf_output);
-
-	//se inicializan pines input pullup
-	gpio_config_t io_conf_input;
-	io_conf_input.pin_bit_mask = (1ULL << ini);
-	io_conf_input.mode = GPIO_MODE_INPUT;
-	io_conf_input.pull_up_en = GPIO_PULLUP_ENABLE;
-	io_conf_input.pull_down_en = GPIO_PULLDOWN_DISABLE;
-	io_conf_input.intr_type = GPIO_INTR_DISABLE;
-	gpio_config(&io_conf_input);
-
-	//se inicializan los pines input
-   	gpio_config_t io_conf_input_simple;
-    io_conf_input_simple.pin_bit_mask = (1ULL << echo_1) | (1ULL << echo_2);
-    io_conf_input_simple.mode = GPIO_MODE_INPUT;
-    io_conf_input_simple.pull_up_en = GPIO_PULLUP_DISABLE;
-    io_conf_input_simple.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
-    gpio_config(&io_conf_input_simple);
+  	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
 	sc = new SensorLimite(limCol, &mu, &mutex);
@@ -2206,13 +2230,15 @@ extern "C" void app_main(void){
     }
 
 	//se inicializa el sensor rival
-	sr = new SensorUltra(maxd, trig_1, echo_1, trig_2, echo_2);
+	sr = new SensorUltra(maxd);
 	sr->begin();
 
 	//se inicializa la maquina de estados
     me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr);
 	ESP_LOGI(TAG, "se inicializo todo");
+}
 
+void comunicaciones() {
 	if(modo == 0){
 		//modo de prueba
         ESP_LOGI(TAG, "Modo 0: Test y Telemetria");
@@ -2235,15 +2261,8 @@ extern "C" void app_main(void){
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		//esp_log_level_set("*", ESP_LOG_NONE);
 	}
-
-  	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
-  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
-  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
-	xTaskCreatePinnedToCore(senUltra, "SensorUltra", 4096, NULL, 2, NULL, 0);
-	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
-	ESP_LOGI(TAG, "se inicializo las tareas");
 }
+
    // DESCRIPCIONES A TOMAR EN CUENTA:
   	// ojos_1 y sc_1 en direccion "a"
   	// ojos_2 y sc_2 en direccion "b"
@@ -3010,6 +3029,52 @@ class Ota{
 
 
 ==========================================
+FILE PATH: ./src/pines.h
+==========================================
+
+#ifndef PINES_H
+#define PINES_H
+
+#include "driver/gpio.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    // Pines para ESP32-S3
+    #define MUS GPIO_NUM_47
+    #define INI GPIO_NUM_2
+
+    // Ultrasonicos
+    #define TRIG_1 GPIO_NUM_15
+    #define ECHO_1 GPIO_NUM_21
+    #define TRIG_2 GPIO_NUM_38
+    #define ECHO_2 GPIO_NUM_48
+
+    // Motores
+    #define MOT_A1 GPIO_NUM_4
+    #define MOT_A2 GPIO_NUM_5
+    #define MOT_B1 GPIO_NUM_6
+    #define MOT_B2 GPIO_NUM_7
+#else
+    // Pines para ESP32 Estándar
+    #define MUS GPIO_NUM_4
+    #define INI GPIO_NUM_2
+    
+    // Ultrasonicos
+    #define TRIG_1 GPIO_NUM_19
+    #define ECHO_1 GPIO_NUM_23
+    #define TRIG_2 GPIO_NUM_18
+    #define ECHO_2 GPIO_NUM_25
+
+    // Motores
+    #define MOT_A1 GPIO_NUM_13
+    #define MOT_A2 GPIO_NUM_14
+    #define MOT_B1 GPIO_NUM_16
+    #define MOT_B2 GPIO_NUM_17
+#endif
+
+#endif
+
+
+==========================================
 FILE PATH: ./src/rgb.h
 ==========================================
 
@@ -3722,17 +3787,14 @@ FILE PATH: ./src/SensorUltra.cpp
 #include "driver/rmt_rx.h"
 #include "driver/rmt_encoder.h"
 #include "driver/rmt_types.h"
-#include "esp_log.h" // Added for logging
+#include "esp_log.h"
 #include <cstdint>
+#include "pines.h"
 
 //TAG
 #define TAG "ultra"
 
-SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
-	trig_1(_trig_1),
-	trig_2(_trig_2),
-	echo_1(_echo_1),
-	echo_2(_echo_2),
+SensorUltra::SensorUltra(int _maxd):
 	txC1(NULL),
 	txC2(NULL),
 	rxC1(NULL),
@@ -3746,6 +3808,11 @@ SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio
 	total1(0),
 	total2(0)
 {
+    trig_1 = TRIG_1;
+    echo_1 = ECHO_1;
+    trig_2 = TRIG_2;
+    echo_2 = ECHO_2;
+
 for(int i = 0; i < N_MUESTRAS; i++) {
         mem1[i] = 0;
         mem2[i] = 0;
@@ -3755,6 +3822,25 @@ for(int i = 0; i < N_MUESTRAS; i++) {
 //metodo que inicializa cosas
 bool SensorUltra::begin(){
 	nvsLeer();
+
+	// se inicializan los pines output
+	gpio_config_t io_conf_output;
+	io_conf_output.pin_bit_mask = (1ULL << trig_1) | (1ULL << trig_2);
+	io_conf_output.mode = GPIO_MODE_OUTPUT;
+	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
+	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf_output.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&io_conf_output);
+
+	//se inicializan los pines input
+   	gpio_config_t io_conf_input_simple;
+    io_conf_input_simple.pin_bit_mask = (1ULL << echo_1) | (1ULL << echo_2);
+    io_conf_input_simple.mode = GPIO_MODE_INPUT;
+    io_conf_input_simple.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf_input_simple.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
+    gpio_config(&io_conf_input_simple);
+
 	//creamos el encoder
 	rmt_copy_encoder_config_t confE = {};
 	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
@@ -4044,7 +4130,7 @@ class SensorUltra : public SensorRival {
 		void nvsLeer();
 	public:
 		//costructor
-		SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2);
+		SensorUltra(int _maxd);
 
 		//metodos de verificacion
 		bool ojos_1Verify();

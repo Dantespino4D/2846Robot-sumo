@@ -9,17 +9,14 @@
 #include "driver/rmt_rx.h"
 #include "driver/rmt_encoder.h"
 #include "driver/rmt_types.h"
-#include "esp_log.h" // Added for logging
+#include "esp_log.h"
 #include <cstdint>
+#include "pines.h"
 
 //TAG
 #define TAG "ultra"
 
-SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio_num_t _trig_2, gpio_num_t _echo_2):
-	trig_1(_trig_1),
-	trig_2(_trig_2),
-	echo_1(_echo_1),
-	echo_2(_echo_2),
+SensorUltra::SensorUltra(int _maxd):
 	txC1(NULL),
 	txC2(NULL),
 	rxC1(NULL),
@@ -33,6 +30,11 @@ SensorUltra::SensorUltra(int _maxd, gpio_num_t _trig_1, gpio_num_t _echo_1, gpio
 	total1(0),
 	total2(0)
 {
+    trig_1 = TRIG_1;
+    echo_1 = ECHO_1;
+    trig_2 = TRIG_2;
+    echo_2 = ECHO_2;
+
 for(int i = 0; i < N_MUESTRAS; i++) {
         mem1[i] = 0;
         mem2[i] = 0;
@@ -42,6 +44,25 @@ for(int i = 0; i < N_MUESTRAS; i++) {
 //metodo que inicializa cosas
 bool SensorUltra::begin(){
 	nvsLeer();
+
+	// se inicializan los pines output
+	gpio_config_t io_conf_output;
+	io_conf_output.pin_bit_mask = (1ULL << trig_1) | (1ULL << trig_2);
+	io_conf_output.mode = GPIO_MODE_OUTPUT;
+	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
+	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf_output.intr_type = GPIO_INTR_DISABLE;
+	gpio_config(&io_conf_output);
+
+	//se inicializan los pines input
+   	gpio_config_t io_conf_input_simple;
+    io_conf_input_simple.pin_bit_mask = (1ULL << echo_1) | (1ULL << echo_2);
+    io_conf_input_simple.mode = GPIO_MODE_INPUT;
+    io_conf_input_simple.pull_up_en = GPIO_PULLUP_DISABLE;
+    io_conf_input_simple.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
+    gpio_config(&io_conf_input_simple);
+
 	//creamos el encoder
 	rmt_copy_encoder_config_t confE = {};
 	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
