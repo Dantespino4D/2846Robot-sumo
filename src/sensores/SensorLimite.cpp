@@ -1,7 +1,7 @@
 #include "SensorLimite.h"
-#include "Nvs.h"
+#include "../core/Nvs.h"
 #include "driver/i2c.h"
-#include "rgb.h"
+#include "../actuadores/rgb.h"
 #include "esp_log.h"
 #include "freertos/task.h"
 #include <cstdint>

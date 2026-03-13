@@ -1,7 +1,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 #include "ControlMotores.h"
-#include "Nvs.h"
+#include "../core/Nvs.h"
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     #define MODO_PWM LEDC_LOW_SPEED_MODE

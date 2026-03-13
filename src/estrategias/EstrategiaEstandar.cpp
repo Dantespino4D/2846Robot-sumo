@@ -1,5 +1,5 @@
 #include "EstrategiaEstandar.h"
-#include "MaquinaEstados.h"
+#include "../core/MaquinaEstados.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 

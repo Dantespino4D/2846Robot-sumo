@@ -3,7 +3,7 @@
 
 #include "driver/i2c.h"
 #include "freertos/task.h"
-#include "Multiplexor.h"
+#include "../actuadores/Multiplexor.h"
 #include <cstdint>
 
 class SensorLimite{

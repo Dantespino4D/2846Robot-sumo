@@ -3,7 +3,7 @@
 #include "freertos/task.h"
 #include "esp_err.h"
 #include "SensorUltra.h"
-#include "Nvs.h"
+#include "../core/Nvs.h"
 #include "driver/gpio.h"
 #include "driver/rmt_tx.h"
 #include "driver/rmt_rx.h"
@@ -11,7 +11,7 @@
 #include "driver/rmt_types.h"
 #include "esp_log.h"
 #include <cstdint>
-#include "pines.h"
+#include "../configuracion/pines.h"
 
 //TAG
 #define TAG "ultra"

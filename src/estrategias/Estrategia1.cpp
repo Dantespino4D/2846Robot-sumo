@@ -1,5 +1,5 @@
 #include "Estrategia1.h"
-#include "MaquinaEstados.h"
+#include "../core/MaquinaEstados.h"
 
 void Estrategia1::ejecucion(MaquinaEstados* ctx){
 	int com = ALTO;

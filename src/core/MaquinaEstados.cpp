@@ -5,9 +5,9 @@
 #include "nvs.h"
 #include <cstdint>
 
-#include "EstrategiaPrototipo.h"
-#include "Estrategia1.h"
-#include "Estrategia2.h"
+#include "../estrategias/EstrategiaPrototipo.h"
+#include "../estrategias/Estrategia1.h"
+#include "../estrategias/Estrategia2.h"
 
 MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr):
 	tempTL(0),

@@ -109,29 +109,38 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 
 ## Estructura de Archivos
 
-
+```text
 ├── src/
+│   ├── actuadores/           # Control PWM y MUX
+│   │   ├── ControlMotores.*  # Control PWM de motores
+│   │   ├── Multiplexor.*     # Multiplexor I2C (TCA9548A)
+│   │   └── rgb.h             # Control LED RGB
+│   ├── comunicaciones/       # Conectividad y telemetría
+│   │   ├── Mqtt.*            # Cliente MQTT
+│   │   ├── Ota.*             # Actualizaciones OTA
+│   │   ├── Telemetria.*      # Publicación de telemetría
+│   │   └── Wifi.*            # Gestión WiFi (STA + SmartConfig + mDNS)
+│   ├── configuracion/        # Variables y hardware map
+│   │   ├── configuracion.*   # Utilidades de configuración
+│   │   └── pines.h           # Mapa de pines
+│   ├── core/                 # Lógica base
+│   │   ├── DatosT.h          # Estructura de datos de telemetría
+│   │   ├── MaquinaEstados.*  # Gestor de estados y tiempos
+│   │   └── Nvs.*             # Abstracción NVS
+│   ├── estrategias/          # Lógicas de combate
+│   │   ├── Estrategia1.*     # Estrategia de combate 1
+│   │   ├── Estrategia2.*     # Estrategia de combate 2
+│   │   ├── EstrategiaBase.h  # Interfaz de estrategias
+│   │   ├── EstrategiaEstandar.* # Lógica de sensores compartida
+│   │   └── EstrategiaPrototipo.* # Estrategia inicial (Legacy)
+│   ├── sensores/             # Hardware de medición
+│   │   ├── SensorLimite.*    # Sensores de borde (color)
+│   │   ├── SensorRival.h     # Interfaz abstracta para sensores de rival
+│   │   ├── SensorTof.*       # Implementación ToF (VL53L)
+│   │   └── SensorUltra.*     # Implementación ultrasónica
 │   ├── main.cpp              # Punto de entrada, inicialización de tareas
-│   ├── MaquinaEstados.*      # Gestor de estados y tiempos
-│   ├── EstrategiaBase.h      # Interfaz de estrategias
-│   ├── EstrategiaEstandar.*  # Lógica de sensores compartida
-│   ├── EstrategiaPrototipo.* # Estrategia inicial (Legacy)
-│   ├── Estrategia1.*         # Estrategia de combate 1
-│   ├── Estrategia2.*         # Estrategia de combate 2
-│   ├── ControlMotores.*      # Control PWM de motores
-│   ├── SensorLimite.*        # Sensores de borde (color)
-│   ├── SensorRival.h         # Interfaz abstracta para sensores de rival
-│   ├── SensorUltra.*         # Implementación ultrasónica
-│   ├── SensorTof.*           # Implementación ToF (VL53L)
-│   ├── Multiplexor.*         # Multiplexor I2C (TCA9548A)
-│   ├── Wifi.*                # Gestión WiFi (STA + SmartConfig + mDNS)
-│   ├── Mqtt.*                # Cliente MQTT
-│   ├── Telemetria.*          # Publicación de telemetría
-│   ├── Nvs.*                 # Abstracción NVS
-│   ├── Ota.*                 # Actualizaciones OTA
-│   ├── DatosT.h              # Estructura de datos de telemetría
-│   ├── rgb.h                 # Control LED RGB
-│   └── Kconfig.projbuild     # Configuración de credenciales (Kconfig)
+│   ├── Kconfig.projbuild     # Configuración de credenciales (Kconfig)
+│   └── idf_component.yml     # Dependencias de componentes (espp)
 ├── lib/
 │   └── Musica/               # Librería de melodías (buzzer)
 ├── platformio.ini            # Configuración de entornos PlatformIO

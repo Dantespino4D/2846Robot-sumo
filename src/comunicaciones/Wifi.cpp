@@ -13,7 +13,7 @@
 #include "esp_log.h"
 #include "mdns.h"
 #include "esp_smartconfig.h"
-#include "Nvs.h"
+#include "../core/Nvs.h"
 #include "esp_system.h"
 
 const char* TAG = "wifi";

@@ -3,7 +3,7 @@
 
 #include "vl53l.hpp"
 #include "SensorRival.h"
-#include "Multiplexor.h"
+#include "../actuadores/Multiplexor.h"
 #include <vector>
 
 //numero de sensores ToF

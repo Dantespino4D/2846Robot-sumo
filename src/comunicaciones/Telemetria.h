@@ -1,12 +1,12 @@
 #ifndef TELEMETRIA_H
 #define TELEMETRIA_H
 
-#include "DatosT.h"
+#include "../core/DatosT.h"
 #include "Mqtt.h"
-#include "MaquinaEstados.h"
-#include "ControlMotores.h"
-#include "SensorLimite.h"
-#include "SensorRival.h"
+#include "../core/MaquinaEstados.h"
+#include "../actuadores/ControlMotores.h"
+#include "../sensores/SensorLimite.h"
+#include "../sensores/SensorRival.h"
 #include "Wifi.h"
 
 #define NJSON 2048
