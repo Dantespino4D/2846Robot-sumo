@@ -6,7 +6,7 @@
 //selecciona el estado
 void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
-	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 10);
+	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 0);
 
 	// si detecta el limite por sc_1
 	if (noti & (1 << 0)) {

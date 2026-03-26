@@ -195,7 +195,10 @@ uint16_t SensorUltra::filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handl
 
 	//se le la nueva lectura
 	int lec = dist_mm(trig, echo, rxC, txC);
-
+	if(lec == 0 || lec > maxd){
+		//retornamos lo que ya estaba si la lectura no es valida
+		return total / N_MUESTRAS;
+	}
 	//se agrega a la lista
 	mem[ind] = lec;
 

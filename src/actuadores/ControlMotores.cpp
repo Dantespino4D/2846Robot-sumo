@@ -2,6 +2,8 @@
 #include "driver/ledc.h"
 #include "ControlMotores.h"
 #include "../core/Nvs.h"
+#include <cstdint>
+#include <cstdlib>
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     #define MODO_PWM LEDC_LOW_SPEED_MODE
@@ -52,57 +54,37 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	vel1 = vel_1;
 	vel2 = vel_2;
+	uint32_t fade;
 	if(ram){
-		int16_t lim1 = vel_1 - vActual1;
-		if(abs(lim1) > paso){
-			if(lim1 > 0){
-				vActual1 = vActual1 + paso;
-			}else{
-				vActual1 = vActual1 - paso;
-			}
-		}else{
-			vActual1 = vel_1;
-		}
-		int16_t lim2 = vel_2 - vActual2;
-		if(abs(lim2) > paso){
-			if(lim2 > 0){
-				vActual2 = vActual2 + paso;
-			}else{
-				vActual2 = vActual2 - paso;
-			}
-		}else{
-			vActual2 = vel_2;
-		}
+		fade = tRam;
 	}else{
-		vActual1 = vel_1;
-		vActual2 = vel_2;
+		fade = 0;
 	}
-	if(vActual1 > 0){
-    	ledc_set_duty(MODO_PWM, pwmC_1, vActual1);
-		ledc_set_duty(MODO_PWM, pwmC_3, 0);
-	}else if(vActual1 < 0){
-    	ledc_set_duty(MODO_PWM, pwmC_1, 0);
-		ledc_set_duty(MODO_PWM, pwmC_3, abs(vActual1));
+	if(vel_1 > 0){
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_1, vel_1, fade);
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_3, 0, fade);
+	}else if(vel_1 < 0){
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_1, 0, fade);
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_3, abs(vel_1), fade);
 	}else{
-    	ledc_set_duty(MODO_PWM, pwmC_1, 1023);
-		ledc_set_duty(MODO_PWM, pwmC_3, 1023);
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_1, 1023, fade);
+		ledc_set_fade_with_time(MODO_PWM, pwmC_3, 1023, fade);
 	}
 
-	if(vActual2 > 0){
-    	ledc_set_duty(MODO_PWM, pwmC_2, vActual2);
-		ledc_set_duty(MODO_PWM, pwmC_4, 0);
-	}else if(vActual2 < 0){
-    	ledc_set_duty(MODO_PWM, pwmC_2, 0);
-		ledc_set_duty(MODO_PWM, pwmC_4, abs(vActual2));
+	if(vel_2 > 0){
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_2, vel_2, fade);
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_4, 0, fade);
+	}else if(vel_2 < 0){
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_2, 0, fade);
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_4, abs(vel_2), fade);
 	}else{
-	    ledc_set_duty(MODO_PWM, pwmC_2, 1023);
-		ledc_set_duty(MODO_PWM, pwmC_4, 1023);
+    	ledc_set_fade_with_time(MODO_PWM, pwmC_2, 1023, fade);
+		ledc_set_fade_with_time(MODO_PWM, pwmC_4, 1023, fade);
 	}
-
-	ledc_update_duty(MODO_PWM, pwmC_1);
-	ledc_update_duty(MODO_PWM, pwmC_2);
-	ledc_update_duty(MODO_PWM, pwmC_3);
-	ledc_update_duty(MODO_PWM, pwmC_4);
+	ledc_fade_start(MODO_PWM, pwmC_1, LEDC_FADE_NO_WAIT);
+    ledc_fade_start(MODO_PWM, pwmC_2, LEDC_FADE_NO_WAIT);
+    ledc_fade_start(MODO_PWM, pwmC_3, LEDC_FADE_NO_WAIT);
+    ledc_fade_start(MODO_PWM, pwmC_4, LEDC_FADE_NO_WAIT);
 }
 
 //metodo que para el robot
@@ -275,6 +257,8 @@ void ControlMotores::begin(){
 		.flags = 0
 	};
 	ledc_channel_config(&ledc_channel_4);
+	//se instala la funcion para la rampa de aceleracion
+	ledc_fade_func_install(0);
 	alto();
 }
 
