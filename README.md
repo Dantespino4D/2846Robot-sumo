@@ -57,13 +57,16 @@ Musica (Prio: 1)               Robot / Lógica (Prio: 2)
 ### Módulos principales
 
 - **`MaquinaEstados`** — Núcleo táctico del robot. Utiliza un **Patrón Strategy** con un puntero polimórfico (`estActual`) para ejecutar diferentes comportamientos en tiempo real. Gestiona la limpieza de memorias por tiempo (`tiempo()`) de manera global. Soporta múltiples estrategias seleccionables desde NVS (prototipo, E1, E2). Implementa un avanzado sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados para evitar "tartamudeos" por el parpadeo o multiplexado de los sensores, y un sistema de **memoria a largo plazo** para la persecución ciega y predictiva del rival.
-- **`Estrategias`** — Sistema modular de combate:
+- **`Estrategias`** — Sistema modular de combate que utiliza máscaras de bits para decisiones de alta velocidad:
     - `EstrategiaBase.h`: Interfaz abstracta que define el contrato de `seleccion()` y `ejecucion()`.
-    - `EstrategiaEstandar.*`: Clase intermedia que implementa la lógica común de los 6 sensores ToF y sensores de línea para evitar duplicidad de código.
-    - `EstrategiaPrototipo.*`, `Estrategia1.*`, `Estrategia2.*`: Implementaciones específicas de movimiento y ataque.
+    - `EstrategiaEstandar.*`: Clase intermedia que implementa la lógica común de los 6 sensores ToF y sensores de línea para evitar duplicidad de código. Utiliza una jerarquía de máscaras para filtrar primero por zonas (MASK_TOF_A, MASK_TOF_B, MASK_COLOR) y luego evaluar combinaciones específicas de sensores.
+    - `EstrategiaPrototipo.*`: Estrategia legacy para el prototipo con sensores ultrasónicos (HC-SR04). Aplica el mismo patrón de máscaras de bits (MASK_ULTRA, BIT_ULTRA_A, BIT_ULTRA_B) para mantener consistencia arquitectónica.
+    - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
+- **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. Permite una lógica de decisión de alta eficiencia mediante el filtrado de zonas (Frontal, Trasera, Borde) y combinaciones de precisión. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
 - **`SensorLimite`** — Lectura en hilo secundario de los sensores de color TCS34725 para evadir el borde blanco del dohyo.
 - **`SensorRival`** — Interfaz abstracta diseñada para facilitar la migración de los ultrasónicos HC-SR04 a los sensores ToF VL53L0X sin alterar la lógica superior.
+- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo mediante multiplexación I2C para una visión de 360 grados.
 - **`Wifi` / `Mqtt` / `Telemetria`** — Stack de conectividad que publica el estado completo del robot (lecturas, estados, hardware) al broker MQTT para análisis y telemetría de pruebas.
 - **`Nvs`** — Capa de abstracción sobre la memoria NVS del ESP-IDF.
 
@@ -96,9 +99,58 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 
 ---
 
+## Sistema de Máscaras de Bits
+
+El proyecto implementa un sofisticado sistema de detección basado en máscaras de bits que permite evaluar combinaciones de sensores con eficiencia máxima:
+
+### Jerarquía de Bits (eventos.h)
+
+```cpp
+// Sensores de línea (borde del tatami)
+BIT_SC_1, BIT_SC_2           → MASK_COLOR
+
+// Sensores ToF frontales (dirección A)
+BIT_TOF_AI, BIT_TOF_AC, BIT_TOF_AD → MASK_TOF_A
+  ├─ MASK_TOF_1_2 (AI + AC)
+  ├─ MASK_TOF_1_3 (AI + AD)
+  └─ MASK_TOF_2_3 (AC + AD)
+
+// Sensores ToF traseros (dirección B)
+BIT_TOF_BI, BIT_TOF_BC, BIT_TOF_BD → MASK_TOF_B
+  ├─ MASK_TOF_4_5 (BI + BC)
+  ├─ MASK_TOF_4_6 (BI + BD)
+  └─ MASK_TOF_5_6 (BC + BD)
+
+// Sensores ultrasónicos (prototipo)
+BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
+```
+
+### Flujo de Decisión Optimizado
+
+El algoritmo de selección de estado utiliza un **filtrado jerárquico en cascada**:
+
+1. **Prioridad Máxima:** `MASK_COLOR` — Detectar el borde del dohyo tiene máxima prioridad
+2. **Memorias de Color:** Evaluar si se está alejando del borde
+3. **Zona Frontal:** `MASK_TOF_A` o `MASK_ULTRA` (prototipo) — Evaluar combinaciones específicas
+4. **Zona Trasera:** `MASK_TOF_B` — Evaluar si el rival está por detrás
+5. **Memorias Temporales:** Estados de persecución ciega (corto y largo plazo)
+6. **Estado por Defecto:** Rutina de búsqueda tipo estrella
+
+Esta arquitectura permite que el procesador filtre **grupos completos de sensores en un solo ciclo de CPU** antes de descender a combinaciones específicas, reduciendo dramáticamente el tiempo de respuesta de la máquina de estados.
+
+### Ventajas de este Diseño
+
+* **Performance:** Una operación AND bit a bit (`noti & MASK_TOF_A`) evalúa 3 sensores simultáneamente
+* **Legibilidad:** Las máscaras tienen nombres descriptivos que documentan el código
+* **Escalabilidad:** Agregar nuevos sensores solo requiere definir bits y actualizar máscaras
+* **Consistencia:** Todas las estrategias comparten las mismas definiciones de `eventos.h`
+
+---
+
 ## Fortalezas del Diseño
 
 * **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate (ej. flanqueo, evasión, estrella) simplemente heredando de `EstrategiaEstandar`. Esto aísla el código de cada estrategia, facilitando el debug y permitiendo cambios en caliente sin riesgo de afectar otras tácticas.
+* **Jerarquía de Máscaras de Bits:** La implementación de un mapa de eventos centralizado en `eventos.h` permite que la lógica de decisión sea extremadamente rápida y legible. El procesador puede filtrar zonas completas (ej. "¿Hay algo adelante?") en un solo ciclo de instrucción antes de evaluar combinaciones de precisión.
 * **Abstracción Orientada a Hardware Evolutivo:** El uso de herencia y polimorfismo en `SensorRival` facilita la transición planificada a los sensores ToF VL53L0X.
 * **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
 * **Arquitectura FreeRTOS:** La segregación de la lógica del robot, la lectura del ADC/I2C de sensores de color y la interrupción de motores en distintas tareas priorizadas asegura tiempos de respuesta de milisegundos en combate.
@@ -122,6 +174,7 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 │   │   └── Wifi.*            # Gestión WiFi (STA + SmartConfig + mDNS)
 │   ├── configuracion/        # Variables y hardware map
 │   │   ├── configuracion.*   # Utilidades de configuración
+│   │   ├── eventos.h         # Definición de bits y máscaras
 │   │   └── pines.h           # Mapa de pines
 │   ├── core/                 # Lógica base
 │   │   ├── DatosT.h          # Estructura de datos de telemetría

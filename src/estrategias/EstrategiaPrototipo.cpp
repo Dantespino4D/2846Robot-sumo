@@ -1,4 +1,5 @@
 #include "EstrategiaPrototipo.h"
+#include "../configuracion/eventos.h"
 #include "../core/MaquinaEstados.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -7,44 +8,54 @@ void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
     uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
     xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 0);
 
-    // si detecta el limite por sc_1
-    if (noti & (1 << 0)) {
-        ctx->modo = 0;
-    }
-    // si detecta el limite por sc_2
-    else if (noti & (1 << 1)) {
-        ctx->modo = 1;
-    }
-    // si deja de detectar el limite por sc 1
-    else if (ctx->memo_C == 1) {
-        ctx->modo = 2;
-    }
-    // si deja de detectar el limite por sc 2
-    else if (ctx->memo_C == 2) {
-        ctx->modo = 3;
-    }
-    // si detecta el robot por ojos 1
-    else if (noti & (1 << 2)) {
-        ctx->modo = 4;
-    }
-    // si detecta el robot por ojos 2
-    else if (noti & (1 << 3)) {
-        ctx->modo = 5;
-    }
-    // si deja de detectar al robot por ojos 1
-    else if (ctx->memo_TL == 1) {
-        ctx->modo = 6;
-    }
-    // si deja de detectar al robot por ojos 2
-    else if (ctx->memo_TL == 2) {
-        ctx->modo = 7;
-    }
-    // si no detecta nada
-    else if (ctx->memo_E) {
-        ctx->modo = 8;
-    }
-    else {
-        ctx->modo = 9;
+    //se verifica si se detecto algun sensor de color el que sea
+    if(noti & MASK_COLOR){
+        // si detecta el limite por sc_1
+        if (noti & BIT_SC_1) {
+            ctx->modo = 0;
+        }
+        // si detecta el limite por sc_2
+        else if (noti & BIT_SC_2) {
+            ctx->modo = 1;
+        }
+    //se verifica si hay alguna memoria del sensor de color
+    }else if(ctx->memo_C != 0) {
+        // si deja de detectar el limite por sc 1
+        if (ctx->memo_C == 1) {
+            ctx->modo = 2;
+        }
+        // si deja de detectar el limite por sc 2
+        else if (ctx->memo_C == 2) {
+            ctx->modo = 3;
+        }
+    //se detecta si alguno de los sensores ultrasonicos fue activado
+    }else if(noti & MASK_ULTRA) {
+        // si detecta el robot por ultrasonico A
+        if (noti & BIT_ULTRA_A) {
+            ctx->modo = 4;
+        }
+        // si detecta el robot por ultrasonico B
+        else if (noti & BIT_ULTRA_B) {
+            ctx->modo = 5;
+        }
+    }else if(ctx->memo_TL != 0) {
+        // si deja de detectar al robot por ultrasonico A
+        if (ctx->memo_TL == 1) {
+            ctx->modo = 6;
+        }
+        // si deja de detectar al robot por ultrasonico B
+        else if (ctx->memo_TL == 2) {
+            ctx->modo = 7;
+        }
+    }else{
+        //memoria de avance de estrella
+        if (ctx->memo_E) {
+            ctx->modo = 8;
+        }
+        // si no detecta nada
+        else{
+            ctx->modo = 9;
+        }
     }
 }
 
