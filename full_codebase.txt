@@ -1973,6 +1973,11 @@ FILE PATH: ./src/configuracion/eventos.h
 
 #ifndef EVENTOS_H
 #define EVENTOS_H
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+
+//event groups global
+extern EventGroupHandle_t eventos;
 
 //bits de sensores de color
 #define BIT_SC_1 (1 << 0)
@@ -1987,6 +1992,16 @@ FILE PATH: ./src/configuracion/eventos.h
 #define BIT_TOF_BI (1 << 5)
 #define BIT_TOF_BC (1 << 6)
 #define BIT_TOF_BD (1 << 7)
+
+//arreglo con todos los bits de sensores TOF
+static const EventBits_t TOF_BITS[6] = {
+	BIT_TOF_AI,
+	BIT_TOF_AC,
+	BIT_TOF_AD,
+	BIT_TOF_BI,
+	BIT_TOF_BC,
+	BIT_TOF_BD
+};
 
 //bits de sensores ultrasonicos
 #define BIT_ULTRA_A (1 << 8)
@@ -2055,8 +2070,8 @@ FILE PATH: ./src/configuracion/pines.h
 #else
     // Pines para ESP32 Estándar
     #define MUS GPIO_NUM_4
-    #define INI GPIO_NUM_2
-    
+    #define INI GPIO_NUM_26
+
     // Ultrasonicos
     #define TRIG_1 GPIO_NUM_19
     #define ECHO_1 GPIO_NUM_23
@@ -2856,12 +2871,15 @@ FILE PATH: ./src/estrategias/EstrategiaEstandar.cpp
 #include "../configuracion/eventos.h"
 #include "../core/MaquinaEstados.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 
 //selecciona el estado
 void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
-	uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
-	xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 0);
+	//se reciben los bits de los sensores
+	uint32_t noti = 0;
+	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(10));
 
 	//se verifica si se detecto algun sensor de color el que sea
 	if(noti & MASK_COLOR){
@@ -3043,10 +3061,12 @@ FILE PATH: ./src/estrategias/EstrategiaPrototipo.cpp
 #include "../core/MaquinaEstados.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 
 void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
-    uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
-    xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 0);
+    //se reciben los bits de los sensores
+	uint32_t noti = 0;
+    noti = xEventGroupWaitBits(eventos, 0xFFFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(10));
 
     //se verifica si se detecto algun sensor de color el que sea
     if(noti & MASK_COLOR){
@@ -3218,6 +3238,7 @@ FILE PATH: ./src/main.cpp
 #include "../lib/Musica/Musica.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "nvs.h"
 #include "driver/gpio.h"
 #include "nvs_flash.h"
@@ -3225,8 +3246,12 @@ FILE PATH: ./src/main.cpp
 #include <cstdint>
 #include "configuracion/configuracion.h"
 #include "configuracion/pines.h"
+#include "configuracion/eventos.h"
 
 static const char* TAG = "main";
+
+//event group para sincronizar tareas
+EventGroupHandle_t eventos = NULL;
 
 //creamos el mutex
 SemaphoreHandle_t mutex = NULL;
@@ -3367,14 +3392,10 @@ void motores(void *pvParameters) {
 
 void senColor(void *pvParameters) {
 	while (true) {
+		//inicia el combate
 		if (start) {
-			if (sc->sc_1Verify()) {
-				xTaskNotify(rob, (1 << 0), eSetBits);
-    		}
-
-    		if (sc->sc_2Verify()) {
-				xTaskNotify(rob, (1 << 1), eSetBits);
-    		}
+			//se verifican ambos sensores de color
+			sc->procesar();
 		}
    	 	vTaskDelay(pdMS_TO_TICKS(10));
   	}
@@ -3386,8 +3407,10 @@ void senColor(void *pvParameters) {
 
 void senRival(void *pvParameters) {
 	while (true) {
+		//inicia el combate
 		if(start){
-    		sr->procesar(&rob);
+			//se verifican los sensores de la deteccion del rival(tof o ultrasonicos)
+    		sr->procesar();
 		}
     	vTaskDelay(pdMS_TO_TICKS(20));
   	}
@@ -3400,6 +3423,7 @@ void senRival(void *pvParameters) {
 void musica(void *pvParameters) {
   	while (true) {
     	while (start) {
+			//se toca la musica
     		adestes();
       		vTaskDelay(10);
     	}
@@ -3413,6 +3437,7 @@ void musica(void *pvParameters) {
 
 void telemetria(void *pvParameters){
 	while(true){
+		//se manda la informacion actual para su procesamiento y analisis
 		tm->enviar();
 		vTaskDelay(pdMS_TO_TICKS(100));
 	}
@@ -3438,6 +3463,12 @@ void begin() {
 
 	//se lee las instrucciones del monitor serial
 	Nvs sys("sistema");
+
+	//se crea el event group
+	eventos = xEventGroupCreate();
+	if(eventos == NULL){
+		ESP_LOGE(TAG, "Error al crear el event group");
+	}
 
 	//se inicializan pines input pullup
 	gpio_config_t io_conf_input;
@@ -3564,6 +3595,7 @@ FILE PATH: ./src/sensores/SensorLimite.cpp
 #include "../core/Nvs.h"
 #include "driver/i2c.h"
 #include "../actuadores/rgb.h"
+#include "../configuracion/eventos.h"
 #include "esp_log.h"
 #include "freertos/task.h"
 #include <cstdint>
@@ -3809,50 +3841,90 @@ bool SensorLimite::sc_2Verify(){
 	return res;
 }
 
+//metodo que procesa las detecciones tanto de sc_1 como sc_2
+void SensorLimite::procesar(){
+	//se verifica si se detecta el limite en direccion A
+	if(sc_1Verify()){
+		//manda bit si sc_1 detecta el limite
+		xEventGroupSetBits(eventos, BIT_SC_1);
+	}else{
+		//limpia el bit si sc_1 deja de detectar el limite
+		xEventGroupClearBits(eventos, BIT_SC_1);
+	}
+
+	//se verifica si se detecta el limite en direccion B
+	if(sc_2Verify()){
+		//manda bit si sc_2 detecta el limite
+		xEventGroupSetBits(eventos, BIT_SC_2);
+	}else{
+		//limpia el bit si sc_2 deja de detectar el limite
+		xEventGroupClearBits(eventos, BIT_SC_2);
+	}
+}
+
+//metodo que lee la Nvs
 void SensorLimite::nvsLeer(){
+	//se accede al namspace de sensores
 	Nvs nvs("sensores");
+	//extrae el valor del limite de color
 	limCol = nvs.leer("umbral_color", limCol);
 }
 
+//metdo que recopila las lecturas y datos en general para la telemetria
 void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria
+
+		//Calibracion de sc_1
 		*rc = lcr;
 		*gc = lcg;
 		*bc = lcb;
 		*cc = lcc;
+
+		//Calibracion de sc_2
 		*rc2 = lcr2;
 		*gc2 = lcg2;
 		*bc2 = lcb2;
 		*cc2 = lcc2;
 
+		//lecturas de sc_1
 		*red1 = r1;
 		*green1 = g1;
 		*blue1 = b1;
 		*clear1 = c1;
+
+		//lecturas de sc_2
 		*red2 = r2;
 		*green2 = g2;
 		*blue2 = b2;
 		*clear2 = c2;
+
 		//se suelta el mutex
 		xSemaphoreGive(*mutex);
 	}else{
 		//si no se puede leer envia in valor irreal a la telemtetria
 		uint16_t eVal = 65535;
+
+		//Calibracion de sc_1
 		*rc = eVal;
 		*gc = eVal;
 		*bc = eVal;
 		*cc = eVal;
+
+		//Calibracion de sc_2
 		*rc2 = eVal;
 		*gc2 = eVal;
 		*bc2 = eVal;
 		*cc2 = eVal;
 
+		//lecturas de sc_1
 		*red1 = eVal;
 		*green1 = eVal;
 		*blue1 = eVal;
 		*clear1 = eVal;
+
+		//lecturas de sc_2
 		*red2 = eVal;
 		*green2 = eVal;
 		*blue2 = eVal;
@@ -3919,6 +3991,9 @@ class SensorLimite{
 		bool sc_1Verify();
 		bool sc_2Verify();
 
+		//metodo que procesa las detecciones tanto de sc_1 como sc_2
+		void procesar();
+
 		//inicializara todo
 		void begin();
 
@@ -3942,7 +4017,7 @@ class SensorRival {
 	public:
 		virtual ~SensorRival() {}
 		virtual bool begin() = 0;
-		virtual void procesar(TaskHandle_t* Robot) = 0;
+		virtual void procesar() = 0;
 		virtual void getDistancias(uint16_t* buffer) = 0;
 };
 #endif // SENSORRIVAL_H
@@ -3955,8 +4030,10 @@ FILE PATH: ./src/sensores/SensorTof.cpp
 #include "SensorTof.h"
 #include "../core/Nvs.h"
 #include "../actuadores/rgb.h"
+#include "../configuracion/eventos.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
@@ -3966,8 +4043,7 @@ SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t*
 	mu(_mu),
 	mutex(_mutex),
 	maxd(_maxd),
-	tur(0),
-	pac(0)
+	tur(0)
 {
 	for(int i = 0; i < NUM_TOF; i++){
 		can[i] = _can[i];
@@ -4074,16 +4150,14 @@ bool SensorTof::verify(int n){
 }
 
 //metodo que lee todos los sensores
-void SensorTof::procesar(TaskHandle_t* Robot){
+void SensorTof::procesar(){
     if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
 		//se lee la distancia
 	    uint16_t distancia = dist(tur);
-		//se verifica si esta en el rango
-		int bit = 2 + tur;
 		if(distancia > 10 && distancia < maxd && distancia < 8000){
-			pac |= (1 << bit);
+			xEventGroupSetBits(eventos, TOF_BITS[tur]);
 		} else {
-			pac &= ~(1 << bit);
+			xEventGroupClearBits(eventos, TOF_BITS[tur]);
 		}
 		tur++;
         xSemaphoreGive(*mutex);
@@ -4091,8 +4165,6 @@ void SensorTof::procesar(TaskHandle_t* Robot){
 	if(tur >= NUM_TOF){
 		tur = 0;
 	}
-	// Se notifica el estado actualizado en cada ciclo (Streaming Real)
-	xTaskNotify(*Robot, pac, eSetBits);
 }
 
 //metodo que lee la Nvs
@@ -4148,8 +4220,6 @@ class SensorTof : public SensorRival {
 		uint16_t dis[NUM_TOF];
 		//contador que define de quien es turno
 		int tur;
-		//variable en la que se enviaran en paquetes las lecturas de los 6 sensores
-		uint32_t pac;
 		//lee determinado sensor ToF
 		uint16_t dist(int n);
 		//metodo que lee si hay una distancia maxima en nvs
@@ -4162,7 +4232,7 @@ class SensorTof : public SensorRival {
 		//inicializa los sensores ToF
 		bool begin() override;
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
-		void procesar(TaskHandle_t* Robot) override;
+		void procesar() override;
 		//metodo que envia las medidas de cada sensor a la telemetria
 		void getDistancias(uint16_t* buffer) override;
 };
@@ -4187,6 +4257,7 @@ FILE PATH: ./src/sensores/SensorUltra.cpp
 #include "esp_log.h"
 #include <cstdint>
 #include "../configuracion/pines.h"
+#include "../configuracion/eventos.h"
 
 //TAG
 #define TAG "ultra"
@@ -4428,16 +4499,16 @@ bool SensorUltra::ojos_2Verify(){
 	return (dis2 > 0 && dis2 <= maxd);
 }
 
-void SensorUltra::procesar(TaskHandle_t* Robot){
-	uint32_t pac = 0;
+void SensorUltra::procesar(){
 	if(ojos_1Verify()){
-		pac |=(1 << 2);
+		xEventGroupSetBits(eventos, BIT_ULTRA_A);
+	}else{
+		xEventGroupClearBits(eventos, BIT_ULTRA_A);
 	}
-	/*if(ojos_2Verify()){
-		pac |= (1 << 3);
-	}*/
-	if(pac > 0){
-		xTaskNotify(*Robot, pac, eSetBits);
+	if(ojos_2Verify()){
+		xEventGroupSetBits(eventos, BIT_ULTRA_B);
+	}else{
+		xEventGroupClearBits(eventos, BIT_ULTRA_B);
 	}
 }
 
@@ -4540,7 +4611,7 @@ class SensorUltra : public SensorRival {
 		bool begin()override;
 
 		//metodo que lee ambos sensores ultrasonicos
-		void procesar(TaskHandle_t* Robot)override;
+		void procesar()override;
 
 		//metodo para devolver las distancias estandarizado
 		void getDistancias(uint16_t* buffer) override;

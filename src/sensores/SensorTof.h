@@ -25,8 +25,6 @@ class SensorTof : public SensorRival {
 		uint16_t dis[NUM_TOF];
 		//contador que define de quien es turno
 		int tur;
-		//variable en la que se enviaran en paquetes las lecturas de los 6 sensores
-		uint32_t pac;
 		//lee determinado sensor ToF
 		uint16_t dist(int n);
 		//metodo que lee si hay una distancia maxima en nvs
@@ -39,7 +37,7 @@ class SensorTof : public SensorRival {
 		//inicializa los sensores ToF
 		bool begin() override;
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
-		void procesar(TaskHandle_t* Robot) override;
+		void procesar() override;
 		//metodo que envia las medidas de cada sensor a la telemetria
 		void getDistancias(uint16_t* buffer) override;
 };

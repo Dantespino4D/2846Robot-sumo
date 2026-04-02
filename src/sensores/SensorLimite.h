@@ -52,6 +52,9 @@ class SensorLimite{
 		bool sc_1Verify();
 		bool sc_2Verify();
 
+		//metodo que procesa las detecciones tanto de sc_1 como sc_2
+		void procesar();
+
 		//inicializara todo
 		void begin();
 

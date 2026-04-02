@@ -76,7 +76,7 @@ class SensorUltra : public SensorRival {
 		bool begin()override;
 
 		//metodo que lee ambos sensores ultrasonicos
-		void procesar(TaskHandle_t* Robot)override;
+		void procesar()override;
 
 		//metodo para devolver las distancias estandarizado
 		void getDistancias(uint16_t* buffer) override;

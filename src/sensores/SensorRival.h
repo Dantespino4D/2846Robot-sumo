@@ -8,7 +8,7 @@ class SensorRival {
 	public:
 		virtual ~SensorRival() {}
 		virtual bool begin() = 0;
-		virtual void procesar(TaskHandle_t* Robot) = 0;
+		virtual void procesar() = 0;
 		virtual void getDistancias(uint16_t* buffer) = 0;
 };
 #endif // SENSORRIVAL_H

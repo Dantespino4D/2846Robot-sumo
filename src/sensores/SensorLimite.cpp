@@ -2,6 +2,7 @@
 #include "../core/Nvs.h"
 #include "driver/i2c.h"
 #include "../actuadores/rgb.h"
+#include "../configuracion/eventos.h"
 #include "esp_log.h"
 #include "freertos/task.h"
 #include <cstdint>
@@ -247,50 +248,90 @@ bool SensorLimite::sc_2Verify(){
 	return res;
 }
 
+//metodo que procesa las detecciones tanto de sc_1 como sc_2
+void SensorLimite::procesar(){
+	//se verifica si se detecta el limite en direccion A
+	if(sc_1Verify()){
+		//manda bit si sc_1 detecta el limite
+		xEventGroupSetBits(eventos, BIT_SC_1);
+	}else{
+		//limpia el bit si sc_1 deja de detectar el limite
+		xEventGroupClearBits(eventos, BIT_SC_1);
+	}
+
+	//se verifica si se detecta el limite en direccion B
+	if(sc_2Verify()){
+		//manda bit si sc_2 detecta el limite
+		xEventGroupSetBits(eventos, BIT_SC_2);
+	}else{
+		//limpia el bit si sc_2 deja de detectar el limite
+		xEventGroupClearBits(eventos, BIT_SC_2);
+	}
+}
+
+//metodo que lee la Nvs
 void SensorLimite::nvsLeer(){
+	//se accede al namspace de sensores
 	Nvs nvs("sensores");
+	//extrae el valor del limite de color
 	limCol = nvs.leer("umbral_color", limCol);
 }
 
+//metdo que recopila las lecturas y datos en general para la telemetria
 void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria
+
+		//Calibracion de sc_1
 		*rc = lcr;
 		*gc = lcg;
 		*bc = lcb;
 		*cc = lcc;
+
+		//Calibracion de sc_2
 		*rc2 = lcr2;
 		*gc2 = lcg2;
 		*bc2 = lcb2;
 		*cc2 = lcc2;
 
+		//lecturas de sc_1
 		*red1 = r1;
 		*green1 = g1;
 		*blue1 = b1;
 		*clear1 = c1;
+
+		//lecturas de sc_2
 		*red2 = r2;
 		*green2 = g2;
 		*blue2 = b2;
 		*clear2 = c2;
+
 		//se suelta el mutex
 		xSemaphoreGive(*mutex);
 	}else{
 		//si no se puede leer envia in valor irreal a la telemtetria
 		uint16_t eVal = 65535;
+
+		//Calibracion de sc_1
 		*rc = eVal;
 		*gc = eVal;
 		*bc = eVal;
 		*cc = eVal;
+
+		//Calibracion de sc_2
 		*rc2 = eVal;
 		*gc2 = eVal;
 		*bc2 = eVal;
 		*cc2 = eVal;
 
+		//lecturas de sc_1
 		*red1 = eVal;
 		*green1 = eVal;
 		*blue1 = eVal;
 		*clear1 = eVal;
+
+		//lecturas de sc_2
 		*red2 = eVal;
 		*green2 = eVal;
 		*blue2 = eVal;

@@ -22,8 +22,8 @@
 #else
     // Pines para ESP32 Estándar
     #define MUS GPIO_NUM_4
-    #define INI GPIO_NUM_2
-    
+    #define INI GPIO_NUM_26
+
     // Ultrasonicos
     #define TRIG_1 GPIO_NUM_19
     #define ECHO_1 GPIO_NUM_23

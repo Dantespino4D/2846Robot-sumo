@@ -12,6 +12,7 @@
 #include "esp_log.h"
 #include <cstdint>
 #include "../configuracion/pines.h"
+#include "../configuracion/eventos.h"
 
 //TAG
 #define TAG "ultra"
@@ -253,16 +254,16 @@ bool SensorUltra::ojos_2Verify(){
 	return (dis2 > 0 && dis2 <= maxd);
 }
 
-void SensorUltra::procesar(TaskHandle_t* Robot){
-	uint32_t pac = 0;
+void SensorUltra::procesar(){
 	if(ojos_1Verify()){
-		pac |=(1 << 2);
+		xEventGroupSetBits(eventos, BIT_ULTRA_A);
+	}else{
+		xEventGroupClearBits(eventos, BIT_ULTRA_A);
 	}
-	/*if(ojos_2Verify()){
-		pac |= (1 << 3);
-	}*/
-	if(pac > 0){
-		xTaskNotify(*Robot, pac, eSetBits);
+	if(ojos_2Verify()){
+		xEventGroupSetBits(eventos, BIT_ULTRA_B);
+	}else{
+		xEventGroupClearBits(eventos, BIT_ULTRA_B);
 	}
 }
 

@@ -1,5 +1,10 @@
 #ifndef EVENTOS_H
 #define EVENTOS_H
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
+
+//event groups global
+extern EventGroupHandle_t eventos;
 
 //bits de sensores de color
 #define BIT_SC_1 (1 << 0)
@@ -14,6 +19,16 @@
 #define BIT_TOF_BI (1 << 5)
 #define BIT_TOF_BC (1 << 6)
 #define BIT_TOF_BD (1 << 7)
+
+//arreglo con todos los bits de sensores TOF
+static const EventBits_t TOF_BITS[6] = {
+	BIT_TOF_AI,
+	BIT_TOF_AC,
+	BIT_TOF_AD,
+	BIT_TOF_BI,
+	BIT_TOF_BC,
+	BIT_TOF_BD
+};
 
 //bits de sensores ultrasonicos
 #define BIT_ULTRA_A (1 << 8)

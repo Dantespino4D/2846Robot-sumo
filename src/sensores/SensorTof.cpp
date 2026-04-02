@@ -1,8 +1,10 @@
 #include "SensorTof.h"
 #include "../core/Nvs.h"
 #include "../actuadores/rgb.h"
+#include "../configuracion/eventos.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
@@ -12,8 +14,7 @@ SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t*
 	mu(_mu),
 	mutex(_mutex),
 	maxd(_maxd),
-	tur(0),
-	pac(0)
+	tur(0)
 {
 	for(int i = 0; i < NUM_TOF; i++){
 		can[i] = _can[i];
@@ -120,16 +121,14 @@ bool SensorTof::verify(int n){
 }
 
 //metodo que lee todos los sensores
-void SensorTof::procesar(TaskHandle_t* Robot){
+void SensorTof::procesar(){
     if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
 		//se lee la distancia
 	    uint16_t distancia = dist(tur);
-		//se verifica si esta en el rango
-		int bit = 2 + tur;
 		if(distancia > 10 && distancia < maxd && distancia < 8000){
-			pac |= (1 << bit);
+			xEventGroupSetBits(eventos, TOF_BITS[tur]);
 		} else {
-			pac &= ~(1 << bit);
+			xEventGroupClearBits(eventos, TOF_BITS[tur]);
 		}
 		tur++;
         xSemaphoreGive(*mutex);
@@ -137,8 +136,6 @@ void SensorTof::procesar(TaskHandle_t* Robot){
 	if(tur >= NUM_TOF){
 		tur = 0;
 	}
-	// Se notifica el estado actualizado en cada ciclo (Streaming Real)
-	xTaskNotify(*Robot, pac, eSetBits);
 }
 
 //metodo que lee la Nvs

@@ -3,10 +3,12 @@
 #include "../core/MaquinaEstados.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 
 void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
-    uint32_t noti = 0; // INICIALIZADO A 0 PARA EVITAR BASURA
-    xTaskNotifyWait(0x00, 0xFFFFFFFF, &noti, 0);
+    //se reciben los bits de los sensores
+	uint32_t noti = 0;
+    noti = xEventGroupWaitBits(eventos, 0xFFFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(10));
 
     //se verifica si se detecto algun sensor de color el que sea
     if(noti & MASK_COLOR){

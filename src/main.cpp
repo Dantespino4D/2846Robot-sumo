@@ -16,6 +16,7 @@
 #include "../lib/Musica/Musica.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/event_groups.h"
 #include "nvs.h"
 #include "driver/gpio.h"
 #include "nvs_flash.h"
@@ -23,8 +24,12 @@
 #include <cstdint>
 #include "configuracion/configuracion.h"
 #include "configuracion/pines.h"
+#include "configuracion/eventos.h"
 
 static const char* TAG = "main";
+
+//event group para sincronizar tareas
+EventGroupHandle_t eventos = NULL;
 
 //creamos el mutex
 SemaphoreHandle_t mutex = NULL;
@@ -165,14 +170,10 @@ void motores(void *pvParameters) {
 
 void senColor(void *pvParameters) {
 	while (true) {
+		//inicia el combate
 		if (start) {
-			if (sc->sc_1Verify()) {
-				xTaskNotify(rob, (1 << 0), eSetBits);
-    		}
-
-    		if (sc->sc_2Verify()) {
-				xTaskNotify(rob, (1 << 1), eSetBits);
-    		}
+			//se verifican ambos sensores de color
+			sc->procesar();
 		}
    	 	vTaskDelay(pdMS_TO_TICKS(10));
   	}
@@ -184,8 +185,10 @@ void senColor(void *pvParameters) {
 
 void senRival(void *pvParameters) {
 	while (true) {
+		//inicia el combate
 		if(start){
-    		sr->procesar(&rob);
+			//se verifican los sensores de la deteccion del rival(tof o ultrasonicos)
+    		sr->procesar();
 		}
     	vTaskDelay(pdMS_TO_TICKS(20));
   	}
@@ -198,6 +201,7 @@ void senRival(void *pvParameters) {
 void musica(void *pvParameters) {
   	while (true) {
     	while (start) {
+			//se toca la musica
     		adestes();
       		vTaskDelay(10);
     	}
@@ -211,6 +215,7 @@ void musica(void *pvParameters) {
 
 void telemetria(void *pvParameters){
 	while(true){
+		//se manda la informacion actual para su procesamiento y analisis
 		tm->enviar();
 		vTaskDelay(pdMS_TO_TICKS(100));
 	}
@@ -236,6 +241,12 @@ void begin() {
 
 	//se lee las instrucciones del monitor serial
 	Nvs sys("sistema");
+
+	//se crea el event group
+	eventos = xEventGroupCreate();
+	if(eventos == NULL){
+		ESP_LOGE(TAG, "Error al crear el event group");
+	}
 
 	//se inicializan pines input pullup
 	gpio_config_t io_conf_input;
