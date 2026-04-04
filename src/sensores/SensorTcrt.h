@@ -1,0 +1,28 @@
+#ifndef SENSORTCRT_H
+#define SENSORTCRT_H
+
+#include "SensorLimite.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include <cstdint>
+#include "esp_attr.h"
+
+class SensorTcrt : public SensorLimite {
+	private:
+		gpio_num_t pin1;
+		gpio_num_t pin2;
+
+		static TaskHandle_t tarea;
+
+		static void tareaTcrt(void* pvParameters);
+
+		static void IRAM_ATTR limite_isr(void* arg);
+
+	public:
+		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2);
+		virtual ~SensorTcrt() {}
+		void begin() override;
+};
+
+#endif

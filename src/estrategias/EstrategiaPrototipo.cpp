@@ -13,11 +13,11 @@ void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
     //se verifica si se detecto algun sensor de color el que sea
     if(noti & MASK_COLOR){
         // si detecta el limite por sc_1
-        if (noti & BIT_SC_1) {
+        if (noti & BIT_LIM_A) {
             ctx->modo = 0;
         }
         // si detecta el limite por sc_2
-        else if (noti & BIT_SC_2) {
+        else if (noti & BIT_LIM_B) {
             ctx->modo = 1;
         }
     //se verifica si hay alguna memoria del sensor de color

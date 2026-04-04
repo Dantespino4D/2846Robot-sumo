@@ -1604,7 +1604,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.cpp
 #include "Mqtt.h"
 #include "../core/MaquinaEstados.h"
 #include "../actuadores/ControlMotores.h"
-#include "../sensores/SensorLimite.h"
+#include "../sensores/SensorTcs.h"
 #include "Wifi.h"
 #include "esp_system.h"
 #include <cstdio>
@@ -1614,7 +1614,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.cpp
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorTcs* c, SensorRival* r, Mqtt* q, Wifi* w):
 	d{},
 	me(e),
 	cm(m),
@@ -1699,7 +1699,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.h
 #include "Mqtt.h"
 #include "../core/MaquinaEstados.h"
 #include "../actuadores/ControlMotores.h"
-#include "../sensores/SensorLimite.h"
+#include "../sensores/SensorTcs.h"
 #include "../sensores/SensorRival.h"
 #include "Wifi.h"
 
@@ -1712,7 +1712,7 @@ class Telemetria{
 		//punteros de los objetos
 		MaquinaEstados* me;
 		ControlMotores* cm;
-		SensorLimite* sc;
+		SensorTcs* sc;
 		SensorRival* sr; // Polimorfismo!
 		Mqtt* mq;
 		Wifi* wf;
@@ -1720,7 +1720,7 @@ class Telemetria{
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorTcs* c, SensorRival* r, Mqtt* q, Wifi* w);
 		//envia el stuct
 		void enviar();
 };
@@ -1976,8 +1976,8 @@ FILE PATH: ./src/configuracion/eventos.h
 extern EventGroupHandle_t eventos;
 
 //bits de sensores de color
-#define BIT_SC_1 (1 << 0)
-#define BIT_SC_2 (1 << 1)
+#define BIT_LIM_A (1 << 0)
+#define BIT_LIM_B (1 << 1)
 
 //bits de sensores TOF direccion A
 #define BIT_TOF_AI (1 << 2)
@@ -2004,7 +2004,7 @@ static const EventBits_t TOF_BITS[6] = {
 #define BIT_ULTRA_B (1 << 9)
 
 //mascara de bits para sensores de color
-#define MASK_COLOR (BIT_SC_1 | BIT_SC_2)
+#define MASK_COLOR (BIT_LIM_A | BIT_LIM_B)
 
 //mascara de bits para sensores TOF direccion A
 #define MASK_TOF_A (BIT_TOF_AI | BIT_TOF_AC | BIT_TOF_AD)
@@ -2880,11 +2880,11 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	//se verifica si se detecto algun sensor de color el que sea
 	if(noti & MASK_COLOR){
 		// si detecta el limite por sc_1
-		if (noti & BIT_SC_1) {
+		if (noti & BIT_LIM_A) {
 			ctx->modo = 0;
 		}
 		// si detecta el limite por sc_2
-		else if (noti & BIT_SC_2) {
+		else if (noti & BIT_LIM_B) {
 	 		 ctx->modo = 1;
 		}
 	//se verifica si hay alguna memoria del sensor de color
@@ -3067,11 +3067,11 @@ void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
     //se verifica si se detecto algun sensor de color el que sea
     if(noti & MASK_COLOR){
         // si detecta el limite por sc_1
-        if (noti & BIT_SC_1) {
+        if (noti & BIT_LIM_A) {
             ctx->modo = 0;
         }
         // si detecta el limite por sc_2
-        else if (noti & BIT_SC_2) {
+        else if (noti & BIT_LIM_B) {
             ctx->modo = 1;
         }
     //se verifica si hay alguna memoria del sensor de color
@@ -3222,7 +3222,7 @@ FILE PATH: ./src/main.cpp
 #include "actuadores/ControlMotores.h"
 #include "core/MaquinaEstados.h"
 #include "actuadores/Multiplexor.h"
-#include "sensores/SensorLimite.h"
+#include "sensores/SensorTcs.h"
 #include "sensores/SensorRival.h"
 #include "sensores/SensorTof.h"
 #include "sensores/SensorUltra.h"
@@ -3266,7 +3266,7 @@ Mqtt mq;
 Multiplexor mu;
 
 // objeto de los sensores de color
-SensorLimite* sc = nullptr;
+SensorTcs* sc = nullptr;
 
 // objeto del sensor rival
 SensorRival* sr = nullptr;
@@ -3530,7 +3530,7 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sc = new SensorLimite(limCol, &mu, &mutex);
+	sc = new SensorTcs(limCol, &mu, &mutex);
     if (sc == nullptr) {
         ESP_LOGE(TAG, "CRITICAL: sc is NULL after new!");
     } else {
@@ -3584,10 +3584,10 @@ void comunicaciones() {
 
 
 ==========================================
-FILE PATH: ./src/sensores/SensorLimite.cpp
+FILE PATH: ./src/sensores/SensorTcs.cpp
 ==========================================
 
-#include "SensorLimite.h"
+#include "SensorTcs.h"
 #include "../core/Nvs.h"
 #include "driver/i2c.h"
 #include "../actuadores/rgb.h"
@@ -3597,7 +3597,7 @@ FILE PATH: ./src/sensores/SensorLimite.cpp
 #include <cstdint>
 
 #define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
-#define TAG "SensorLimite"
+#define TAG "SensorTcs"
 
 #define TCS_ENABLE 0x80 | 0x00
 #define TCS_ATIME 0x80 | 0x01
@@ -3605,7 +3605,7 @@ FILE PATH: ./src/sensores/SensorLimite.cpp
 #define TCS_CDATAL 0x80 | 0x14
 
 //constructor
-SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
+SensorTcs::SensorTcs(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
 	//tolerancia de color
     limCol(_limCol),
 
@@ -3638,7 +3638,7 @@ SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mu
 {}
 
 
-bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
+bool SensorTcs::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	uint8_t write_buf[1] = {TCS_CDATAL};
 	uint8_t read_buf[8];
 
@@ -3666,7 +3666,7 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	return true;
 }
 
-void SensorLimite::calCol(){
+void SensorTcs::calCol(){
  	// Acumuladores para promediar las lecturas
   	uint32_t t_r = 0;
   	uint32_t t_g = 0;
@@ -3735,7 +3735,7 @@ void SensorLimite::calCol(){
 	}
 }
 
-void SensorLimite::begin(){
+void SensorTcs::begin(){
 	nvsLeer();
 	uint8_t write_buf[2];
 
@@ -3772,7 +3772,7 @@ void SensorLimite::begin(){
 	}
 }
 
-bool SensorLimite::sc_1Verify(){
+bool SensorTcs::sc_1Verify(){
 	//variable que guarda el resultado
 	bool res = false;
 	//variable tempotales
@@ -3805,7 +3805,7 @@ bool SensorLimite::sc_1Verify(){
 	return res;
 }
 
-bool SensorLimite::sc_2Verify(){
+bool SensorTcs::sc_2Verify(){
 	//variable del resultado
 	bool res = false;
 	//variables temporales
@@ -3838,28 +3838,28 @@ bool SensorLimite::sc_2Verify(){
 }
 
 //metodo que procesa las detecciones tanto de sc_1 como sc_2
-void SensorLimite::procesar(){
+void SensorTcs::procesar(){
 	//se verifica si se detecta el limite en direccion A
 	if(sc_1Verify()){
 		//manda bit si sc_1 detecta el limite
-		xEventGroupSetBits(eventos, BIT_SC_1);
+		xEventGroupSetBits(eventos, BIT_LIM_A);
 	}else{
 		//limpia el bit si sc_1 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_SC_1);
+		xEventGroupClearBits(eventos, BIT_LIM_A);
 	}
 
 	//se verifica si se detecta el limite en direccion B
 	if(sc_2Verify()){
 		//manda bit si sc_2 detecta el limite
-		xEventGroupSetBits(eventos, BIT_SC_2);
+		xEventGroupSetBits(eventos, BIT_LIM_B);
 	}else{
 		//limpia el bit si sc_2 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_SC_2);
+		xEventGroupClearBits(eventos, BIT_LIM_B);
 	}
 }
 
 //metodo que lee la Nvs
-void SensorLimite::nvsLeer(){
+void SensorTcs::nvsLeer(){
 	//se accede al namspace de sensores
 	Nvs nvs("sensores");
 	//extrae el valor del limite de color
@@ -3867,7 +3867,7 @@ void SensorLimite::nvsLeer(){
 }
 
 //metdo que recopila las lecturas y datos en general para la telemetria
-void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
+void SensorTcs::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria
@@ -3930,18 +3930,18 @@ void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* c
 
 
 ==========================================
-FILE PATH: ./src/sensores/SensorLimite.h
+FILE PATH: ./src/sensores/SensorTcs.h
 ==========================================
 
-#ifndef SENSORLIMITE_H
-#define SENSORLIMITE_H
+#ifndef SensorTcs_H
+#define SensorTcs_H
 
 #include "driver/i2c.h"
 #include "freertos/task.h"
 #include "../actuadores/Multiplexor.h"
 #include <cstdint>
 
-class SensorLimite{
+class SensorTcs{
 	private:
 		int limCol;//variable de la tolerancia
 		bool estado;//variable que verifica el estado de sc_1
@@ -3978,7 +3978,7 @@ class SensorLimite{
 		uint16_t c2;
 	public:
 		//constructor
-		SensorLimite(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
+		SensorTcs(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
 
 		//metodo que calibra el Sensor
 		void calCol();

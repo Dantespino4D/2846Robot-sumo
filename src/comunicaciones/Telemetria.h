@@ -5,7 +5,7 @@
 #include "Mqtt.h"
 #include "../core/MaquinaEstados.h"
 #include "../actuadores/ControlMotores.h"
-#include "../sensores/SensorLimite.h"
+#include "../sensores/SensorTcs.h"
 #include "../sensores/SensorRival.h"
 #include "Wifi.h"
 
@@ -18,7 +18,7 @@ class Telemetria{
 		//punteros de los objetos
 		MaquinaEstados* me;
 		ControlMotores* cm;
-		SensorLimite* sc;
+		SensorTcs* sc;
 		SensorRival* sr; // Polimorfismo!
 		Mqtt* mq;
 		Wifi* wf;
@@ -26,7 +26,7 @@ class Telemetria{
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorTcs* c, SensorRival* r, Mqtt* q, Wifi* w);
 		//envia el stuct
 		void enviar();
 };

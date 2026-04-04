@@ -3,7 +3,7 @@
 #include "Mqtt.h"
 #include "../core/MaquinaEstados.h"
 #include "../actuadores/ControlMotores.h"
-#include "../sensores/SensorLimite.h"
+#include "../sensores/SensorTcs.h"
 #include "Wifi.h"
 #include "esp_system.h"
 #include <cstdio>
@@ -13,7 +13,7 @@
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorTcs* c, SensorRival* r, Mqtt* q, Wifi* w):
 	d{},
 	me(e),
 	cm(m),

@@ -4,7 +4,7 @@
 #include "actuadores/ControlMotores.h"
 #include "core/MaquinaEstados.h"
 #include "actuadores/Multiplexor.h"
-#include "sensores/SensorLimite.h"
+#include "sensores/SensorTcs.h"
 #include "sensores/SensorRival.h"
 #include "sensores/SensorTof.h"
 #include "sensores/SensorUltra.h"
@@ -48,7 +48,7 @@ Mqtt mq;
 Multiplexor mu;
 
 // objeto de los sensores de color
-SensorLimite* sc = nullptr;
+SensorTcs* sc = nullptr;
 
 // objeto del sensor rival
 SensorRival* sr = nullptr;
@@ -312,7 +312,7 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sc = new SensorLimite(limCol, &mu, &mutex);
+	sc = new SensorTcs(limCol, &mu, &mutex);
     if (sc == nullptr) {
         ESP_LOGE(TAG, "CRITICAL: sc is NULL after new!");
     } else {
@@ -354,12 +354,3 @@ void comunicaciones() {
 		//esp_log_level_set("*", ESP_LOG_NONE);
 	}
 }
-
-   // DESCRIPCIONES A TOMAR EN CUENTA:
-  	// ojos_1 y sc_1 en direccion "a"
-  	// ojos_2 y sc_2 en direccion "b"
-  	// ojos_1 enemigo
-  	// ojos_2 enemigo2
-  	// sc_1 alerta
-  	// sc_2 alerta2
-  	// y se verifique que este todo correcto

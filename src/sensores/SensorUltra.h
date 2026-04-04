@@ -67,6 +67,7 @@ class SensorUltra : public SensorRival {
 	public:
 		//costructor
 		SensorUltra(int _maxd);
+		virtual ~SensorUltra() {}
 
 		//metodos de verificacion
 		bool ojos_1Verify();

@@ -19,6 +19,10 @@
     #define MOT_A2 GPIO_NUM_5
     #define MOT_B1 GPIO_NUM_6
     #define MOT_B2 GPIO_NUM_7
+
+	// Sensores TCRT
+	#define TCRT_1 GPIO_NUM_1
+	#define TCRT_2 GPIO_NUM_10
 #else
     // Pines para ESP32 Estándar
     #define MUS GPIO_NUM_4
@@ -35,6 +39,11 @@
     #define MOT_A2 GPIO_NUM_14
     #define MOT_B1 GPIO_NUM_16
     #define MOT_B2 GPIO_NUM_17
+
+	// Sensores TCRT
+	#define TCRT_1 GPIO_NUM_32
+	#define TCRT_2 GPIO_NUM_33
+
 #endif
 
 #endif

@@ -1,4 +1,4 @@
-#include "SensorLimite.h"
+#include "SensorTcs.h"
 #include "../core/Nvs.h"
 #include "driver/i2c.h"
 #include "../actuadores/rgb.h"
@@ -8,7 +8,7 @@
 #include <cstdint>
 
 #define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
-#define TAG "SensorLimite"
+#define TAG "SensorTcs"
 
 #define TCS_ENABLE 0x80 | 0x00
 #define TCS_ATIME 0x80 | 0x01
@@ -16,7 +16,7 @@
 #define TCS_CDATAL 0x80 | 0x14
 
 //constructor
-SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
+SensorTcs::SensorTcs(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
 	//tolerancia de color
     limCol(_limCol),
 
@@ -49,7 +49,7 @@ SensorLimite::SensorLimite(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mu
 {}
 
 
-bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
+bool SensorTcs::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	uint8_t write_buf[1] = {TCS_CDATAL};
 	uint8_t read_buf[8];
 
@@ -77,7 +77,7 @@ bool SensorLimite::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	return true;
 }
 
-void SensorLimite::calCol(){
+void SensorTcs::calCol(){
  	// Acumuladores para promediar las lecturas
   	uint32_t t_r = 0;
   	uint32_t t_g = 0;
@@ -146,7 +146,7 @@ void SensorLimite::calCol(){
 	}
 }
 
-void SensorLimite::begin(){
+void SensorTcs::begin(){
 	nvsLeer();
 	uint8_t write_buf[2];
 
@@ -183,7 +183,7 @@ void SensorLimite::begin(){
 	}
 }
 
-bool SensorLimite::sc_1Verify(){
+bool SensorTcs::sc_1Verify(){
 	//variable que guarda el resultado
 	bool res = false;
 	//variable tempotales
@@ -216,7 +216,7 @@ bool SensorLimite::sc_1Verify(){
 	return res;
 }
 
-bool SensorLimite::sc_2Verify(){
+bool SensorTcs::sc_2Verify(){
 	//variable del resultado
 	bool res = false;
 	//variables temporales
@@ -249,28 +249,28 @@ bool SensorLimite::sc_2Verify(){
 }
 
 //metodo que procesa las detecciones tanto de sc_1 como sc_2
-void SensorLimite::procesar(){
+void SensorTcs::procesar(){
 	//se verifica si se detecta el limite en direccion A
 	if(sc_1Verify()){
 		//manda bit si sc_1 detecta el limite
-		xEventGroupSetBits(eventos, BIT_SC_1);
+		xEventGroupSetBits(eventos, BIT_LIM_A);
 	}else{
 		//limpia el bit si sc_1 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_SC_1);
+		xEventGroupClearBits(eventos, BIT_LIM_A);
 	}
 
 	//se verifica si se detecta el limite en direccion B
 	if(sc_2Verify()){
 		//manda bit si sc_2 detecta el limite
-		xEventGroupSetBits(eventos, BIT_SC_2);
+		xEventGroupSetBits(eventos, BIT_LIM_B);
 	}else{
 		//limpia el bit si sc_2 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_SC_2);
+		xEventGroupClearBits(eventos, BIT_LIM_B);
 	}
 }
 
 //metodo que lee la Nvs
-void SensorLimite::nvsLeer(){
+void SensorTcs::nvsLeer(){
 	//se accede al namspace de sensores
 	Nvs nvs("sensores");
 	//extrae el valor del limite de color
@@ -278,7 +278,7 @@ void SensorLimite::nvsLeer(){
 }
 
 //metdo que recopila las lecturas y datos en general para la telemetria
-void SensorLimite::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
+void SensorTcs::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria

@@ -32,6 +32,7 @@ class SensorTof : public SensorRival {
 	public:
 		//constructor
 		SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd);
+		virtual ~SensorTof() {}
 		//inicializa los sensores ToF
 		bool begin() override;
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes

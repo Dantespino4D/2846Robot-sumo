@@ -51,7 +51,7 @@ El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tar
 Core 0                         Core 1
 ──────────────────────         ──────────────────────
 SensorUltra (Prio: 2)          Motores (Prio: 5)
-Telemetria (Prio: 1)           SensorColor (Prio: 3)
+Telemetria (Prio: 1)           SensorTcs (Prio: 3)
 Musica (Prio: 1)               Robot / Lógica (Prio: 2)
 
 ### Módulos principales
@@ -64,7 +64,7 @@ Musica (Prio: 1)               Robot / Lógica (Prio: 2)
     - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. Permite una lógica de decisión de alta eficiencia mediante el filtrado de zonas (Frontal, Trasera, Borde) y combinaciones de precisión. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
-- **`SensorLimite`** — Lectura en hilo secundario de los sensores de color TCS34725 para evadir el borde blanco del dohyo.
+- **`SensorTcs`** — Lectura en hilo secundario de los sensores de color TCS34725 para evadir el borde blanco del dohyo.
 - **`SensorRival`** — Interfaz abstracta diseñada para facilitar la migración de los ultrasónicos HC-SR04 a los sensores ToF VL53L0X sin alterar la lógica superior.
 - **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo mediante multiplexación I2C para una visión de 360 grados.
 - **`Wifi` / `Mqtt` / `Telemetria`** — Stack de conectividad que publica el estado completo del robot (lecturas, estados, hardware) al broker MQTT para análisis y telemetría de pruebas.
@@ -107,7 +107,7 @@ El proyecto implementa un sofisticado sistema de detección basado en máscaras 
 
 ```cpp
 // Sensores de línea (borde del tatami)
-BIT_SC_1, BIT_SC_2           → MASK_COLOR
+BIT_LIM_A, BIT_LIM_B           → MASK_COLOR
 
 // Sensores ToF frontales (dirección A)
 BIT_TOF_AI, BIT_TOF_AC, BIT_TOF_AD → MASK_TOF_A
@@ -187,7 +187,7 @@ Esta arquitectura permite que el procesador filtre **grupos completos de sensore
 │   │   ├── EstrategiaEstandar.* # Lógica de sensores compartida
 │   │   └── EstrategiaPrototipo.* # Estrategia inicial (Legacy)
 │   ├── sensores/             # Hardware de medición
-│   │   ├── SensorLimite.*    # Sensores de borde (color)
+│   │   ├── SensorTcs.*     # Sensores de borde (color)
 │   │   ├── SensorRival.h     # Interfaz abstracta para sensores de rival
 │   │   ├── SensorTof.*       # Implementación ToF (VL53L)
 │   │   └── SensorUltra.*     # Implementación ultrasónica
