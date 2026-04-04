@@ -40,19 +40,21 @@ El proyecto está diseñado en dos fases de desarrollo para optimizar el rendimi
 ### Fase 2: Versión Final Competitiva
 * **Tracción de Alta Velocidad:** Actualización a 4 Motores Pololu de 1000 RPM (reducción 50:1) para maximizar la velocidad de embestida.
 * **Precisión Láser:** Sustitución de los sensores ultrasónicos por sensores ToF (Time-of-Flight) **VL53L0X** para una lectura de distancia al rival más rápida, precisa e inmune a interferencias acústicas.
+* **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
 
 ---
 
 ## Arquitectura del Software
 
-El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tareas FreeRTOS, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos:
+El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tareas FreeRTOS, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos. Los sensores de límite y rival gestionan sus propias tareas o interrupciones de forma encapsulada:
 
 ```text
 Core 0                         Core 1
 ──────────────────────         ──────────────────────
 SensorUltra (Prio: 2)          Motores (Prio: 5)
-Telemetria (Prio: 1)           SensorTcs (Prio: 3)
-Musica (Prio: 1)               Robot / Lógica (Prio: 2)
+Telemetria (Prio: 1)           Robot / Lógica (Prio: 2)
+Musica (Prio: 1)               Tarea Interna Sensor (Prio: 3)
+```
 
 ### Módulos principales
 
@@ -64,7 +66,9 @@ Musica (Prio: 1)               Robot / Lógica (Prio: 2)
     - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. Permite una lógica de decisión de alta eficiencia mediante el filtrado de zonas (Frontal, Trasera, Borde) y combinaciones de precisión. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
-- **`SensorTcs`** — Lectura en hilo secundario de los sensores de color TCS34725 para evadir el borde blanco del dohyo.
+- **`SensorLimite`** — Interfaz abstracta para sensores de borde que permite el intercambio transparente de hardware.
+- **`SensorTcs`** — Implementación para sensores de color TCS34725 mediante polling I2C en una tarea interna autogestionada.
+- **`SensorTcrt`** — Implementación de ultra-baja latencia para sensores TCRT5000 utilizando interrupciones de hardware y tareas de sincronización.
 - **`SensorRival`** — Interfaz abstracta diseñada para facilitar la migración de los ultrasónicos HC-SR04 a los sensores ToF VL53L0X sin alterar la lógica superior.
 - **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo mediante multiplexación I2C para una visión de 360 grados.
 - **`Wifi` / `Mqtt` / `Telemetria`** — Stack de conectividad que publica el estado completo del robot (lecturas, estados, hardware) al broker MQTT para análisis y telemetría de pruebas.
@@ -81,7 +85,7 @@ El robot configura su modo operativo al arranque utilizando el botón de interfa
 | `0` | **Prueba / Telemetría** — Activa WiFi y MQTT. Permite monitoreo y ajustes en tiempo real. | Mantener presionado el botón al encender. |
 | `1` | **Combate Autónomo** — Modo competitivo estricto. WiFi y loggers desactivados para máximo rendimiento de CPU. | Encendido normal (Por defecto). |
 
-En el modo de combate, al presionar el botón de inicio se calibran los sensores de piso, se inician los 5 segundos reglamentarios de espera y comienza la rutina de búsqueda.
+En el modo de combate, al presionar el botón de inicio los sensores de límite ejecutan su autocalibración interna, se inician los 5 segundos reglamentarios de espera y comienza la rutina de búsqueda.
 
 ---
 
@@ -138,24 +142,15 @@ El algoritmo de selección de estado utiliza un **filtrado jerárquico en cascad
 
 Esta arquitectura permite que el procesador filtre **grupos completos de sensores en un solo ciclo de CPU** antes de descender a combinaciones específicas, reduciendo dramáticamente el tiempo de respuesta de la máquina de estados.
 
-### Ventajas de este Diseño
-
-* **Performance:** Una operación AND bit a bit (`noti & MASK_TOF_A`) evalúa 3 sensores simultáneamente
-* **Legibilidad:** Las máscaras tienen nombres descriptivos que documentan el código
-* **Escalabilidad:** Agregar nuevos sensores solo requiere definir bits y actualizar máscaras
-* **Consistencia:** Todas las estrategias comparten las mismas definiciones de `eventos.h`
-
 ---
 
 ## Fortalezas del Diseño
 
 * **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate (ej. flanqueo, evasión, estrella) simplemente heredando de `EstrategiaEstandar`. Esto aísla el código de cada estrategia, facilitando el debug y permitiendo cambios en caliente sin riesgo de afectar otras tácticas.
-* **Jerarquía de Máscaras de Bits:** La implementación de un mapa de eventos centralizado en `eventos.h` permite que la lógica de decisión sea extremadamente rápida y legible. El procesador puede filtrar zonas completas (ej. "¿Hay algo adelante?") en un solo ciclo de instrucción antes de evaluar combinaciones de precisión.
-* **Abstracción Orientada a Hardware Evolutivo:** El uso de herencia y polimorfismo en `SensorRival` facilita la transición planificada a los sensores ToF VL53L0X.
+* **Encapsulamiento de Sensores Autogestionados:** Cada clase de sensor gestiona su propia lectura (interrupciones o tareas internas), liberando al `main.cpp` de la gestión de hilos y garantizando una migración de hardware transparente mediante interfaces (`SensorLimite`, `SensorRival`).
+* **Jerarquía de Máscaras de Bits:** La implementación de un mapa de eventos centralizado en `eventos.h` permite que la lógica de decisión sea extremadamente rápida y legible.
 * **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
-* **Arquitectura FreeRTOS:** La segregación de la lógica del robot, la lectura del ADC/I2C de sensores de color y la interrupción de motores en distintas tareas priorizadas asegura tiempos de respuesta de milisegundos en combate.
-* **Potencia Desacoplada:** El uso de 4 drivers DRV8871 permite aprovechar la máxima corriente de pico por cada rueda de manera individual, previniendo cuellos de botella térmicos frente al empuje extremo.
-* **Sistema Anti-Jitter (Zero-Order Hold):** La máquina de estados procesa las lecturas multiplexadas de los sensores a través de una matriz de memorias a corto plazo. Esto permite que el robot mantenga una fluidez perfecta de ataque y previene tirones en los motores si se pierde una lectura de sensor por milisegundos.
+* **Sistema Anti-Jitter (Zero-Order Hold):** La máquina de estados procesa las lecturas multiplexadas de los sensores a través de una matriz de memorias a corto plazo.
 
 ---
 
@@ -187,7 +182,9 @@ Esta arquitectura permite que el procesador filtre **grupos completos de sensore
 │   │   ├── EstrategiaEstandar.* # Lógica de sensores compartida
 │   │   └── EstrategiaPrototipo.* # Estrategia inicial (Legacy)
 │   ├── sensores/             # Hardware de medición
-│   │   ├── SensorTcs.*     # Sensores de borde (color)
+│   │   ├── SensorLimite.h    # Interfaz base para sensores de borde
+│   │   ├── SensorTcs.*       # Implementación para TCS34725 (Color)
+│   │   ├── SensorTcrt.*      # Implementación para TCRT5000 (Línea)
 │   │   ├── SensorRival.h     # Interfaz abstracta para sensores de rival
 │   │   ├── SensorTof.*       # Implementación ToF (VL53L)
 │   │   └── SensorUltra.*     # Implementación ultrasónica

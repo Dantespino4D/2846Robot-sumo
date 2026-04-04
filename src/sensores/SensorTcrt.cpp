@@ -11,7 +11,6 @@ extern EventGroupHandle_t eventos;
 
 static const char* TAG = "SensorTcrt";
 
-// Definición del miembro estático
 TaskHandle_t SensorTcrt::tarea = nullptr;
 
 SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
@@ -20,20 +19,14 @@ SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
 {}
 
 void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
-	//variable para determinar si se debe cambiar de contexto
     BaseType_t cambioC = pdFALSE;
-
-	//se notifica a la tarea de TCRT que se ha producido un cambio
 	vTaskNotifyGiveFromISR(tarea, &cambioC);
-
-	//si se ha notificado a la tarea, se solicita un cambio de contexto
     if (cambioC) {
         portYIELD_FROM_ISR();
     }
 }
 
 void SensorTcrt::begin() {
-	//inicializa los pines con la configuración de las interrupciones
     gpio_config_t io_conf = {};
     io_conf.intr_type = GPIO_INTR_ANYEDGE;
     io_conf.mode = GPIO_MODE_INPUT;
@@ -42,19 +35,23 @@ void SensorTcrt::begin() {
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
 
-	//instala el servicio de interrupciones
     gpio_install_isr_service(0);
 
-	//agrega las interrupciones para ambos pines
     gpio_isr_handler_add(pin1, &SensorTcrt::limite_isr, (void*)pin1);
     gpio_isr_handler_add(pin2, &SensorTcrt::limite_isr, (void*)pin2);
 
     ESP_LOGI(TAG, "Interrupciones configuradas para TCRT en pines %d y %d", pin1, pin2);
 
-	//crea la tarea para procesar las interrupciones
 	xTaskCreate(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea);
 }
 
+void SensorTcrt::colores(uint16_t* buffer) {
+    buffer[0] = (uint16_t)gpio_get_level(pin1);
+    buffer[1] = (uint16_t)gpio_get_level(pin2);
+    for(int i = 2; i < 16; i++) {
+        buffer[i] = 0;
+    }
+}
 
 void SensorTcrt::tareaTcrt(void* pvParameters) {
 	SensorTcrt* sensor = (SensorTcrt*)pvParameters;

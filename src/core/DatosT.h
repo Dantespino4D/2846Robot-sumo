@@ -67,6 +67,10 @@ struct Datos{
 	int wifi;
 	int ciclo;
 	int prototipo;
+
+	// Variables de sensores TCRT
+	uint16_t Tcrt1;
+	uint16_t Tcrt2;
 };
 
 #endif

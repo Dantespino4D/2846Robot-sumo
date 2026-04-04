@@ -44,10 +44,12 @@ class SensorTcs : public SensorLimite {
 		bool sc_1Verify();
 		bool sc_2Verify();
 
+		static void senColor(void* pvParameters);
+
 		void procesar();
 
 		void begin() override;
 
-		void colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2);
+		void colores(uint16_t* buffer) override;
 };
 #endif

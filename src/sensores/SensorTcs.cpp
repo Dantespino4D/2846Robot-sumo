@@ -15,6 +15,8 @@
 #define TCS_CONTROL 0x80 | 0x0F
 #define TCS_CDATAL 0x80 | 0x14
 
+extern volatile bool start;
+
 //constructor
 SensorTcs::SensorTcs(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
 	//tolerancia de color
@@ -181,6 +183,13 @@ void SensorTcs::begin(){
 		ESP_LOGE(TAG, "No se pudo inicializar sc_2 (TCS34725)");
 		rgb(0, 1023);
 	}
+
+	//se  calibra si por lo menos uno funciono
+	if(estado || estado2){
+		calCol();
+	}
+	//se crea la tarea de los sensores de color
+  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, (void*)this, 3, NULL, 1);
 }
 
 bool SensorTcs::sc_1Verify(){
@@ -269,6 +278,20 @@ void SensorTcs::procesar(){
 	}
 }
 
+//tarea que se encarga de procesar los datos de los sensores de color
+void SensorTcs::senColor(void *pvParameters) {
+	//se obtiene el puntero del objeto
+	SensorTcs* sensor = (SensorTcs*)pvParameters;
+	while (true) {
+		//inicia el combate
+		if (start) {
+			//se verifican ambos sensores de color
+			sensor->procesar();
+		}
+   	 	vTaskDelay(pdMS_TO_TICKS(10));
+  	}
+}
+
 //metodo que lee la Nvs
 void SensorTcs::nvsLeer(){
 	//se accede al namspace de sensores
@@ -278,34 +301,34 @@ void SensorTcs::nvsLeer(){
 }
 
 //metdo que recopila las lecturas y datos en general para la telemetria
-void SensorTcs::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
+void SensorTcs::colores(uint16_t* buffer){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria
 
 		//Calibracion de sc_1
-		*rc = lcr;
-		*gc = lcg;
-		*bc = lcb;
-		*cc = lcc;
+		buffer[0] = lcr;
+		buffer[1] = lcg;
+		buffer[2] = lcb;
+		buffer[3] = lcc;
 
 		//Calibracion de sc_2
-		*rc2 = lcr2;
-		*gc2 = lcg2;
-		*bc2 = lcb2;
-		*cc2 = lcc2;
+		buffer[4] = lcr2;
+		buffer[5] = lcg2;
+		buffer[6] = lcb2;
+		buffer[7] = lcc2;
 
 		//lecturas de sc_1
-		*red1 = r1;
-		*green1 = g1;
-		*blue1 = b1;
-		*clear1 = c1;
+		buffer[8] = r1;
+		buffer[9] = g1;
+		buffer[10] = b1;
+		buffer[11] = c1;
 
 		//lecturas de sc_2
-		*red2 = r2;
-		*green2 = g2;
-		*blue2 = b2;
-		*clear2 = c2;
+		buffer[12] = r2;
+		buffer[13] = g2;
+		buffer[14] = b2;
+		buffer[15] = c2;
 
 		//se suelta el mutex
 		xSemaphoreGive(*mutex);
@@ -313,28 +336,8 @@ void SensorTcs::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, 
 		//si no se puede leer envia in valor irreal a la telemtetria
 		uint16_t eVal = 65535;
 
-		//Calibracion de sc_1
-		*rc = eVal;
-		*gc = eVal;
-		*bc = eVal;
-		*cc = eVal;
-
-		//Calibracion de sc_2
-		*rc2 = eVal;
-		*gc2 = eVal;
-		*bc2 = eVal;
-		*cc2 = eVal;
-
-		//lecturas de sc_1
-		*red1 = eVal;
-		*green1 = eVal;
-		*blue1 = eVal;
-		*clear1 = eVal;
-
-		//lecturas de sc_2
-		*red2 = eVal;
-		*green2 = eVal;
-		*blue2 = eVal;
-		*clear2 = eVal;
+		for(int i = 0; i < 16; i++){
+			buffer[i] = eVal;
+		}
 	}
 }

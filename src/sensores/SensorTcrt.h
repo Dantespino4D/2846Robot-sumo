@@ -23,6 +23,7 @@ class SensorTcrt : public SensorLimite {
 		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2);
 		virtual ~SensorTcrt() {}
 		void begin() override;
+		void colores(uint16_t* buffer) override;
 };
 
 #endif

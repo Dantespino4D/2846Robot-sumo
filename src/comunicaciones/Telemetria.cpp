@@ -3,7 +3,7 @@
 #include "Mqtt.h"
 #include "../core/MaquinaEstados.h"
 #include "../actuadores/ControlMotores.h"
-#include "../sensores/SensorTcs.h"
+#include "../sensores/SensorLimite.h"
 #include "Wifi.h"
 #include "esp_system.h"
 #include <cstdio>
@@ -13,7 +13,7 @@
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorTcs* c, SensorRival* r, Mqtt* q, Wifi* w):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
 	d{},
 	me(e),
 	cm(m),
@@ -28,7 +28,19 @@ void Telemetria::recopilar(){
 	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
 	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
-	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
+	
+	// Polimorfismo para sensores de limite
+	uint16_t colBuffer[16];
+	sc->colores(colBuffer);
+	
+	d.cR1 = colBuffer[0]; d.cG1 = colBuffer[1]; d.cB1 = colBuffer[2]; d.cC1 = colBuffer[3];
+	d.cR2 = colBuffer[4]; d.cG2 = colBuffer[5]; d.cB2 = colBuffer[6]; d.cC2 = colBuffer[7];
+	d.scR1 = colBuffer[8]; d.scG1 = colBuffer[9]; d.scB1 = colBuffer[10]; d.scC1 = colBuffer[11];
+	d.scR2 = colBuffer[12]; d.scG2 = colBuffer[13]; d.scB2 = colBuffer[14]; d.scC2 = colBuffer[15];
+
+	// Caso específico para TCRT (primeros 2 valores del buffer)
+	d.Tcrt1 = colBuffer[0];
+	d.Tcrt2 = colBuffer[1];
 
     // Polimorfismo: Obtenemos todas las lecturas en un buffer unificado
     uint16_t distBuffer[8];
@@ -44,7 +56,7 @@ void Telemetria::recopilar(){
 	d.ToF5 = distBuffer[6];
 	d.ToF6 = distBuffer[7];
 
-    // Fiabilidad y otros datos (asumo ceros por ahora o lógica aparte)
+    // Fiabilidad y otros datos
 	d.fToF1 = 0;
 	d.fToF2 = 0;
 	d.fToF3 = 0;
@@ -67,9 +79,9 @@ void Telemetria::enviar(){
 	//variable que guardara el json
 	char json[NJSON];
 
-	//se arma el json
+	//se arma el json (agregando TCRTs)
 	int lon = snprintf(json, NJSON,
-    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"tcrt\":[%d,%d]}}",
     COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
 	d.estado, d.estrategia, d.inicio,
     d.pwm1, d.pwm2, d.stall,
@@ -77,7 +89,8 @@ void Telemetria::enviar(){
 	d.cR1, d.cG1, d.cB1, d.cC1,
 	d.cR2, d.cG2, d.cB2, d.cC2,
     d.scR1, d.scG1, d.scB1, d.scC1,
-    d.scR2, d.scG2, d.scB2, d.scC2
+    d.scR2, d.scG2, d.scB2, d.scC2,
+	d.Tcrt1, d.Tcrt2
     	);
 
 	//se valida y envia el json

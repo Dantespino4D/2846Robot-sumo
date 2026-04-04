@@ -1604,7 +1604,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.cpp
 #include "Mqtt.h"
 #include "../core/MaquinaEstados.h"
 #include "../actuadores/ControlMotores.h"
-#include "../sensores/SensorTcs.h"
+#include "../sensores/SensorLimite.h"
 #include "Wifi.h"
 #include "esp_system.h"
 #include <cstdio>
@@ -1614,7 +1614,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.cpp
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorTcs* c, SensorRival* r, Mqtt* q, Wifi* w):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w):
 	d{},
 	me(e),
 	cm(m),
@@ -1629,7 +1629,19 @@ void Telemetria::recopilar(){
 	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
 	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
-	sc->colores(&d.cR1, &d.cG1, &d.cB1, &d.cC1, &d.cR2, &d.cG2, &d.cB2, &d.cC2, &d.scR1, &d.scG1, &d.scB1, &d.scC1, &d.scR2, &d.scG2, &d.scB2, &d.scC2);
+	
+	// Polimorfismo para sensores de limite
+	uint16_t colBuffer[16];
+	sc->colores(colBuffer);
+	
+	d.cR1 = colBuffer[0]; d.cG1 = colBuffer[1]; d.cB1 = colBuffer[2]; d.cC1 = colBuffer[3];
+	d.cR2 = colBuffer[4]; d.cG2 = colBuffer[5]; d.cB2 = colBuffer[6]; d.cC2 = colBuffer[7];
+	d.scR1 = colBuffer[8]; d.scG1 = colBuffer[9]; d.scB1 = colBuffer[10]; d.scC1 = colBuffer[11];
+	d.scR2 = colBuffer[12]; d.scG2 = colBuffer[13]; d.scB2 = colBuffer[14]; d.scC2 = colBuffer[15];
+
+	// Caso específico para TCRT (primeros 2 valores del buffer)
+	d.Tcrt1 = colBuffer[0];
+	d.Tcrt2 = colBuffer[1];
 
     // Polimorfismo: Obtenemos todas las lecturas en un buffer unificado
     uint16_t distBuffer[8];
@@ -1645,7 +1657,7 @@ void Telemetria::recopilar(){
 	d.ToF5 = distBuffer[6];
 	d.ToF6 = distBuffer[7];
 
-    // Fiabilidad y otros datos (asumo ceros por ahora o lógica aparte)
+    // Fiabilidad y otros datos
 	d.fToF1 = 0;
 	d.fToF2 = 0;
 	d.fToF3 = 0;
@@ -1668,9 +1680,9 @@ void Telemetria::enviar(){
 	//variable que guardara el json
 	char json[NJSON];
 
-	//se arma el json
+	//se arma el json (agregando TCRTs)
 	int lon = snprintf(json, NJSON,
-    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"tcrt\":[%d,%d]}}",
     COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
 	d.estado, d.estrategia, d.inicio,
     d.pwm1, d.pwm2, d.stall,
@@ -1678,7 +1690,8 @@ void Telemetria::enviar(){
 	d.cR1, d.cG1, d.cB1, d.cC1,
 	d.cR2, d.cG2, d.cB2, d.cC2,
     d.scR1, d.scG1, d.scB1, d.scC1,
-    d.scR2, d.scG2, d.scB2, d.scC2
+    d.scR2, d.scG2, d.scB2, d.scC2,
+	d.Tcrt1, d.Tcrt2
     	);
 
 	//se valida y envia el json
@@ -1699,7 +1712,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.h
 #include "Mqtt.h"
 #include "../core/MaquinaEstados.h"
 #include "../actuadores/ControlMotores.h"
-#include "../sensores/SensorTcs.h"
+#include "../sensores/SensorLimite.h"
 #include "../sensores/SensorRival.h"
 #include "Wifi.h"
 
@@ -1712,7 +1725,7 @@ class Telemetria{
 		//punteros de los objetos
 		MaquinaEstados* me;
 		ControlMotores* cm;
-		SensorTcs* sc;
+		SensorLimite* sc;
 		SensorRival* sr; // Polimorfismo!
 		Mqtt* mq;
 		Wifi* wf;
@@ -1720,12 +1733,13 @@ class Telemetria{
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorTcs* c, SensorRival* r, Mqtt* q, Wifi* w);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w);
 		//envia el stuct
 		void enviar();
 };
 
 #endif
+
 
 ==========================================
 FILE PATH: ./src/comunicaciones/Wifi.cpp
@@ -1975,7 +1989,7 @@ FILE PATH: ./src/configuracion/eventos.h
 //event groups global
 extern EventGroupHandle_t eventos;
 
-//bits de sensores de color
+//bits de sensores de limite (TCS o TCRT)
 #define BIT_LIM_A (1 << 0)
 #define BIT_LIM_B (1 << 1)
 
@@ -2003,7 +2017,7 @@ static const EventBits_t TOF_BITS[6] = {
 #define BIT_ULTRA_A (1 << 8)
 #define BIT_ULTRA_B (1 << 9)
 
-//mascara de bits para sensores de color
+//mascara de bits para sensores de limite
 #define MASK_COLOR (BIT_LIM_A | BIT_LIM_B)
 
 //mascara de bits para sensores TOF direccion A
@@ -2063,6 +2077,10 @@ FILE PATH: ./src/configuracion/pines.h
     #define MOT_A2 GPIO_NUM_5
     #define MOT_B1 GPIO_NUM_6
     #define MOT_B2 GPIO_NUM_7
+
+	// Sensores TCRT
+	#define TCRT_1 GPIO_NUM_1
+	#define TCRT_2 GPIO_NUM_10
 #else
     // Pines para ESP32 Estándar
     #define MUS GPIO_NUM_4
@@ -2079,6 +2097,11 @@ FILE PATH: ./src/configuracion/pines.h
     #define MOT_A2 GPIO_NUM_14
     #define MOT_B1 GPIO_NUM_16
     #define MOT_B2 GPIO_NUM_17
+
+	// Sensores TCRT
+	#define TCRT_1 GPIO_NUM_32
+	#define TCRT_2 GPIO_NUM_33
+
 #endif
 
 #endif
@@ -2157,6 +2180,10 @@ struct Datos{
 	int wifi;
 	int ciclo;
 	int prototipo;
+
+	// Variables de sensores TCRT
+	uint16_t Tcrt1;
+	uint16_t Tcrt2;
 };
 
 #endif
@@ -3222,6 +3249,8 @@ FILE PATH: ./src/main.cpp
 #include "actuadores/ControlMotores.h"
 #include "core/MaquinaEstados.h"
 #include "actuadores/Multiplexor.h"
+#include "sensores/SensorLimite.h"
+#include "sensores/SensorTcrt.h"
 #include "sensores/SensorTcs.h"
 #include "sensores/SensorRival.h"
 #include "sensores/SensorTof.h"
@@ -3265,8 +3294,8 @@ Mqtt mq;
 //objeto del Multiplexor
 Multiplexor mu;
 
-// objeto de los sensores de color
-SensorTcs* sc = nullptr;
+// objeto de los sensores de limite
+SensorLimite* sl = nullptr;
 
 // objeto del sensor rival
 SensorRival* sr = nullptr;
@@ -3289,7 +3318,6 @@ TaskHandle_t motr = NULL;
 //protoripos de las tareas
 void robot(void *pvParameters);
 void motores(void *pvParameters);
-void senColor(void *pvParameters);
 void senRival(void *pvParameters);
 void musica(void *pvParameters);
 void telemetria(void *pvParameters);
@@ -3310,7 +3338,6 @@ extern "C" void app_main(void){
   	// se crean las tareas
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
-  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
 	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 	ESP_LOGI(TAG, "se inicializo las tareas");
@@ -3325,11 +3352,16 @@ void robot(void *pvParameters) {
   	while (gpio_get_level(INI) == 1) {
     	vTaskDelay(pdMS_TO_TICKS(100));
   	}
+
+	//espera de 5 segundos
   	ESP_LOGI(TAG, "boton precionado");
-  	sc->calCol();
   	vTaskDelay(pdMS_TO_TICKS(5000));
+
+	//prende el led en verde para indicar que todo esta bien
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
+
+	//la variable star la cual activa las tareas
   	start = true;
 
 	//bucle del robot
@@ -3345,7 +3377,7 @@ void robot(void *pvParameters) {
 				//porceso para reiniciar el i2c
 				mu.reinicio();
 				mu.begin();
-				sc->begin();
+				sl->begin();
 				sr->begin();
 				rgb(1023, 0);
 				xSemaphoreGive(mutex);
@@ -3380,21 +3412,6 @@ void motores(void *pvParameters) {
       	// Aplica el nuevo movimiento
       	cm.controlador(accion);
 	}
-}
-
-
-// SENSORES DE COLOR
-
-
-void senColor(void *pvParameters) {
-	while (true) {
-		//inicia el combate
-		if (start) {
-			//se verifican ambos sensores de color
-			sc->procesar();
-		}
-   	 	vTaskDelay(pdMS_TO_TICKS(10));
-  	}
 }
 
 
@@ -3530,13 +3547,13 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sc = new SensorTcs(limCol, &mu, &mutex);
-    if (sc == nullptr) {
-        ESP_LOGE(TAG, "CRITICAL: sc is NULL after new!");
+	sl = new SensorTcs(limCol, &mu, &mutex);
+    if (sl == nullptr) {
+        ESP_LOGE(TAG, "no se pudo crear el objeto!");
     } else {
-        ESP_LOGI(TAG, "sc allocated at: %p", sc);
+        ESP_LOGI(TAG, "sc se creo correctamente: %p", sl);
         // configuracion de los objetos de sensores de color y ultrasonicos
-        sc->begin();
+        sl->begin();
     }
 
 	//se inicializa el sensor rival
@@ -3563,7 +3580,7 @@ void comunicaciones() {
  		mq.begin();
 
 		//se inicializa el objeto de telemetria
-		tm = new Telemetria(me, &cm, sc, sr, &mq, &wi); // sr pasado DIRECTAMENTE
+		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi); // sr pasado DIRECTAMENTE
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
@@ -3573,14 +3590,160 @@ void comunicaciones() {
 	}
 }
 
-   // DESCRIPCIONES A TOMAR EN CUENTA:
-  	// ojos_1 y sc_1 en direccion "a"
-  	// ojos_2 y sc_2 en direccion "b"
-  	// ojos_1 enemigo
-  	// ojos_2 enemigo2
-  	// sc_1 alerta
-  	// sc_2 alerta2
-  	// y se verifique que este todo correcto
+
+==========================================
+FILE PATH: ./src/sensores/SensorLimite.h
+==========================================
+
+#ifndef SENSORLIMITE_H
+#define SENSORLIMITE_H
+
+#include <cstdint>
+
+class SensorLimite {
+public:
+    virtual ~SensorLimite() {}
+    virtual void begin() = 0;
+    virtual void colores(uint16_t* buffer) = 0;
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/sensores/SensorRival.h
+==========================================
+
+#ifndef SENSORRIVAL_H
+#define SENSORRIVAL_H
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+class SensorRival {
+	public:
+		virtual ~SensorRival() {}
+		virtual bool begin() = 0;
+		virtual void procesar() = 0;
+		virtual void getDistancias(uint16_t* buffer) = 0;
+};
+#endif // SENSORRIVAL_H
+
+
+==========================================
+FILE PATH: ./src/sensores/SensorTcrt.cpp
+==========================================
+
+#include "SensorTcrt.h"
+#include "../configuracion/eventos.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/event_groups.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include <cstdint>
+
+extern EventGroupHandle_t eventos;
+
+static const char* TAG = "SensorTcrt";
+
+TaskHandle_t SensorTcrt::tarea = nullptr;
+
+SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
+	pin1(_p1),
+	pin2(_p2)
+{}
+
+void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
+    BaseType_t cambioC = pdFALSE;
+	vTaskNotifyGiveFromISR(tarea, &cambioC);
+    if (cambioC) {
+        portYIELD_FROM_ISR();
+    }
+}
+
+void SensorTcrt::begin() {
+    gpio_config_t io_conf = {};
+    io_conf.intr_type = GPIO_INTR_ANYEDGE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = (1ULL << pin1) | (1ULL << pin2);
+    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+    gpio_config(&io_conf);
+
+    gpio_install_isr_service(0);
+
+    gpio_isr_handler_add(pin1, &SensorTcrt::limite_isr, (void*)pin1);
+    gpio_isr_handler_add(pin2, &SensorTcrt::limite_isr, (void*)pin2);
+
+    ESP_LOGI(TAG, "Interrupciones configuradas para TCRT en pines %d y %d", pin1, pin2);
+
+	xTaskCreate(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea);
+}
+
+void SensorTcrt::colores(uint16_t* buffer) {
+    buffer[0] = (uint16_t)gpio_get_level(pin1);
+    buffer[1] = (uint16_t)gpio_get_level(pin2);
+    for(int i = 2; i < 16; i++) {
+        buffer[i] = 0;
+    }
+}
+
+void SensorTcrt::tareaTcrt(void* pvParameters) {
+	SensorTcrt* sensor = (SensorTcrt*)pvParameters;
+	while (true) {
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		if(sensor == nullptr) {
+			ESP_LOGE(TAG, "Error: puntero a SensorTcrt es nulo");
+			continue;
+		}
+		if(gpio_get_level(sensor->pin1)){
+			xEventGroupSetBits(eventos, BIT_LIM_A);
+		}else{
+			xEventGroupClearBits(eventos, BIT_LIM_A);
+		}
+		if(gpio_get_level(sensor->pin2)){
+			xEventGroupSetBits(eventos, BIT_LIM_B);
+		}else{
+			xEventGroupClearBits(eventos, BIT_LIM_B);
+		}
+	}
+}
+
+
+==========================================
+FILE PATH: ./src/sensores/SensorTcrt.h
+==========================================
+
+#ifndef SENSORTCRT_H
+#define SENSORTCRT_H
+
+#include "SensorLimite.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include <cstdint>
+#include "esp_attr.h"
+
+class SensorTcrt : public SensorLimite {
+	private:
+		gpio_num_t pin1;
+		gpio_num_t pin2;
+
+		static TaskHandle_t tarea;
+
+		static void tareaTcrt(void* pvParameters);
+
+		static void IRAM_ATTR limite_isr(void* arg);
+
+	public:
+		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2);
+		virtual ~SensorTcrt() {}
+		void begin() override;
+		void colores(uint16_t* buffer) override;
+};
+
+#endif
 
 
 ==========================================
@@ -3603,6 +3766,8 @@ FILE PATH: ./src/sensores/SensorTcs.cpp
 #define TCS_ATIME 0x80 | 0x01
 #define TCS_CONTROL 0x80 | 0x0F
 #define TCS_CDATAL 0x80 | 0x14
+
+extern volatile bool start;
 
 //constructor
 SensorTcs::SensorTcs(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
@@ -3770,6 +3935,13 @@ void SensorTcs::begin(){
 		ESP_LOGE(TAG, "No se pudo inicializar sc_2 (TCS34725)");
 		rgb(0, 1023);
 	}
+
+	//se  calibra si por lo menos uno funciono
+	if(estado || estado2){
+		calCol();
+	}
+	//se crea la tarea de los sensores de color
+  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, (void*)this, 3, NULL, 1);
 }
 
 bool SensorTcs::sc_1Verify(){
@@ -3858,6 +4030,20 @@ void SensorTcs::procesar(){
 	}
 }
 
+//tarea que se encarga de procesar los datos de los sensores de color
+void SensorTcs::senColor(void *pvParameters) {
+	//se obtiene el puntero del objeto
+	SensorTcs* sensor = (SensorTcs*)pvParameters;
+	while (true) {
+		//inicia el combate
+		if (start) {
+			//se verifican ambos sensores de color
+			sensor->procesar();
+		}
+   	 	vTaskDelay(pdMS_TO_TICKS(10));
+  	}
+}
+
 //metodo que lee la Nvs
 void SensorTcs::nvsLeer(){
 	//se accede al namspace de sensores
@@ -3867,34 +4053,34 @@ void SensorTcs::nvsLeer(){
 }
 
 //metdo que recopila las lecturas y datos en general para la telemetria
-void SensorTcs::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2){
+void SensorTcs::colores(uint16_t* buffer){
 	//mutex para evitar datos correptos
 	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
 		//se envian los respecivos datos a la telemetria
 
 		//Calibracion de sc_1
-		*rc = lcr;
-		*gc = lcg;
-		*bc = lcb;
-		*cc = lcc;
+		buffer[0] = lcr;
+		buffer[1] = lcg;
+		buffer[2] = lcb;
+		buffer[3] = lcc;
 
 		//Calibracion de sc_2
-		*rc2 = lcr2;
-		*gc2 = lcg2;
-		*bc2 = lcb2;
-		*cc2 = lcc2;
+		buffer[4] = lcr2;
+		buffer[5] = lcg2;
+		buffer[6] = lcb2;
+		buffer[7] = lcc2;
 
 		//lecturas de sc_1
-		*red1 = r1;
-		*green1 = g1;
-		*blue1 = b1;
-		*clear1 = c1;
+		buffer[8] = r1;
+		buffer[9] = g1;
+		buffer[10] = b1;
+		buffer[11] = c1;
 
 		//lecturas de sc_2
-		*red2 = r2;
-		*green2 = g2;
-		*blue2 = b2;
-		*clear2 = c2;
+		buffer[12] = r2;
+		buffer[13] = g2;
+		buffer[14] = b2;
+		buffer[15] = c2;
 
 		//se suelta el mutex
 		xSemaphoreGive(*mutex);
@@ -3902,29 +4088,9 @@ void SensorTcs::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, 
 		//si no se puede leer envia in valor irreal a la telemtetria
 		uint16_t eVal = 65535;
 
-		//Calibracion de sc_1
-		*rc = eVal;
-		*gc = eVal;
-		*bc = eVal;
-		*cc = eVal;
-
-		//Calibracion de sc_2
-		*rc2 = eVal;
-		*gc2 = eVal;
-		*bc2 = eVal;
-		*cc2 = eVal;
-
-		//lecturas de sc_1
-		*red1 = eVal;
-		*green1 = eVal;
-		*blue1 = eVal;
-		*clear1 = eVal;
-
-		//lecturas de sc_2
-		*red2 = eVal;
-		*green2 = eVal;
-		*blue2 = eVal;
-		*clear2 = eVal;
+		for(int i = 0; i < 16; i++){
+			buffer[i] = eVal;
+		}
 	}
 }
 
@@ -3933,41 +4099,35 @@ void SensorTcs::colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, 
 FILE PATH: ./src/sensores/SensorTcs.h
 ==========================================
 
-#ifndef SensorTcs_H
-#define SensorTcs_H
+#ifndef SENSORTCS_H
+#define SENSORTCS_H
 
 #include "driver/i2c.h"
 #include "freertos/task.h"
 #include "../actuadores/Multiplexor.h"
+#include "SensorLimite.h"
 #include <cstdint>
 
-class SensorTcs{
+class SensorTcs : public SensorLimite {
 	private:
-		int limCol;//variable de la tolerancia
-		bool estado;//variable que verifica el estado de sc_1
-		bool estado2;//variable que verifica el estado de sc_2
+		int limCol;
+		bool estado;
+		bool estado2;
 
-		//puntero al mutex
 		SemaphoreHandle_t* mutex;
 
-		//objeto del Multiplexor
 		Multiplexor* mu;
 
-		//variables de color predeterminado
 		int redC;
 		int green;
 		int blue;
 
-		//se establecen lo valores predetermindos
 		uint16_t lcr, lcg, lcb, lcc;
-		//variables de calibracion en el segundo sensor de color
 		uint16_t lcr2, lcg2, lcb2, lcc2;
 
-		//metodo para leer color
 		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
 		void nvsLeer();
 
-		//valores de los colores leidos
 		uint16_t r1;
 		uint16_t g1;
 		uint16_t b1;
@@ -3977,46 +4137,23 @@ class SensorTcs{
 		uint16_t b2;
 		uint16_t c2;
 	public:
-		//constructor
 		SensorTcs(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
+		virtual ~SensorTcs() {}
 
-		//metodo que calibra el Sensor
 		void calCol();
 
-		//metodos de deteccion de limite
 		bool sc_1Verify();
 		bool sc_2Verify();
 
-		//metodo que procesa las detecciones tanto de sc_1 como sc_2
+		static void senColor(void* pvParameters);
+
 		void procesar();
 
-		//inicializara todo
-		void begin();
+		void begin() override;
 
-		//metodo que devuelve las lecturas de los colores
-		void colores(uint16_t* rc, uint16_t* gc, uint16_t* bc, uint16_t* cc, uint16_t* rc2, uint16_t* gc2, uint16_t* bc2, uint16_t* cc2, uint16_t* red1, uint16_t* green1, uint16_t* blue1, uint16_t* clear1, uint16_t* red2, uint16_t* green2, uint16_t* blue2, uint16_t* clear2);
+		void colores(uint16_t* buffer) override;
 };
 #endif
-
-
-==========================================
-FILE PATH: ./src/sensores/SensorRival.h
-==========================================
-
-#ifndef SENSORRIVAL_H
-#define SENSORRIVAL_H
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-class SensorRival {
-	public:
-		virtual ~SensorRival() {}
-		virtual bool begin() = 0;
-		virtual void procesar() = 0;
-		virtual void getDistancias(uint16_t* buffer) = 0;
-};
-#endif // SENSORRIVAL_H
 
 
 ==========================================
@@ -4237,6 +4374,7 @@ class SensorTof : public SensorRival {
 	public:
 		//constructor
 		SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd);
+		virtual ~SensorTof() {}
 		//inicializa los sensores ToF
 		bool begin() override;
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
@@ -4610,6 +4748,7 @@ class SensorUltra : public SensorRival {
 	public:
 		//costructor
 		SensorUltra(int _maxd);
+		virtual ~SensorUltra() {}
 
 		//metodos de verificacion
 		bool ojos_1Verify();

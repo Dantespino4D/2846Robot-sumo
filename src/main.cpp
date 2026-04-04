@@ -4,6 +4,8 @@
 #include "actuadores/ControlMotores.h"
 #include "core/MaquinaEstados.h"
 #include "actuadores/Multiplexor.h"
+#include "sensores/SensorLimite.h"
+#include "sensores/SensorTcrt.h"
 #include "sensores/SensorTcs.h"
 #include "sensores/SensorRival.h"
 #include "sensores/SensorTof.h"
@@ -47,8 +49,8 @@ Mqtt mq;
 //objeto del Multiplexor
 Multiplexor mu;
 
-// objeto de los sensores de color
-SensorTcs* sc = nullptr;
+// objeto de los sensores de limite
+SensorLimite* sl = nullptr;
 
 // objeto del sensor rival
 SensorRival* sr = nullptr;
@@ -71,7 +73,6 @@ TaskHandle_t motr = NULL;
 //protoripos de las tareas
 void robot(void *pvParameters);
 void motores(void *pvParameters);
-void senColor(void *pvParameters);
 void senRival(void *pvParameters);
 void musica(void *pvParameters);
 void telemetria(void *pvParameters);
@@ -92,7 +93,6 @@ extern "C" void app_main(void){
   	// se crean las tareas
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
-  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, NULL, 3, NULL, 1);
 	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 	ESP_LOGI(TAG, "se inicializo las tareas");
@@ -107,11 +107,16 @@ void robot(void *pvParameters) {
   	while (gpio_get_level(INI) == 1) {
     	vTaskDelay(pdMS_TO_TICKS(100));
   	}
+
+	//espera de 5 segundos
   	ESP_LOGI(TAG, "boton precionado");
-  	sc->calCol();
   	vTaskDelay(pdMS_TO_TICKS(5000));
+
+	//prende el led en verde para indicar que todo esta bien
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
+
+	//la variable star la cual activa las tareas
   	start = true;
 
 	//bucle del robot
@@ -127,7 +132,7 @@ void robot(void *pvParameters) {
 				//porceso para reiniciar el i2c
 				mu.reinicio();
 				mu.begin();
-				sc->begin();
+				sl->begin();
 				sr->begin();
 				rgb(1023, 0);
 				xSemaphoreGive(mutex);
@@ -162,21 +167,6 @@ void motores(void *pvParameters) {
       	// Aplica el nuevo movimiento
       	cm.controlador(accion);
 	}
-}
-
-
-// SENSORES DE COLOR
-
-
-void senColor(void *pvParameters) {
-	while (true) {
-		//inicia el combate
-		if (start) {
-			//se verifican ambos sensores de color
-			sc->procesar();
-		}
-   	 	vTaskDelay(pdMS_TO_TICKS(10));
-  	}
 }
 
 
@@ -312,13 +302,13 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sc = new SensorTcs(limCol, &mu, &mutex);
-    if (sc == nullptr) {
-        ESP_LOGE(TAG, "CRITICAL: sc is NULL after new!");
+	sl = new SensorTcs(limCol, &mu, &mutex);
+    if (sl == nullptr) {
+        ESP_LOGE(TAG, "no se pudo crear el objeto!");
     } else {
-        ESP_LOGI(TAG, "sc allocated at: %p", sc);
+        ESP_LOGI(TAG, "sc se creo correctamente: %p", sl);
         // configuracion de los objetos de sensores de color y ultrasonicos
-        sc->begin();
+        sl->begin();
     }
 
 	//se inicializa el sensor rival
@@ -345,7 +335,7 @@ void comunicaciones() {
  		mq.begin();
 
 		//se inicializa el objeto de telemetria
-		tm = new Telemetria(me, &cm, sc, sr, &mq, &wi); // sr pasado DIRECTAMENTE
+		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi); // sr pasado DIRECTAMENTE
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
