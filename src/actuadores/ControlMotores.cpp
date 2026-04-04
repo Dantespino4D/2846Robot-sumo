@@ -22,10 +22,6 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 	//valor del tiempo de la rampa
 	tRam(200),
-	paso(10),
-
-	vActual1(0),
-	vActual2(0),
 
 	//velocidades por defecto
 	vel_nI(700),
@@ -52,35 +48,50 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 //estblecer velocidad
 void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
+	//variable de las velocidades actuales
 	vel1 = vel_1;
 	vel2 = vel_2;
+	//varaible de la rampa de aceleracion
 	uint32_t fade;
+	//condicional de la rampa de aceleracion
 	if(ram){
+		//aplica rampa de aceleracion
 		fade = tRam;
 	}else{
+		//no aplica rampa de aceleracion
 		fade = 0;
 	}
+	//verifica la direccion de los motores de los canales 1 y 3
 	if(vel_1 > 0){
+		//aplca la velocidad en direccin a
     	ledc_set_fade_with_time(MODO_PWM, pwmC_1, vel_1, fade);
     	ledc_set_fade_with_time(MODO_PWM, pwmC_3, 0, fade);
 	}else if(vel_1 < 0){
+		//aplca la velocidad en direccin b
     	ledc_set_fade_with_time(MODO_PWM, pwmC_1, 0, fade);
     	ledc_set_fade_with_time(MODO_PWM, pwmC_3, abs(vel_1), fade);
 	}else{
+		//frena el motor
     	ledc_set_fade_with_time(MODO_PWM, pwmC_1, 1023, fade);
 		ledc_set_fade_with_time(MODO_PWM, pwmC_3, 1023, fade);
 	}
 
+	//verifica la direccion de los motores de los canales 2 y 4
 	if(vel_2 > 0){
+		//aplca la velocidad en direccin a
     	ledc_set_fade_with_time(MODO_PWM, pwmC_2, vel_2, fade);
     	ledc_set_fade_with_time(MODO_PWM, pwmC_4, 0, fade);
 	}else if(vel_2 < 0){
+		//aplca la velocidad en direccin b
     	ledc_set_fade_with_time(MODO_PWM, pwmC_2, 0, fade);
     	ledc_set_fade_with_time(MODO_PWM, pwmC_4, abs(vel_2), fade);
 	}else{
+		//frena el motor
     	ledc_set_fade_with_time(MODO_PWM, pwmC_2, 1023, fade);
 		ledc_set_fade_with_time(MODO_PWM, pwmC_4, 1023, fade);
 	}
+
+	//aplica los cambios de velocidad
 	ledc_fade_start(MODO_PWM, pwmC_1, LEDC_FADE_NO_WAIT);
     ledc_fade_start(MODO_PWM, pwmC_2, LEDC_FADE_NO_WAIT);
     ledc_fade_start(MODO_PWM, pwmC_3, LEDC_FADE_NO_WAIT);
@@ -174,20 +185,10 @@ void ControlMotores::giro(){
 	velocidad(vel_gI, vel_gD, false);
 }
 
+//metodo que inicializa y prepara todo
 void ControlMotores::begin(){
 	//se aplican datos de nvs
 	nvsLeer();
-
-	//variables de la velocidad actual
-	vActual1 = 0;
-	vActual2 = 0;
-
-	//se calculan de cuanto en cuanto acelerara el robot
-	if(tRam < 10){
-		paso = 1023;
-	}else{
-		paso = (10230)/tRam;
-	}
 
   	// configuracion y asignacion de los pines pwm
 

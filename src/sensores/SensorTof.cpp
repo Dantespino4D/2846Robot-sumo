@@ -5,6 +5,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
@@ -13,8 +14,7 @@ static const char* TAG = "SensorToF";
 SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd):
 	mu(_mu),
 	mutex(_mutex),
-	maxd(_maxd),
-	tur(0)
+	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
 		can[i] = _can[i];
@@ -91,7 +91,20 @@ uint16_t SensorTof::dist(int n){
 	//variable de error
 	std::error_code ec;
 
+	if(!tof[n]->is_data_ready(ec)){
+		//detecta si hubo algun error
+		if(ec){
+			mu->error();
+			return 8190;
+		}
+		//si no hay datos listos, retorna el valor anterior
+		return dis[n];
+	}
+	//lee la distancia
 	dis[n] = tof[n]->get_distance_mm(ec);
+
+	//limpia la interrupcion de datos listos
+	tof[n]->clear_interrupt(ec);
 
 	//detecta si hubo algun error
 	if (ec) {
@@ -122,20 +135,21 @@ bool SensorTof::verify(int n){
 
 //metodo que lee todos los sensores
 void SensorTof::procesar(){
-    if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
-		//se lee la distancia
-	    uint16_t distancia = dist(tur);
-		if(distancia > 10 && distancia < maxd && distancia < 8000){
-			xEventGroupSetBits(eventos, TOF_BITS[tur]);
-		} else {
-			xEventGroupClearBits(eventos, TOF_BITS[tur]);
+    if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(10)) == pdTRUE){
+		for(uint8_t i = 0; i < NUM_TOF; i++){
+			//se lee la distancia
+	    	uint16_t distancia = dist(i);
+			//verifica que la distancia sea valida
+			if(distancia > 10 && distancia < maxd && distancia < 8000){
+				//envia el bit del tof correspondiente
+				xEventGroupSetBits(eventos, TOF_BITS[i]);
+			} else {
+				//borra el bit del tof correspondiente
+				xEventGroupClearBits(eventos, TOF_BITS[i]);
+			}
 		}
-		tur++;
         xSemaphoreGive(*mutex);
     }
-	if(tur >= NUM_TOF){
-		tur = 0;
-	}
 }
 
 //metodo que lee la Nvs

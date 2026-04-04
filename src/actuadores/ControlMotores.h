@@ -20,11 +20,6 @@ class ControlMotores{
 
 		//variables de la rampa
 		int tRam;
-		int paso;
-
-		//variables donde se guarda la velocidad actual
-		int16_t vActual1;
-		int16_t vActual2;
 
 		//funcion velocidad
 		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
