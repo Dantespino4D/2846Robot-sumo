@@ -50,6 +50,12 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	}
 }
 
+MaquinaEstados::~MaquinaEstados() {
+	delete estPrototipo;
+	delete estE1;
+	delete estE2;
+}
+
 // se cuentan kis tiempos
 void MaquinaEstados::tiempo(){
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);

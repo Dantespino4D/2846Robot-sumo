@@ -17,7 +17,7 @@ class GestorI2C {
         void reset();
         bool verify();
         void reinicio();
-        i2c_port_t port();
+        i2c_port_t port() const;
 };
 
 #endif

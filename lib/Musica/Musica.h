@@ -84,7 +84,7 @@ constexpr float BB5 = 932.33;
 constexpr float B5 = 987.77;
 
 // Arreglo de notas (static constexpr para eficiencia)
-static constexpr float Notas[] = {
+inline static constexpr float Notas[] = {
   C1, DB1, D1, EB1, E1, F1, GB1, G1, AB1, L1, BB1, S1,
   C2, DB2, D2, EB2, E2, F2, GB2, G2, AB2, L2, BB2, B2,
   C3, DB3, D3, EB3, E3, F3, GB3, G3, AB3, L3, BB3, B3,

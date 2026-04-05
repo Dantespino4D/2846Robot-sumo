@@ -41,10 +41,11 @@ void Ota::ota(const char* url){
         // Log para ver EXACTAMENTE qué estamos enviando (entre corchetes)
         ESP_LOGI(TAG, "URL Limpia: [%s]", urlT);
 		ESP_LOGI(TAG, "iniciando ota");
-		xTaskCreate(Ota::tareaOta, "tarea ota", 8192, (void*)urlT, 5, NULL);
+		xTaskCreate(Ota::tareaOta, "tarea ota", 12288, (void*)urlT, 5, NULL);
 	}else{
 		ESP_LOGE(TAG, "error al iniciar la ota");
 	}
+	free(urlC);
 }
 
 void Ota::tareaOta(void *pvParameter){
@@ -65,6 +66,8 @@ void Ota::tareaOta(void *pvParameter){
 	if(err == ESP_OK){
 		ESP_LOGI(TAG, "ota exitoso");
 		free(url);
+		extern void limpiar_memoria();
+		limpiar_memoria();
 		esp_restart();
 	}else{
 		ESP_LOGE(TAG, "OTA falló: %s", esp_err_to_name(err));

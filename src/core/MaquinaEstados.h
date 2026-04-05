@@ -52,9 +52,9 @@ class MaquinaEstados{
 		TaskHandle_t* motr;
 
 		//variables de control
-		int modo;
-		int estrategia;
-		int ciclo;
+		volatile int modo;
+		volatile int estrategia;
+		volatile int ciclo;
 		int ini;
 
 		int memo_TC;//control de los ToF a corto plazo
@@ -84,6 +84,13 @@ class MaquinaEstados{
 	public:
 		//constructor
 		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
+
+		//destructor
+		~MaquinaEstados();
+
+		//bloqueo de copia
+		MaquinaEstados(const MaquinaEstados&) = delete;
+		MaquinaEstados& operator=(const MaquinaEstados&) = delete;
 
 		//maquina de estados
 		void logica();

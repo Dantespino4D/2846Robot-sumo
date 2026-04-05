@@ -7,6 +7,7 @@
 #include "Wifi.h"
 #include "esp_system.h"
 #include <cstdio>
+#include <inttypes.h>
 
 #ifndef COMMIT
 #define COMMIT 0
@@ -28,11 +29,11 @@ void Telemetria::recopilar(){
 	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
 	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
-	
+
 	// Polimorfismo para sensores de limite
 	uint16_t colBuffer[16];
 	sc->colores(colBuffer);
-	
+
 	d.cR1 = colBuffer[0]; d.cG1 = colBuffer[1]; d.cB1 = colBuffer[2]; d.cC1 = colBuffer[3];
 	d.cR2 = colBuffer[4]; d.cG2 = colBuffer[5]; d.cB2 = colBuffer[6]; d.cC2 = colBuffer[7];
 	d.scR1 = colBuffer[8]; d.scG1 = colBuffer[9]; d.scB1 = colBuffer[10]; d.scC1 = colBuffer[11];
@@ -81,7 +82,7 @@ void Telemetria::enviar(){
 
 	//se arma el json (agregando TCRTs)
 	int lon = snprintf(json, NJSON,
-    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"tcrt\":[%d,%d]}}",
+    "{\"sistema\":{\"commit\":%d,\"tiempo\":%"PRIu32",\"heap\":%"PRIu32",\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"tcrt\":[%d,%d]}}",
     COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
 	d.estado, d.estrategia, d.inicio,
     d.pwm1, d.pwm2, d.stall,

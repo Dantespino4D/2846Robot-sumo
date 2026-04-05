@@ -182,5 +182,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	pub("configuracion recibida", "robot/conf/log", 1, 0);
 
 	cJSON_Delete(maestro);
+	extern void limpiar_memoria();
+	limpiar_memoria();
 	esp_restart();
 }

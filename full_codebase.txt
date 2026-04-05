@@ -584,7 +584,7 @@ constexpr float BB5 = 932.33;
 constexpr float B5 = 987.77;
 
 // Arreglo de notas (static constexpr para eficiencia)
-static constexpr float Notas[] = {
+inline static constexpr float Notas[] = {
   C1, DB1, D1, EB1, E1, F1, GB1, G1, AB1, L1, BB1, S1,
   C2, DB2, D2, EB2, E2, F2, GB2, G2, AB2, L2, BB2, B2,
   C3, DB3, D3, EB3, E3, F3, GB3, G3, AB3, L3, BB3, B3,
@@ -1029,9 +1029,9 @@ Multiplexor::Multiplexor() {}
 bool Multiplexor::sel(i2c_port_t port, uint8_t canal) {
     if (canal > 7) return false;
     uint8_t data = 1 << canal;
-    esp_err_t err = i2c_master_write_to_device(port, TCAADDR, &data, 1, pdMS_TO_TICKS(20));
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Error al seleccionar canal %d: %s", canal, esp_err_to_name(err));
+    esp_err_t error = i2c_master_write_to_device(port, TCAADDR, &data, 1, pdMS_TO_TICKS(20));
+    if (error != ESP_OK) {
+        ESP_LOGE(TAG, "Error al seleccionar canal %d: %s", canal, esp_err_to_name(error));
         return false;
     }
     return true;
@@ -1329,6 +1329,8 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	pub("configuracion recibida", "robot/conf/log", 1, 0);
 
 	cJSON_Delete(maestro);
+	extern void limpiar_memoria();
+	limpiar_memoria();
 	esp_restart();
 }
 
@@ -1413,10 +1415,11 @@ void Ota::ota(const char* url){
         // Log para ver EXACTAMENTE qué estamos enviando (entre corchetes)
         ESP_LOGI(TAG, "URL Limpia: [%s]", urlT);
 		ESP_LOGI(TAG, "iniciando ota");
-		xTaskCreate(Ota::tareaOta, "tarea ota", 8192, (void*)urlT, 5, NULL);
+		xTaskCreate(Ota::tareaOta, "tarea ota", 12288, (void*)urlT, 5, NULL);
 	}else{
 		ESP_LOGE(TAG, "error al iniciar la ota");
 	}
+	free(urlC);
 }
 
 void Ota::tareaOta(void *pvParameter){
@@ -1437,6 +1440,8 @@ void Ota::tareaOta(void *pvParameter){
 	if(err == ESP_OK){
 		ESP_LOGI(TAG, "ota exitoso");
 		free(url);
+		extern void limpiar_memoria();
+		limpiar_memoria();
 		esp_restart();
 	}else{
 		ESP_LOGE(TAG, "OTA falló: %s", esp_err_to_name(err));
@@ -1476,6 +1481,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.cpp
 #include "Wifi.h"
 #include "esp_system.h"
 #include <cstdio>
+#include <inttypes.h>
 
 #ifndef COMMIT
 #define COMMIT 0
@@ -1497,11 +1503,11 @@ void Telemetria::recopilar(){
 	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
 	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
-	
+
 	// Polimorfismo para sensores de limite
 	uint16_t colBuffer[16];
 	sc->colores(colBuffer);
-	
+
 	d.cR1 = colBuffer[0]; d.cG1 = colBuffer[1]; d.cB1 = colBuffer[2]; d.cC1 = colBuffer[3];
 	d.cR2 = colBuffer[4]; d.cG2 = colBuffer[5]; d.cB2 = colBuffer[6]; d.cC2 = colBuffer[7];
 	d.scR1 = colBuffer[8]; d.scG1 = colBuffer[9]; d.scB1 = colBuffer[10]; d.scC1 = colBuffer[11];
@@ -1550,7 +1556,7 @@ void Telemetria::enviar(){
 
 	//se arma el json (agregando TCRTs)
 	int lon = snprintf(json, NJSON,
-    "{\"sistema\":{\"commit\":%d,\"tiempo\":%lu,\"heap\":%lu,\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"tcrt\":[%d,%d]}}",
+    "{\"sistema\":{\"commit\":%d,\"tiempo\":%"PRIu32",\"heap\":%"PRIu32",\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"tof_del\":[%d,%d,%d],\"fiabilidad_del\":[%d,%d,%d],\"tof_atr\":[%d,%d,%d],\"fiabilidad_atr\":[%d,%d,%d],\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"tcrt\":[%d,%d]}}",
     COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
 	d.estado, d.estrategia, d.inicio,
     d.pwm1, d.pwm2, d.stall,
@@ -1632,6 +1638,11 @@ FILE PATH: ./src/comunicaciones/Wifi.cpp
 #include "esp_system.h"
 
 const char* TAG = "wifi";
+
+//constructor
+Wifi::Wifi() :
+	intentos(0)
+{}
 
 void Wifi::begin(){
 	//crear un grupo de eventos
@@ -1731,6 +1742,8 @@ void Wifi::espera(){
 		ESP_LOGE(TAG, "TIMEOUT: No se pudo conectar al WiFi. Cambiando a modo combate y reiniciando...");
         Nvs sys("sistema");
         sys.guardar("modo", 1);
+		extern void limpiar_memoria();
+		limpiar_memoria();
         esp_restart();
 	}
 }
@@ -1799,6 +1812,7 @@ class Wifi{
 		//metodo para smartconfig
 		void smart();
 	public:
+		Wifi();
 		void begin();
 		void espera();
 		void signalW(int* _signal);
@@ -2082,7 +2096,9 @@ FILE PATH: ./src/core/GestorI2C.cpp
 
 static const char* TAG = "GestorI2C";
 
-GestorI2C::GestorI2C() : err(0) {}
+GestorI2C::GestorI2C() :
+	err(0)
+{}
 
 void GestorI2C::begin() {
     conf = {};
@@ -2092,63 +2108,27 @@ void GestorI2C::begin() {
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
-    
+
     i2c_param_config(I2C_MASTER_NUM, &conf);
     esp_err_t res = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-    
+
     if (res != ESP_OK) {
         ESP_LOGE(TAG, "Fallo al instalar I2C: %s", esp_err_to_name(res));
         rgb(0, 1023);
     }
 }
 
-void GestorI2C::error() { err++; }
-
-void GestorI2C::reset() { err = 0; }
-
-bool GestorI2C::verify() {
-    if (err >= ERR_MAX) {
-        ESP_LOGE(TAG, "I2C tiene demasiados errores acumulados.");
-        return false;
-    }
-    return true;
+void GestorI2C::error() {
+	err++;
 }
 
-void GestorI2C::reinicio() {
-    ESP_LOGW(TAG, "Reiniciando el bus I2C...");
-    i2c_driver_delete(I2C_MASTER_NUM);
-
-    gpio_config_t conf_o;
-    conf_o.pin_bit_mask = (1ULL << I2C_MASTER_SCL_IO) | (1ULL << I2C_MASTER_SDA_IO);
-    conf_o.mode = GPIO_MODE_OUTPUT_OD;
-    conf_o.pull_up_en = GPIO_PULLUP_ENABLE;
-    conf_o.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    conf_o.intr_type = GPIO_INTR_DISABLE;
-    gpio_config(&conf_o);
-
-    gpio_set_level(I2C_MASTER_SDA_IO, 1);
-    for (int i = 0; i < 9; i++) {
-        gpio_set_level(I2C_MASTER_SCL_IO, 0);
-        esp_rom_delay_us(10);
-        gpio_set_level(I2C_MASTER_SCL_IO, 1);
-        esp_rom_delay_us(10);
-    }
-    
-    gpio_set_level(I2C_MASTER_SCL_IO, 0);
-    gpio_set_level(I2C_MASTER_SDA_IO, 0);
-    esp_rom_delay_us(10);
-    gpio_set_level(I2C_MASTER_SCL_IO, 1);
-    esp_rom_delay_us(10);
-    gpio_set_level(I2C_MASTER_SDA_IO, 1);
-    esp_rom_delay_us(10);
-
-    i2c_param_config(I2C_MASTER_NUM, &conf);
-    i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-    reset();
-    ESP_LOGI(TAG, "Bus I2C reiniciado con éxito.");
+void GestorI2C::reset() {
+	err = 0;
 }
 
-i2c_port_t GestorI2C::port() { return I2C_MASTER_NUM; }
+i2c_port_t GestorI2C::port() const {
+	return I2C_MASTER_NUM;
+}
 
 
 ==========================================
@@ -2174,7 +2154,7 @@ class GestorI2C {
         void reset();
         bool verify();
         void reinicio();
-        i2c_port_t port();
+        i2c_port_t port() const;
 };
 
 #endif
@@ -2234,6 +2214,12 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 			estActual = estPrototipo;
 			break;
 	}
+}
+
+MaquinaEstados::~MaquinaEstados() {
+	delete estPrototipo;
+	delete estE1;
+	delete estE2;
 }
 
 // se cuentan kis tiempos
@@ -2346,9 +2332,9 @@ class MaquinaEstados{
 		TaskHandle_t* motr;
 
 		//variables de control
-		int modo;
-		int estrategia;
-		int ciclo;
+		volatile int modo;
+		volatile int estrategia;
+		volatile int ciclo;
 		int ini;
 
 		int memo_TC;//control de los ToF a corto plazo
@@ -2378,6 +2364,13 @@ class MaquinaEstados{
 	public:
 		//constructor
 		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
+
+		//destructor
+		~MaquinaEstados();
+
+		//bloqueo de copia
+		MaquinaEstados(const MaquinaEstados&) = delete;
+		MaquinaEstados& operator=(const MaquinaEstados&) = delete;
 
 		//maquina de estados
 		void logica();
@@ -3058,9 +3051,9 @@ class EstrategiaEstandar : public EstrategiaBase {
 public:
     //selecciona el estado
     void seleccion(MaquinaEstados* ctx) override;
-    
+
     // El método ejecucion sigue siendo obligatorio para los hijos (E1, E2, etc.)
-    virtual void ejecucion(MaquinaEstados* ctx) = 0;
+    virtual void ejecucion(MaquinaEstados* ctx) override = 0;
 };
 
 #endif
@@ -3353,18 +3346,6 @@ void robot(void *pvParameters) {
 	while (true) {
 		// inicia
 
-		//verifica si hay algun error en el i2c
-		if(!i2c.verify()){
-			//se detecta error, parar por seguridad
-			rgb(0, 1023);
-			cm.alto();
-			//porceso para reiniciar el i2c
-			i2c.reinicio();
-			i2c.begin();
-			sl->begin();
-			sr->begin();
-			rgb(1023, 0);
-		}
 	  	uint64_t Tini = esp_timer_get_time();
     	// MAQUINA DE ESTADOS
     	me->logica();
@@ -3562,11 +3543,20 @@ void comunicaciones() {
 		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi); // sr pasado DIRECTAMENTE
 
 		//tarea de telemetria
-		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
+		xTaskCreatePinnedToCore(telemetria, "telemetria", 10240, NULL, 1, NULL, 0);
 	}else{
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		esp_log_level_set("*", ESP_LOG_NONE);
 	}
+}
+
+// funcion que libera la memoria de los objetos creados
+void limpiar_memoria() {
+    if (tm != nullptr) { delete tm; tm = nullptr; }
+    if (me != nullptr) { delete me; me = nullptr; }
+    if (sr != nullptr) { delete sr; sr = nullptr; }
+    if (sl != nullptr) { delete sl; sl = nullptr; }
+    ESP_LOGI(TAG, "Memoria de objetos liberada.");
 }
 
 
@@ -4114,6 +4104,15 @@ SensorTof::SensorTof(const uint8_t* _can, int _maxd):
 	}
 }
 
+SensorTof::~SensorTof() {
+	for(int i = 0; i < NUM_TOF; i++){
+		if (tof[i] != nullptr) {
+			delete tof[i];
+			tof[i] = nullptr;
+		}
+	}
+}
+
 bool SensorTof::begin(){
 	//carga los datos del nvs
 	nvsLeer();
@@ -4144,6 +4143,10 @@ bool SensorTof::begin(){
 	//se aplica para cada SensorTof
 	for(int i = 0; i < NUM_TOF; i++){
 		vTaskDelay(pdMS_TO_TICKS(10));
+
+		if (tof[i] != nullptr) {
+    	    delete tof[i];
+    	}
 
 		//creamos los objetos de los sensores tof
 		tof[i] = new espp::Vl53l(config);
@@ -4282,7 +4285,8 @@ class SensorTof : public SensorRival {
 	public:
 		//constructor
 		SensorTof(const uint8_t* _can, int _maxd);
-		virtual ~SensorTof() {}
+		//destructor
+		~SensorTof();
 		//inicializa los sensores ToF
 		bool begin() override;
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes

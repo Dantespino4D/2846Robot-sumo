@@ -21,6 +21,7 @@ class Wifi{
 		//metodo para smartconfig
 		void smart();
 	public:
+		Wifi();
 		void begin();
 		void espera();
 		void signalW(int* _signal);

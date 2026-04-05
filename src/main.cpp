@@ -117,18 +117,6 @@ void robot(void *pvParameters) {
 	while (true) {
 		// inicia
 
-		//verifica si hay algun error en el i2c
-		if(!i2c.verify()){
-			//se detecta error, parar por seguridad
-			rgb(0, 1023);
-			cm.alto();
-			//porceso para reiniciar el i2c
-			i2c.reinicio();
-			i2c.begin();
-			sl->begin();
-			sr->begin();
-			rgb(1023, 0);
-		}
 	  	uint64_t Tini = esp_timer_get_time();
     	// MAQUINA DE ESTADOS
     	me->logica();
@@ -326,9 +314,18 @@ void comunicaciones() {
 		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi); // sr pasado DIRECTAMENTE
 
 		//tarea de telemetria
-		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
+		xTaskCreatePinnedToCore(telemetria, "telemetria", 10240, NULL, 1, NULL, 0);
 	}else{
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		esp_log_level_set("*", ESP_LOG_NONE);
 	}
+}
+
+// funcion que libera la memoria de los objetos creados
+void limpiar_memoria() {
+    if (tm != nullptr) { delete tm; tm = nullptr; }
+    if (me != nullptr) { delete me; me = nullptr; }
+    if (sr != nullptr) { delete sr; sr = nullptr; }
+    if (sl != nullptr) { delete sl; sl = nullptr; }
+    ESP_LOGI(TAG, "Memoria de objetos liberada.");
 }

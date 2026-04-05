@@ -21,6 +21,15 @@ SensorTof::SensorTof(const uint8_t* _can, int _maxd):
 	}
 }
 
+SensorTof::~SensorTof() {
+	for(int i = 0; i < NUM_TOF; i++){
+		if (tof[i] != nullptr) {
+			delete tof[i];
+			tof[i] = nullptr;
+		}
+	}
+}
+
 bool SensorTof::begin(){
 	//carga los datos del nvs
 	nvsLeer();
@@ -51,6 +60,10 @@ bool SensorTof::begin(){
 	//se aplica para cada SensorTof
 	for(int i = 0; i < NUM_TOF; i++){
 		vTaskDelay(pdMS_TO_TICKS(10));
+
+		if (tof[i] != nullptr) {
+    	    delete tof[i];
+    	}
 
 		//creamos los objetos de los sensores tof
 		tof[i] = new espp::Vl53l(config);

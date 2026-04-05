@@ -18,6 +18,11 @@
 
 const char* TAG = "wifi";
 
+//constructor
+Wifi::Wifi() :
+	intentos(0)
+{}
+
 void Wifi::begin(){
 	//crear un grupo de eventos
 	e = xEventGroupCreate();
@@ -116,6 +121,8 @@ void Wifi::espera(){
 		ESP_LOGE(TAG, "TIMEOUT: No se pudo conectar al WiFi. Cambiando a modo combate y reiniciando...");
         Nvs sys("sistema");
         sys.guardar("modo", 1);
+		extern void limpiar_memoria();
+		limpiar_memoria();
         esp_restart();
 	}
 }
