@@ -3,7 +3,7 @@
 #include "comunicaciones/Mqtt.h"
 #include "actuadores/ControlMotores.h"
 #include "core/MaquinaEstados.h"
-#include "actuadores/Multiplexor.h"
+#include "core/GestorI2C.h"
 #include "sensores/SensorLimite.h"
 #include "sensores/SensorTcrt.h"
 #include "sensores/SensorTcs.h"
@@ -33,9 +33,6 @@ static const char* TAG = "main";
 //event group para sincronizar tareas
 EventGroupHandle_t eventos = NULL;
 
-//creamos el mutex
-SemaphoreHandle_t mutex = NULL;
-
 // variables de control
  volatile bool start = false;
  int32_t modo;
@@ -46,8 +43,8 @@ Wifi wi;
 //objeto del protocolo MQTT
 Mqtt mq;
 
-//objeto del Multiplexor
-Multiplexor mu;
+//objeto del Gestor I2C
+GestorI2C i2c;
 
 // objeto de los sensores de limite
 SensorLimite* sl = nullptr;
@@ -63,9 +60,6 @@ MaquinaEstados *me = nullptr;
 
 // objeto de la telemetria
 Telemetria* tm = nullptr;
-
-//objeto de handle de la tarea del robot
-TaskHandle_t rob = NULL;
 
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
@@ -91,7 +85,7 @@ extern "C" void app_main(void){
     comunicaciones();
 
   	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
+  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
 	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
@@ -124,19 +118,16 @@ void robot(void *pvParameters) {
 		// inicia
 
 		//verifica si hay algun error en el i2c
-		if(!mu.verify()){
+		if(!i2c.verify()){
 			//se detecta error, parar por seguridad
 			rgb(0, 1023);
 			cm.alto();
-			if(xSemaphoreTake(mutex, pdMS_TO_TICKS(50)) == pdTRUE){
-				//porceso para reiniciar el i2c
-				mu.reinicio();
-				mu.begin();
-				sl->begin();
-				sr->begin();
-				rgb(1023, 0);
-				xSemaphoreGive(mutex);
-			}
+			//porceso para reiniciar el i2c
+			i2c.reinicio();
+			i2c.begin();
+			sl->begin();
+			sr->begin();
+			rgb(1023, 0);
 		}
 	  	uint64_t Tini = esp_timer_get_time();
     	// MAQUINA DE ESTADOS
@@ -285,16 +276,13 @@ void begin() {
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
   	rgb(1023, 800);
-
-	//inicializamos el mutex
-	mutex = xSemaphoreCreateMutex();
 }
 
 //inicializacion del hardware
 void begin_hardware() {
   	//ajustes iniciales
     ESP_LOGI(TAG, "Iniciando hardware...");
-  	mu.begin();
+  	i2c.begin();
   	cm.begin();
   	cm.alto();
 
@@ -302,7 +290,7 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sl = new SensorTcs(limCol, &mu, &mutex);
+	sl = new SensorTcs(limCol, &i2c);
     if (sl == nullptr) {
         ESP_LOGE(TAG, "no se pudo crear el objeto!");
     } else {
@@ -341,6 +329,6 @@ void comunicaciones() {
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
 	}else{
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
-		//esp_log_level_set("*", ESP_LOG_NONE);
+		esp_log_level_set("*", ESP_LOG_NONE);
 	}
 }

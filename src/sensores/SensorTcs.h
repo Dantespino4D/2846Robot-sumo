@@ -3,6 +3,7 @@
 
 #include "driver/i2c.h"
 #include "freertos/task.h"
+#include "../core/GestorI2C.h"
 #include "../actuadores/Multiplexor.h"
 #include "SensorLimite.h"
 #include <cstdint>
@@ -13,13 +14,8 @@ class SensorTcs : public SensorLimite {
 		bool estado;
 		bool estado2;
 
-		SemaphoreHandle_t* mutex;
-
-		Multiplexor* mu;
-
-		int redC;
-		int green;
-		int blue;
+		GestorI2C* i2c;
+		Multiplexor mu;
 
 		uint16_t lcr, lcg, lcb, lcc;
 		uint16_t lcr2, lcg2, lcb2, lcc2;
@@ -36,7 +32,7 @@ class SensorTcs : public SensorLimite {
 		uint16_t b2;
 		uint16_t c2;
 	public:
-		SensorTcs(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
+		SensorTcs(int limCol, GestorI2C* _i2c);
 		virtual ~SensorTcs() {}
 
 		void calCol();

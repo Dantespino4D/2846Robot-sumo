@@ -718,39 +718,33 @@ void ControlMotores::alto(){
 
 //metodo que avanza en direccion a
 void ControlMotores::dir_a(){
-	//alto();
 	velocidad(vel_nI, vel_nD, false);
 }
 
 //metodo que avanza en direccion b
 void ControlMotores::dir_b(){
-	//alto();
 	velocidad(-vel_nI, -vel_nD, false);
 
 }
 
 //metodo de ataque en direccion a izquierda
 void ControlMotores::ataque_ai(){
-	//alto();
 	velocidad(vel_aI, vel_aD, true);
 }
 
 //metodo de ataque en direccion b izquierda
 void ControlMotores::ataque_bi(){
-	//alto();
 	velocidad(-vel_aI, -vel_aD, true);
 }
 
 //metodo de ataque en direccion a derecha
 void ControlMotores::ataque_ad(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(vel_aD, vel_aI, true);
 }
 
 //metodo de ataque en direccion b derecha
 void ControlMotores::ataque_bd(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(-vel_aD, -vel_aI, true);
 }
@@ -768,33 +762,28 @@ void ControlMotores::max_b(){
 
 //metodo de ataque pronunciado en direccion a, a la izquierda
 void ControlMotores::pronunciado_ai(){
-	//alto();
 	velocidad(vel_pI, vel_pD, true);
 }
 
 //metodo de ataque pronunciado en direccion b, a la izquierda
 void ControlMotores::pronunciado_bi(){
-	//alto();
 	velocidad(-vel_pI, -vel_pD, true);
 }
 
 //metodo de ataque pronunciado en direccion a, a la derecha
 void ControlMotores::pronunciado_ad(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(vel_pD, vel_pI, true);
 }
 
 //metodo de ataque pronunciado en direccion b, a la derecha
 void ControlMotores::pronunciado_bd(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(-vel_pD, -vel_pI, true);
 }
 
 //metodo de giro
 void ControlMotores::giro(){
-	//alto();
 	velocidad(vel_gI, vel_gD, false);
 }
 
@@ -1030,132 +1019,22 @@ FILE PATH: ./src/actuadores/Multiplexor.cpp
 ==========================================
 
 #include "Multiplexor.h"
-#include "sdkconfig.h"
 #include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/gpio.h"
-#include "rgb.h"
-//pines ic2
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    #define I2C_MASTER_SCL_IO GPIO_NUM_9
-    #define I2C_MASTER_SDA_IO GPIO_NUM_8
-#else
-    #define I2C_MASTER_SCL_IO GPIO_NUM_22
-    #define I2C_MASTER_SDA_IO GPIO_NUM_21
-#endif
-#define I2C_MASTER_NUM I2C_NUM_0
-#define I2C_MASTER_FREQ_HZ 400000
-#define I2C_MASTER_TX_BUF_DISABLE 0
-#define I2C_MASTER_RX_BUF_DISABLE 0
 
-// direccion del multiplexor y sensor
 #define TCAADDR 0x70
-
-//tag
 static const char* TAG = "Multiplexor";
 
-void Multiplexor::begin(){
-	//se establecen los errores en 0
-	err = 0;
-	//configuracion del i2c
-	conf = {};
-	conf.mode = I2C_MODE_MASTER;
-	conf.sda_io_num = I2C_MASTER_SDA_IO;
-	conf.scl_io_num = I2C_MASTER_SCL_IO;
-	conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-	conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-	conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
-	i2c_param_config(I2C_MASTER_NUM, &conf);
+Multiplexor::Multiplexor() {}
 
-	esp_err_t err = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-	if (err != ESP_OK){
-		ESP_LOGE(TAG, "fallo al instalar i2c %s", esp_err_to_name(err));
-		rgb(0, 1023);
-	}
-}
-
-
-void Multiplexor::sel(uint8_t i){
-	if(i > 7){
-	return;
-	}
-	//selecciona el sensor de color a utilizar
-    uint8_t data = 1 << i;
-	esp_err_t err = i2c_master_write_to_device(I2C_MASTER_NUM, TCAADDR, &data, 1, pdMS_TO_TICKS(20));
-	if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Fallo al seleccionar canal del MUX I2C: %s", esp_err_to_name(err));
-		rgb(0, 1023);
-		error();
-		return;
+bool Multiplexor::sel(i2c_port_t port, uint8_t canal) {
+    if (canal > 7) return false;
+    uint8_t data = 1 << canal;
+    esp_err_t err = i2c_master_write_to_device(port, TCAADDR, &data, 1, pdMS_TO_TICKS(20));
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Error al seleccionar canal %d: %s", canal, esp_err_to_name(err));
+        return false;
     }
-	reset();
-}
-
- i2c_port_t Multiplexor::port(){
-	return I2C_MASTER_NUM;
-}
-
-//metodo que suma errores
-void Multiplexor::error(){
-	err++;
-}
-
-//metodo que resetea los errores
-void Multiplexor::reset(){
-	err = 0;
-}
-
-//verifica si hay varios errores seguidos
-bool Multiplexor::verify(){
-	if(err >= ERR_MAX){
-		ESP_LOGE(TAG, "Multiplexor I2C ha tenido varios errores seguidos");
-		rgb(0, 1023);
-		return false;
-	}
-	return true;
-}
-
-//metodo que reinicia el i2c
-void Multiplexor::reinicio(){
-	//log
-	ESP_LOGW(TAG, "Fallo critico, reiniciando el bus I2C para desbloquear");
-	//elimina el driver
-	i2c_driver_delete(I2C_MASTER_NUM);
-	//vuelve a iniciar el i2c
-
-	//configurar pines como salida
-	gpio_config_t conf_o;
-	conf_o.pin_bit_mask = (1ULL << I2C_MASTER_SCL_IO) | (1ULL << I2C_MASTER_SDA_IO);
-	conf_o.mode = GPIO_MODE_OUTPUT_OD;
-	conf_o.pull_up_en = GPIO_PULLUP_ENABLE;
-	conf_o.pull_down_en = GPIO_PULLDOWN_DISABLE;
-	conf_o.intr_type = GPIO_INTR_DISABLE;
-	gpio_config(&conf_o);
-
-	//secuencia de desbloqueo
-	gpio_set_level(I2C_MASTER_SDA_IO, 1);
-	for(int i = 0; i < 9; i++){
-		gpio_set_level(I2C_MASTER_SCL_IO, 0);
-		esp_rom_delay_us(10);
-		gpio_set_level(I2C_MASTER_SCL_IO, 1);
-		esp_rom_delay_us(10);
-	}
-
-	gpio_set_level(I2C_MASTER_SCL_IO, 0);
-	gpio_set_level(I2C_MASTER_SDA_IO, 0);
-	esp_rom_delay_us(10);
-	gpio_set_level(I2C_MASTER_SCL_IO, 1);
-	esp_rom_delay_us(10);
-	gpio_set_level(I2C_MASTER_SDA_IO, 1);
-	esp_rom_delay_us(10);
-
-	//volvemos a iniciar el i2c
-	i2c_param_config(I2C_MASTER_NUM, &conf);
-	i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
-	//resetea los errores
-	reset();
-	ESP_LOGI(TAG, "Bus I2C reiniciado correctamente");
+    return true;
 }
 
 
@@ -1167,22 +1046,11 @@ FILE PATH: ./src/actuadores/Multiplexor.h
 #define MULTIPLEXOR_H
 
 #include "driver/i2c.h"
-#include "driver/gpio.h"
 
-#define ERR_MAX 10
-
-class Multiplexor{
-	private:
-		int err;
-		i2c_config_t conf;
-	public:
-		void begin();
-		void sel(uint8_t i);
-		i2c_port_t port();
-		void error();
-		void reset();
-		bool verify();
-		void reinicio();
+class Multiplexor {
+    public:
+        Multiplexor();
+        bool sel(i2c_port_t port, uint8_t canal);
 };
 
 #endif
@@ -2184,6 +2052,129 @@ struct Datos{
 	// Variables de sensores TCRT
 	uint16_t Tcrt1;
 	uint16_t Tcrt2;
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./src/core/GestorI2C.cpp
+==========================================
+
+#include "GestorI2C.h"
+#include "esp_log.h"
+#include "driver/gpio.h"
+#include "esp_rom_sys.h"
+#include "../actuadores/rgb.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    #define I2C_MASTER_SCL_IO GPIO_NUM_9
+    #define I2C_MASTER_SDA_IO GPIO_NUM_8
+#else
+    #define I2C_MASTER_SCL_IO GPIO_NUM_22
+    #define I2C_MASTER_SDA_IO GPIO_NUM_21
+#endif
+
+#define I2C_MASTER_NUM I2C_NUM_0
+#define I2C_MASTER_FREQ_HZ 400000
+#define I2C_MASTER_TX_BUF_DISABLE 0
+#define I2C_MASTER_RX_BUF_DISABLE 0
+
+static const char* TAG = "GestorI2C";
+
+GestorI2C::GestorI2C() : err(0) {}
+
+void GestorI2C::begin() {
+    conf = {};
+    conf.mode = I2C_MODE_MASTER;
+    conf.sda_io_num = I2C_MASTER_SDA_IO;
+    conf.scl_io_num = I2C_MASTER_SCL_IO;
+    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
+    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
+    
+    i2c_param_config(I2C_MASTER_NUM, &conf);
+    esp_err_t res = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    
+    if (res != ESP_OK) {
+        ESP_LOGE(TAG, "Fallo al instalar I2C: %s", esp_err_to_name(res));
+        rgb(0, 1023);
+    }
+}
+
+void GestorI2C::error() { err++; }
+
+void GestorI2C::reset() { err = 0; }
+
+bool GestorI2C::verify() {
+    if (err >= ERR_MAX) {
+        ESP_LOGE(TAG, "I2C tiene demasiados errores acumulados.");
+        return false;
+    }
+    return true;
+}
+
+void GestorI2C::reinicio() {
+    ESP_LOGW(TAG, "Reiniciando el bus I2C...");
+    i2c_driver_delete(I2C_MASTER_NUM);
+
+    gpio_config_t conf_o;
+    conf_o.pin_bit_mask = (1ULL << I2C_MASTER_SCL_IO) | (1ULL << I2C_MASTER_SDA_IO);
+    conf_o.mode = GPIO_MODE_OUTPUT_OD;
+    conf_o.pull_up_en = GPIO_PULLUP_ENABLE;
+    conf_o.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    conf_o.intr_type = GPIO_INTR_DISABLE;
+    gpio_config(&conf_o);
+
+    gpio_set_level(I2C_MASTER_SDA_IO, 1);
+    for (int i = 0; i < 9; i++) {
+        gpio_set_level(I2C_MASTER_SCL_IO, 0);
+        esp_rom_delay_us(10);
+        gpio_set_level(I2C_MASTER_SCL_IO, 1);
+        esp_rom_delay_us(10);
+    }
+    
+    gpio_set_level(I2C_MASTER_SCL_IO, 0);
+    gpio_set_level(I2C_MASTER_SDA_IO, 0);
+    esp_rom_delay_us(10);
+    gpio_set_level(I2C_MASTER_SCL_IO, 1);
+    esp_rom_delay_us(10);
+    gpio_set_level(I2C_MASTER_SDA_IO, 1);
+    esp_rom_delay_us(10);
+
+    i2c_param_config(I2C_MASTER_NUM, &conf);
+    i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    reset();
+    ESP_LOGI(TAG, "Bus I2C reiniciado con éxito.");
+}
+
+i2c_port_t GestorI2C::port() { return I2C_MASTER_NUM; }
+
+
+==========================================
+FILE PATH: ./src/core/GestorI2C.h
+==========================================
+
+#ifndef GESTORI2C_H
+#define GESTORI2C_H
+
+#include "driver/i2c.h"
+#include "sdkconfig.h"
+
+#define ERR_MAX 10
+
+class GestorI2C {
+    private:
+        i2c_config_t conf;
+        int err;
+    public:
+        GestorI2C();
+        void begin();
+        void error();
+        void reset();
+        bool verify();
+        void reinicio();
+        i2c_port_t port();
 };
 
 #endif
@@ -3248,7 +3239,7 @@ FILE PATH: ./src/main.cpp
 #include "comunicaciones/Mqtt.h"
 #include "actuadores/ControlMotores.h"
 #include "core/MaquinaEstados.h"
-#include "actuadores/Multiplexor.h"
+#include "core/GestorI2C.h"
 #include "sensores/SensorLimite.h"
 #include "sensores/SensorTcrt.h"
 #include "sensores/SensorTcs.h"
@@ -3278,9 +3269,6 @@ static const char* TAG = "main";
 //event group para sincronizar tareas
 EventGroupHandle_t eventos = NULL;
 
-//creamos el mutex
-SemaphoreHandle_t mutex = NULL;
-
 // variables de control
  volatile bool start = false;
  int32_t modo;
@@ -3291,8 +3279,8 @@ Wifi wi;
 //objeto del protocolo MQTT
 Mqtt mq;
 
-//objeto del Multiplexor
-Multiplexor mu;
+//objeto del Gestor I2C
+GestorI2C i2c;
 
 // objeto de los sensores de limite
 SensorLimite* sl = nullptr;
@@ -3308,9 +3296,6 @@ MaquinaEstados *me = nullptr;
 
 // objeto de la telemetria
 Telemetria* tm = nullptr;
-
-//objeto de handle de la tarea del robot
-TaskHandle_t rob = NULL;
 
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
@@ -3336,7 +3321,7 @@ extern "C" void app_main(void){
     comunicaciones();
 
   	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, &rob, 1);
+  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
 	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
@@ -3369,19 +3354,16 @@ void robot(void *pvParameters) {
 		// inicia
 
 		//verifica si hay algun error en el i2c
-		if(!mu.verify()){
+		if(!i2c.verify()){
 			//se detecta error, parar por seguridad
 			rgb(0, 1023);
 			cm.alto();
-			if(xSemaphoreTake(mutex, pdMS_TO_TICKS(50)) == pdTRUE){
-				//porceso para reiniciar el i2c
-				mu.reinicio();
-				mu.begin();
-				sl->begin();
-				sr->begin();
-				rgb(1023, 0);
-				xSemaphoreGive(mutex);
-			}
+			//porceso para reiniciar el i2c
+			i2c.reinicio();
+			i2c.begin();
+			sl->begin();
+			sr->begin();
+			rgb(1023, 0);
 		}
 	  	uint64_t Tini = esp_timer_get_time();
     	// MAQUINA DE ESTADOS
@@ -3530,16 +3512,13 @@ void begin() {
   	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
   	rgb(1023, 800);
-
-	//inicializamos el mutex
-	mutex = xSemaphoreCreateMutex();
 }
 
 //inicializacion del hardware
 void begin_hardware() {
   	//ajustes iniciales
     ESP_LOGI(TAG, "Iniciando hardware...");
-  	mu.begin();
+  	i2c.begin();
   	cm.begin();
   	cm.alto();
 
@@ -3547,7 +3526,7 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sl = new SensorTcs(limCol, &mu, &mutex);
+	sl = new SensorTcs(limCol, &i2c);
     if (sl == nullptr) {
         ESP_LOGE(TAG, "no se pudo crear el objeto!");
     } else {
@@ -3586,7 +3565,7 @@ void comunicaciones() {
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 8192, NULL, 1, NULL, 0);
 	}else{
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
-		//esp_log_level_set("*", ESP_LOG_NONE);
+		esp_log_level_set("*", ESP_LOG_NONE);
 	}
 }
 
@@ -3770,22 +3749,18 @@ FILE PATH: ./src/sensores/SensorTcs.cpp
 extern volatile bool start;
 
 //constructor
-SensorTcs::SensorTcs(int _limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex):
+SensorTcs::SensorTcs(int _limCol, GestorI2C* _i2c):
 	//tolerancia de color
     limCol(_limCol),
 
     //variables de la logica
     estado(false),
     estado2(false),
-	mutex(_mutex),
-	mu(_mu),
+	i2c(_i2c),
 
 	//variables predeterminadas
-    redC(50),
-    green(50),
-    blue(50),
     lcr(50),
-	lcg(50),
+    lcg(50),
     lcb(50),
 	lcc(50),
 	lcr2(50),
@@ -3808,16 +3783,16 @@ bool SensorTcs::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	uint8_t read_buf[8];
 
 	//definir donde empezar a escribir los datos leidos
-	esp_err_t err = i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(20));
+	esp_err_t err = i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
-		mu->error();
+		i2c->error();
         return false;
     }
 
 	//leer datos del color
-	err = i2c_master_read_from_device(mu->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(20));
+	err = i2c_master_read_from_device(i2c->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
-		mu->error();
+		i2c->error();
         return false;
     }
 
@@ -3827,7 +3802,7 @@ bool SensorTcs::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
     *g = (read_buf[5] << 8) | read_buf[4];
     *b = (read_buf[7] << 8) | read_buf[6];
 
-	mu->reset();
+	i2c->reset();
 	return true;
 }
 
@@ -3840,64 +3815,49 @@ void SensorTcs::calCol(){
   	uint16_t r, g, b, c;
   	const int NUMM = 15;
 
-	//se detecta recibe el mutex
-	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
-		//primero sensor
-  		for (int i = 0; i < NUMM; i++) {
-  		  	// Leer sensor 1
-  		  	mu->sel(0);
-  		  	if(read(&r, &g, &b, &c)){
-				t_r += r;
-  		  		t_g += g;
-  		  		t_b += b;
-				t_c += c;
-			}
-		    vTaskDelay(pdMS_TO_TICKS(10));
-  		}
-		// calcula el promedio de las muestras
- 		lcr = t_r / NUMM;
-		lcg = t_g / NUMM;
-  		lcb = t_b / NUMM;
-		lcc = t_c / NUMM;
+	//primero sensor
+  	for (int i = 0; i < NUMM; i++) {
+  	  	// Leer sensor 1
+  	  	mu.sel(i2c->port(), 0);
+  	  	if(read(&r, &g, &b, &c)){
+			t_r += r;
+  	  		t_g += g;
+  	  		t_b += b;
+			t_c += c;
+		}
+	    vTaskDelay(pdMS_TO_TICKS(10));
+  	}
+	// calcula el promedio de las muestras
+ 	lcr = t_r / NUMM;
+	lcg = t_g / NUMM;
+  	lcb = t_b / NUMM;
+	lcc = t_c / NUMM;
 
-		ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d, C=%d", lcr, lcg, lcb, lcc);
+	ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d, C=%d", lcr, lcg, lcb, lcc);
 
-		//se libera el mutex
-		xSemaphoreGive(*mutex);
-	}else{
-		rgb(0, 1023);
-	}
 	//segundo sensor
 	t_r = 0;
 	t_g = 0;
 	t_b = 0;
 	t_c = 0;
-	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
-  		for (int i = 0; i < NUMM; i++) {
-  	  		// Leer sensor 2
-  	  		mu->sel(3);
-  	  		if(read(&r, &g, &b, &c)){
-				t_r += r;
-  	  			t_g += g;
-  	  			t_b += b;
-				t_c += c;
-			}
-	    	vTaskDelay(pdMS_TO_TICKS(10));
-  		}
-  		// calcula el promedio de las muestras
- 		lcr2 = t_r / NUMM;
-		lcg2 = t_g / NUMM;
+  	for (int i = 0; i < NUMM; i++) {
+  		// Leer sensor 2
+  		mu.sel(i2c->port(), 3);
+  		if(read(&r, &g, &b, &c)){
+			t_r += r;
+  			t_g += g;
+  			t_b += b;
+			t_c += c;
+		}
+    	vTaskDelay(pdMS_TO_TICKS(10));
+  	}
+  	// calcula el promedio de las muestras
+ 	lcr2 = t_r / NUMM;
+	lcg2 = t_g / NUMM;
   		lcb2 = t_b / NUMM;
-		lcc2 = t_c / NUMM;
+	lcc2 = t_c / NUMM;
 
-		ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d, C=%d", lcr2, lcg2, lcb2, lcc2);
-
-		//se libera el mutex
-		xSemaphoreGive(*mutex);
-	}
-	else{
-		rgb(0, 1023);
-	}
+	ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d, C=%d", lcr2, lcg2, lcb2, lcc2);
 }
 
 void SensorTcs::begin(){
@@ -3910,11 +3870,11 @@ void SensorTcs::begin(){
 	uint8_t write_buf_enable[2] = {TCS_ENABLE, 0x03};
 
 	// selecciona sc_1
-	mu->sel(0);
+	mu.sel(i2c->port(), 0);
 	// verifica el funcionamiento de sc_1
-	if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+	if (i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
         estado = true;
     } else {
 	    estado = false;
@@ -3922,13 +3882,12 @@ void SensorTcs::begin(){
 		rgb(0, 1023);
 	}
 
-	mu->sel(3);
-
+	mu.sel(i2c->port(), 3);
 
     // Intentamos escribir la configuración
-    if (i2c_master_write_to_device(mu->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(mu->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+    if (i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
 	    estado2 = true;
 	} else {
 	    estado2 = false;
@@ -3949,29 +3908,24 @@ bool SensorTcs::sc_1Verify(){
 	bool res = false;
 	//variable tempotales
 	uint16_t rt, gt, bt, ct;
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
-    	// detecta si el sensor de color funciona bien
-    	if (estado) {
-    		// selecciona sc_1
-    	  	mu->sel(0);
-      		// sc_1 lee el color
-      		if(read(&rt, &gt, &bt, &ct)){
-				//se aplican
-				r1 = rt;
-				g1 = gt;
-				b1 = bt;
-				c1 = ct;
-      			// sc_1 determina si el color detectado es el mismo del limite
-      			long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
-      			if (difCol > limCol) {
-        			// retorna verdadero al detectar el limite
-					res = true;
-				}
-			}else{
-				rgb(0, 1023);
+    // detecta si el sensor de color funciona bien
+    if (estado) {
+    	// selecciona sc_1
+    	mu.sel(i2c->port(), 0);
+      	// sc_1 lee el color
+      	if(read(&rt, &gt, &bt, &ct)){
+			//se aplican
+			r1 = rt;
+			g1 = gt;
+			b1 = bt;
+			c1 = ct;
+      		// sc_1 determina si el color detectado es el mismo del limite
+      		long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
+      		if (difCol > limCol) {
+        		// retorna verdadero al detectar el limite
+				res = true;
 			}
 		}
-		xSemaphoreGive(*mutex);
 	}
 	vTaskDelay(1);
 	return res;
@@ -3982,29 +3936,23 @@ bool SensorTcs::sc_2Verify(){
 	bool res = false;
 	//variables temporales
 	uint16_t rt, gt, bt, ct;
-	if(xSemaphoreTake(*mutex, portMAX_DELAY) == pdTRUE){
-		if (estado2) {
-      		// selecciona sc_2
-      		mu->sel(3);
-      		// sc_2 lee el color
-      		if(read(&rt, &gt, &bt, &ct)){
-				r2 = rt;
-				g2 = gt;
-				b2 = bt;
-				c2 = ct;
-      			// sc_2 determina si el color detectado es el mismo del limite
-      			long difCol = labs(r2 - lcr2) + labs(g2 - lcg2) + labs(b2 - lcb2);
-      			if (difCol > limCol) {
-        			// retorna verdadero al detectar el limite
-					res = true;
-				}
+	if (estado2) {
+      	// selecciona sc_2
+      	mu.sel(i2c->port(), 3);
+      	// sc_2 lee el color
+      	if(read(&rt, &gt, &bt, &ct)){
+			r2 = rt;
+			g2 = gt;
+			b2 = bt;
+			c2 = ct;
+      		// sc_2 determina si el color detectado es el mismo del limite
+      		long difCol = labs(r2 - lcr2) + labs(g2 - lcg2) + labs(b2 - lcb2);
+      		if (difCol > limCol) {
+        		// retorna verdadero al detectar el limite
+				res = true;
 			}
-    	}
-		else{
-			rgb(0, 1023);
 		}
-		xSemaphoreGive(*mutex);
-	}
+    }
 	vTaskDelay(1);
 	return res;
 }
@@ -4054,44 +4002,31 @@ void SensorTcs::nvsLeer(){
 
 //metdo que recopila las lecturas y datos en general para la telemetria
 void SensorTcs::colores(uint16_t* buffer){
-	//mutex para evitar datos correptos
-	if(xSemaphoreTake(*mutex, 0) == pdTRUE){
-		//se envian los respecivos datos a la telemetria
+	//se envian los respecivos datos a la telemetria
 
-		//Calibracion de sc_1
-		buffer[0] = lcr;
-		buffer[1] = lcg;
-		buffer[2] = lcb;
-		buffer[3] = lcc;
+	//Calibracion de sc_1
+	buffer[0] = lcr;
+	buffer[1] = lcg;
+	buffer[2] = lcb;
+	buffer[3] = lcc;
 
-		//Calibracion de sc_2
-		buffer[4] = lcr2;
-		buffer[5] = lcg2;
-		buffer[6] = lcb2;
-		buffer[7] = lcc2;
+	//Calibracion de sc_2
+	buffer[4] = lcr2;
+	buffer[5] = lcg2;
+	buffer[6] = lcb2;
+	buffer[7] = lcc2;
 
-		//lecturas de sc_1
-		buffer[8] = r1;
-		buffer[9] = g1;
-		buffer[10] = b1;
-		buffer[11] = c1;
+	//lecturas de sc_1
+	buffer[8] = r1;
+	buffer[9] = g1;
+	buffer[10] = b1;
+	buffer[11] = c1;
 
-		//lecturas de sc_2
-		buffer[12] = r2;
-		buffer[13] = g2;
-		buffer[14] = b2;
-		buffer[15] = c2;
-
-		//se suelta el mutex
-		xSemaphoreGive(*mutex);
-	}else{
-		//si no se puede leer envia in valor irreal a la telemtetria
-		uint16_t eVal = 65535;
-
-		for(int i = 0; i < 16; i++){
-			buffer[i] = eVal;
-		}
-	}
+	//lecturas de sc_2
+	buffer[12] = r2;
+	buffer[13] = g2;
+	buffer[14] = b2;
+	buffer[15] = c2;
 }
 
 
@@ -4104,6 +4039,7 @@ FILE PATH: ./src/sensores/SensorTcs.h
 
 #include "driver/i2c.h"
 #include "freertos/task.h"
+#include "../core/GestorI2C.h"
 #include "../actuadores/Multiplexor.h"
 #include "SensorLimite.h"
 #include <cstdint>
@@ -4114,13 +4050,8 @@ class SensorTcs : public SensorLimite {
 		bool estado;
 		bool estado2;
 
-		SemaphoreHandle_t* mutex;
-
-		Multiplexor* mu;
-
-		int redC;
-		int green;
-		int blue;
+		GestorI2C* i2c;
+		Multiplexor mu;
 
 		uint16_t lcr, lcg, lcb, lcc;
 		uint16_t lcr2, lcg2, lcb2, lcc2;
@@ -4137,7 +4068,7 @@ class SensorTcs : public SensorLimite {
 		uint16_t b2;
 		uint16_t c2;
 	public:
-		SensorTcs(int limCol, Multiplexor* _mu, SemaphoreHandle_t* _mutex);
+		SensorTcs(int limCol, GestorI2C* _i2c);
 		virtual ~SensorTcs() {}
 
 		void calCol();
@@ -4173,9 +4104,7 @@ FILE PATH: ./src/sensores/SensorTof.cpp
 
 static const char* TAG = "SensorToF";
 
-SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd):
-	mu(_mu),
-	mutex(_mutex),
+SensorTof::SensorTof(const uint8_t* _can, int _maxd):
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
@@ -4214,8 +4143,6 @@ bool SensorTof::begin(){
 
 	//se aplica para cada SensorTof
 	for(int i = 0; i < NUM_TOF; i++){
-		//se selecciona canal
-		mu->sel(can[i]);
 		vTaskDelay(pdMS_TO_TICKS(10));
 
 		//creamos los objetos de los sensores tof
@@ -4247,16 +4174,12 @@ uint16_t SensorTof::dist(int n){
 		return 8190;
 	}
 
-	//selecciona el sensor indicado
-	mu->sel(can[n]);
-
 	//variable de error
 	std::error_code ec;
 
 	if(!tof[n]->is_data_ready(ec)){
 		//detecta si hubo algun error
 		if(ec){
-			mu->error();
 			return 8190;
 		}
 		//si no hay datos listos, retorna el valor anterior
@@ -4270,10 +4193,8 @@ uint16_t SensorTof::dist(int n){
 
 	//detecta si hubo algun error
 	if (ec) {
-		mu->error();
         return 8190;
     }
-	mu->reset();
     return dis[n];
 }
 
@@ -4281,37 +4202,29 @@ uint16_t SensorTof::dist(int n){
 bool SensorTof::verify(int n){
 	//variable que registrara el resultado
 	bool res = false;
-	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
-		//se lee la distancia
-		uint16_t distancia = dist(n);
-		//se verifica si esta en el rango
-		if(distancia > 10 && distancia < maxd && distancia < 8000){
-			res = true;
-		}
-		xSemaphoreGive(*mutex);
-	}else{
-		rgb(0, 1023);
+	//se lee la distancia
+	uint16_t distancia = dist(n);
+	//se verifica si esta en el rango
+	if(distancia > 10 && distancia < maxd && distancia < 8000){
+		res = true;
 	}
 	return res;
 }
 
 //metodo que lee todos los sensores
 void SensorTof::procesar(){
-    if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(10)) == pdTRUE){
-		for(uint8_t i = 0; i < NUM_TOF; i++){
-			//se lee la distancia
-	    	uint16_t distancia = dist(i);
-			//verifica que la distancia sea valida
-			if(distancia > 10 && distancia < maxd && distancia < 8000){
-				//envia el bit del tof correspondiente
-				xEventGroupSetBits(eventos, TOF_BITS[i]);
-			} else {
-				//borra el bit del tof correspondiente
-				xEventGroupClearBits(eventos, TOF_BITS[i]);
-			}
+	for(uint8_t i = 0; i < NUM_TOF; i++){
+		//se lee la distancia
+    	uint16_t distancia = dist(i);
+		//verifica que la distancia sea valida
+		if(distancia > 10 && distancia < maxd && distancia < 8000){
+			//envia el bit del tof correspondiente
+			xEventGroupSetBits(eventos, TOF_BITS[i]);
+		} else {
+			//borra el bit del tof correspondiente
+			xEventGroupClearBits(eventos, TOF_BITS[i]);
 		}
-        xSemaphoreGive(*mutex);
-    }
+	}
 }
 
 //metodo que lee la Nvs
@@ -4345,7 +4258,6 @@ FILE PATH: ./src/sensores/SensorTof.h
 
 #include "vl53l.hpp"
 #include "SensorRival.h"
-#include "../actuadores/Multiplexor.h"
 #include <vector>
 
 //numero de sensores ToF
@@ -4353,10 +4265,6 @@ FILE PATH: ./src/sensores/SensorTof.h
 
 class SensorTof : public SensorRival {
 	private:
-		//el multiplexor
-		Multiplexor* mu;
-		//puntero al mutex
-		SemaphoreHandle_t* mutex;
 		//objetos toF de la libreria
 		espp::Vl53l* tof[NUM_TOF];
 		//canales
@@ -4373,7 +4281,7 @@ class SensorTof : public SensorRival {
 		bool verify(int n);
 	public:
 		//constructor
-		SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd);
+		SensorTof(const uint8_t* _can, int _maxd);
 		virtual ~SensorTof() {}
 		//inicializa los sensores ToF
 		bool begin() override;

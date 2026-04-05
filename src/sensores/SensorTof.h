@@ -3,7 +3,6 @@
 
 #include "vl53l.hpp"
 #include "SensorRival.h"
-#include "../actuadores/Multiplexor.h"
 #include <vector>
 
 //numero de sensores ToF
@@ -11,10 +10,6 @@
 
 class SensorTof : public SensorRival {
 	private:
-		//el multiplexor
-		Multiplexor* mu;
-		//puntero al mutex
-		SemaphoreHandle_t* mutex;
 		//objetos toF de la libreria
 		espp::Vl53l* tof[NUM_TOF];
 		//canales
@@ -31,7 +26,7 @@ class SensorTof : public SensorRival {
 		bool verify(int n);
 	public:
 		//constructor
-		SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd);
+		SensorTof(const uint8_t* _can, int _maxd);
 		virtual ~SensorTof() {}
 		//inicializa los sensores ToF
 		bool begin() override;

@@ -11,9 +11,7 @@
 
 static const char* TAG = "SensorToF";
 
-SensorTof::SensorTof(Multiplexor* _mu, SemaphoreHandle_t* _mutex, const uint8_t* _can, int _maxd):
-	mu(_mu),
-	mutex(_mutex),
+SensorTof::SensorTof(const uint8_t* _can, int _maxd):
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
@@ -52,8 +50,6 @@ bool SensorTof::begin(){
 
 	//se aplica para cada SensorTof
 	for(int i = 0; i < NUM_TOF; i++){
-		//se selecciona canal
-		mu->sel(can[i]);
 		vTaskDelay(pdMS_TO_TICKS(10));
 
 		//creamos los objetos de los sensores tof
@@ -85,16 +81,12 @@ uint16_t SensorTof::dist(int n){
 		return 8190;
 	}
 
-	//selecciona el sensor indicado
-	mu->sel(can[n]);
-
 	//variable de error
 	std::error_code ec;
 
 	if(!tof[n]->is_data_ready(ec)){
 		//detecta si hubo algun error
 		if(ec){
-			mu->error();
 			return 8190;
 		}
 		//si no hay datos listos, retorna el valor anterior
@@ -108,10 +100,8 @@ uint16_t SensorTof::dist(int n){
 
 	//detecta si hubo algun error
 	if (ec) {
-		mu->error();
         return 8190;
     }
-	mu->reset();
     return dis[n];
 }
 
@@ -119,37 +109,29 @@ uint16_t SensorTof::dist(int n){
 bool SensorTof::verify(int n){
 	//variable que registrara el resultado
 	bool res = false;
-	if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(50)) == pdTRUE){
-		//se lee la distancia
-		uint16_t distancia = dist(n);
-		//se verifica si esta en el rango
-		if(distancia > 10 && distancia < maxd && distancia < 8000){
-			res = true;
-		}
-		xSemaphoreGive(*mutex);
-	}else{
-		rgb(0, 1023);
+	//se lee la distancia
+	uint16_t distancia = dist(n);
+	//se verifica si esta en el rango
+	if(distancia > 10 && distancia < maxd && distancia < 8000){
+		res = true;
 	}
 	return res;
 }
 
 //metodo que lee todos los sensores
 void SensorTof::procesar(){
-    if(xSemaphoreTake(*mutex, pdMS_TO_TICKS(10)) == pdTRUE){
-		for(uint8_t i = 0; i < NUM_TOF; i++){
-			//se lee la distancia
-	    	uint16_t distancia = dist(i);
-			//verifica que la distancia sea valida
-			if(distancia > 10 && distancia < maxd && distancia < 8000){
-				//envia el bit del tof correspondiente
-				xEventGroupSetBits(eventos, TOF_BITS[i]);
-			} else {
-				//borra el bit del tof correspondiente
-				xEventGroupClearBits(eventos, TOF_BITS[i]);
-			}
+	for(uint8_t i = 0; i < NUM_TOF; i++){
+		//se lee la distancia
+    	uint16_t distancia = dist(i);
+		//verifica que la distancia sea valida
+		if(distancia > 10 && distancia < maxd && distancia < 8000){
+			//envia el bit del tof correspondiente
+			xEventGroupSetBits(eventos, TOF_BITS[i]);
+		} else {
+			//borra el bit del tof correspondiente
+			xEventGroupClearBits(eventos, TOF_BITS[i]);
 		}
-        xSemaphoreGive(*mutex);
-    }
+	}
 }
 
 //metodo que lee la Nvs

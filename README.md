@@ -70,9 +70,10 @@ Musica (Prio: 1)               Tarea Interna Sensor (Prio: 3)
 - **`SensorTcs`** — Implementación para sensores de color TCS34725 mediante polling I2C en una tarea interna autogestionada.
 - **`SensorTcrt`** — Implementación de ultra-baja latencia para sensores TCRT5000 utilizando interrupciones de hardware y tareas de sincronización.
 - **`SensorRival`** — Interfaz abstracta diseñada para facilitar la migración de los ultrasónicos HC-SR04 a los sensores ToF VL53L0X sin alterar la lógica superior.
-- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo mediante multiplexación I2C para una visión de 360 grados.
-- **`Wifi` / `Mqtt` / `Telemetria`** — Stack de conectividad que publica el estado completo del robot (lecturas, estados, hardware) al broker MQTT para análisis y telemetría de pruebas.
-- **`Nvs`** — Capa de abstracción sobre la memoria NVS del ESP-IDF.
+- **`GestorI2C`** — Módulo central encargado de la salud y administración del bus I2C. Gestiona la inicialización del driver, el conteo de errores y el reinicio físico del bus en caso de bloqueo. Proporciona una capa de abstracción que garantiza la estabilidad de todos los sensores periféricos.
+- **`Multiplexor`** — Utilidad para la conmutación de canales del TCA9548A. Tras la refactorización, su uso se ha restringido exclusivamente al interior de `SensorTcs`, permitiendo que el resto del sistema sea independiente del hardware de expansión I2C.
+- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (VL53L). Se ha desacoplado del multiplexor para permitir una futura implementación de direccionamiento dinámico mediante los pines XSHUT, mejorando la modularidad y reduciendo la dependencia de hardware específico.
+- **`Telemetria`** — Stack de conectividad que publica el estado completo del robot al broker MQTT. Se ha optimizado eliminando el uso de mutexes, priorizando la velocidad de ejecución y aceptando inconsistencias mínimas en favor de un rendimiento de combate superior.
 
 ---
 
@@ -171,8 +172,9 @@ Esta arquitectura permite que el procesador filtre **grupos completos de sensore
 │   │   ├── configuracion.*   # Utilidades de configuración
 │   │   ├── eventos.h         # Definición de bits y máscaras
 │   │   └── pines.h           # Mapa de pines
-│   ├── core/                 # Lógica base
+│   ├── core/                 # Lógica base y servicios
 │   │   ├── DatosT.h          # Estructura de datos de telemetría
+│   │   ├── GestorI2C.*       # Administración y salud del bus I2C
 │   │   ├── MaquinaEstados.*  # Gestor de estados y tiempos
 │   │   └── Nvs.*             # Abstracción NVS
 │   ├── estrategias/          # Lógicas de combate

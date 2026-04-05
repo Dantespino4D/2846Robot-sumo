@@ -105,39 +105,33 @@ void ControlMotores::alto(){
 
 //metodo que avanza en direccion a
 void ControlMotores::dir_a(){
-	//alto();
 	velocidad(vel_nI, vel_nD, false);
 }
 
 //metodo que avanza en direccion b
 void ControlMotores::dir_b(){
-	//alto();
 	velocidad(-vel_nI, -vel_nD, false);
 
 }
 
 //metodo de ataque en direccion a izquierda
 void ControlMotores::ataque_ai(){
-	//alto();
 	velocidad(vel_aI, vel_aD, true);
 }
 
 //metodo de ataque en direccion b izquierda
 void ControlMotores::ataque_bi(){
-	//alto();
 	velocidad(-vel_aI, -vel_aD, true);
 }
 
 //metodo de ataque en direccion a derecha
 void ControlMotores::ataque_ad(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(vel_aD, vel_aI, true);
 }
 
 //metodo de ataque en direccion b derecha
 void ControlMotores::ataque_bd(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(-vel_aD, -vel_aI, true);
 }
@@ -155,33 +149,28 @@ void ControlMotores::max_b(){
 
 //metodo de ataque pronunciado en direccion a, a la izquierda
 void ControlMotores::pronunciado_ai(){
-	//alto();
 	velocidad(vel_pI, vel_pD, true);
 }
 
 //metodo de ataque pronunciado en direccion b, a la izquierda
 void ControlMotores::pronunciado_bi(){
-	//alto();
 	velocidad(-vel_pI, -vel_pD, true);
 }
 
 //metodo de ataque pronunciado en direccion a, a la derecha
 void ControlMotores::pronunciado_ad(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(vel_pD, vel_pI, true);
 }
 
 //metodo de ataque pronunciado en direccion b, a la derecha
 void ControlMotores::pronunciado_bd(){
-	//alto();
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(-vel_pD, -vel_pI, true);
 }
 
 //metodo de giro
 void ControlMotores::giro(){
-	//alto();
 	velocidad(vel_gI, vel_gD, false);
 }
 
