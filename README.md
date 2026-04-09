@@ -34,12 +34,13 @@ El proyecto está diseñado en dos fases de desarrollo para optimizar el rendimi
 * **Detección de Rival:** 2 Sensores ultrasónicos HC-SR04
 * **Detección de Tatami:** 2 Sensores de color TCS34725
 * **Expansión I2C:** Multiplexor TCA9548A
-* **Alimentación:** Batería LiPo 2s 2200mAh 50C, gestionada por un BMS 2s de 20A y un regulador LM2596
+* **Alimentación:** Batería LiPo 2s 2200mAh 50C, gestionada por un BMS 2s de 20A.
+* **Regulación:** Actualmente usa un **LM2596**, con plan de migración al módulo **Mini 360 (MP2307)** para mayor eficiencia y ahorro de espacio.
 * **Cableado:** Alambre AWG 24 para señales lógicas y cable de silicona AWG 18 para potencia.
 
 ### Fase 2: Versión Final Competitiva
 * **Tracción de Alta Velocidad:** Actualización a 4 Motores Pololu de 1000 RPM (reducción 50:1) para maximizar la velocidad de embestida.
-* **Precisión Láser:** Sustitución de los sensores ultrasónicos por sensores ToF (Time-of-Flight) **VL53L0X** para una lectura de distancia al rival más rápida, precisa e inmune a interferencias acústicas.
+* **Precisión Láser:** Sustitución de los sensores ultrasónicos por 6 sensores ToF **VL53L0X** (Láser) gestionados mediante un expansor **PCF8574** para direccionamiento dinámico (XSHUT).
 * **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
 
 ---
@@ -66,13 +67,14 @@ Musica (Prio: 1)               Tarea Interna Sensor (Prio: 3)
     - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. Permite una lógica de decisión de alta eficiencia mediante el filtrado de zonas (Frontal, Trasera, Borde) y combinaciones de precisión. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
+- **`ExpansorIO`** — Implementación del driver para el **PCF8574**, permitiendo la gestión dinámica de señales digitales (XSHUT) para los sensores ToF en la versión final del robot.
 - **`SensorLimite`** — Interfaz abstracta para sensores de borde que permite el intercambio transparente de hardware.
 - **`SensorTcs`** — Implementación para sensores de color TCS34725 mediante polling I2C en una tarea interna autogestionada.
 - **`SensorTcrt`** — Implementación de ultra-baja latencia para sensores TCRT5000 utilizando interrupciones de hardware y tareas de sincronización.
 - **`SensorRival`** — Interfaz abstracta diseñada para facilitar la migración de los ultrasónicos HC-SR04 a los sensores ToF VL53L0X sin alterar la lógica superior.
 - **`GestorI2C`** — Módulo central encargado de la salud y administración del bus I2C. Gestiona la inicialización del driver, el conteo de errores y el reinicio físico del bus en caso de bloqueo. Proporciona una capa de abstracción que garantiza la estabilidad de todos los sensores periféricos.
 - **`Multiplexor`** — Utilidad para la conmutación de canales del TCA9548A. Tras la refactorización, su uso se ha restringido exclusivamente al interior de `SensorTcs`, permitiendo que el resto del sistema sea independiente del hardware de expansión I2C.
-- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (VL53L). Se ha desacoplado del multiplexor para permitir una futura implementación de direccionamiento dinámico mediante los pines XSHUT, mejorando la modularidad y reduciendo la dependencia de hardware específico.
+- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (VL53L). El firmware ya integra soporte para direccionamiento dinámico mediante `ExpansorIO`, optimizando la configuración de los 6 sensores en un bus compartido para la versión final competitiva.
 - **`Telemetria`** — Stack de conectividad que publica el estado completo del robot al broker MQTT. Se ha optimizado eliminando el uso de mutexes, priorizando la velocidad de ejecución y aceptando inconsistencias mínimas en favor de un rendimiento de combate superior.
 
 ---
@@ -159,8 +161,9 @@ Esta arquitectura permite que el procesador filtre **grupos completos de sensore
 
 ```text
 ├── src/
-│   ├── actuadores/           # Control PWM y MUX
+│   ├── actuadores/           # Control PWM, MUX y Expansión
 │   │   ├── ControlMotores.*  # Control PWM de motores
+│   │   ├── ExpansorIO.*      # Expansor de I/O (PCF8574)
 │   │   ├── Multiplexor.*     # Multiplexor I2C (TCA9548A)
 │   │   └── rgb.h             # Control LED RGB
 │   ├── comunicaciones/       # Conectividad y telemetría

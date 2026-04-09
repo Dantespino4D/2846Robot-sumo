@@ -11,7 +11,9 @@
 
 static const char* TAG = "SensorToF";
 
-SensorTof::SensorTof(const uint8_t* _can, int _maxd):
+SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd):
+	i2c(_i2c),
+	expansor(_i2c),
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
@@ -40,8 +42,8 @@ bool SensorTof::begin(){
     config.device_address = 0x29;
 
 	//funcion de escritura
-	config.write = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
-        esp_err_t err = i2c_master_write_to_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+	config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
+        esp_err_t err = i2c_master_write_to_device(i2c.port(), dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
 		if(err != ESP_OK){
 			rgb(0, 1023);
 		}
@@ -49,8 +51,8 @@ bool SensorTof::begin(){
     };
 
 	//funcion de lectura
-	config.read = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
-        esp_err_t err = i2c_master_read_from_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+	config.read = [this](uint8_t dev_addr, uint8_t *data, size_t len) -> bool {
+        esp_err_t err = i2c_master_read_from_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10));
 		if(err != ESP_OK){
 			rgb(0, 1023);
 		}

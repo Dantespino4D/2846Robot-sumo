@@ -1015,6 +1015,61 @@ class ControlMotores{
 
 
 ==========================================
+FILE PATH: ./src/actuadores/ExpansorIO.cpp
+==========================================
+
+#include "ExpansorIO.h"
+#include "../core/GestorI2C.h"
+#include "driver/i2c.h"
+
+ExpansorIO::ExpansorIO(GestorI2C& _i2c) :
+	direccion(0x20),
+	estado(0),
+	i2c(_i2c)
+{}
+
+void ExpansorIO::escribir(uint8_t pin, uint8_t value) {
+	if (value) {
+		estado |= (1 << pin);
+	} else {
+		estado &= ~(1 << pin);
+	}
+	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+	i2c_master_start(cmd);
+	i2c_master_write_byte(cmd, (direccion << 1) | I2C_MASTER_WRITE, true);
+	i2c_master_write_byte(cmd, estado, true);
+	i2c_master_stop(cmd);
+	esp_err_t res = i2c_master_cmd_begin(i2c.port(), cmd, 1000 / portTICK_PERIOD_MS);
+	i2c_cmd_link_delete(cmd);
+	if (res != ESP_OK) {
+		i2c.error();
+	}
+}
+
+
+==========================================
+FILE PATH: ./src/actuadores/ExpansorIO.h
+==========================================
+
+#ifndef EXPANSORIO_H
+#define EXPANSORIO_H
+#include "../core/GestorI2C.h"
+#include <sys/types.h>
+
+class ExpansorIO {
+	private:
+		uint8_t direccion;
+		uint8_t estado;
+		GestorI2C& i2c; // Cambiado a referencia
+  	public:
+		ExpansorIO(GestorI2C& _i2c); // Cambiado a referencia
+		void escribir(uint8_t pin, uint8_t value);
+};
+
+#endif
+
+
+==========================================
 FILE PATH: ./src/actuadores/Multiplexor.cpp
 ==========================================
 
@@ -4094,7 +4149,9 @@ FILE PATH: ./src/sensores/SensorTof.cpp
 
 static const char* TAG = "SensorToF";
 
-SensorTof::SensorTof(const uint8_t* _can, int _maxd):
+SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd):
+	i2c(_i2c),
+	expansor(_i2c),
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
@@ -4123,8 +4180,8 @@ bool SensorTof::begin(){
     config.device_address = 0x29;
 
 	//funcion de escritura
-	config.write = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
-        esp_err_t err = i2c_master_write_to_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+	config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
+        esp_err_t err = i2c_master_write_to_device(i2c.port(), dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
 		if(err != ESP_OK){
 			rgb(0, 1023);
 		}
@@ -4132,8 +4189,8 @@ bool SensorTof::begin(){
     };
 
 	//funcion de lectura
-	config.read = [](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
-        esp_err_t err = i2c_master_read_from_device(I2C_NUM_0, dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+	config.read = [this](uint8_t dev_addr, uint8_t *data, size_t len) -> bool {
+        esp_err_t err = i2c_master_read_from_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10));
 		if(err != ESP_OK){
 			rgb(0, 1023);
 		}
@@ -4261,6 +4318,8 @@ FILE PATH: ./src/sensores/SensorTof.h
 
 #include "vl53l.hpp"
 #include "SensorRival.h"
+#include "../core/GestorI2C.h"
+#include "../actuadores/ExpansorIO.h"
 #include <vector>
 
 //numero de sensores ToF
@@ -4268,6 +4327,10 @@ FILE PATH: ./src/sensores/SensorTof.h
 
 class SensorTof : public SensorRival {
 	private:
+		//gestor I2C
+		GestorI2C& i2c;
+		//expansor de pines
+		ExpansorIO expansor;
 		//objetos toF de la libreria
 		espp::Vl53l* tof[NUM_TOF];
 		//canales
@@ -4284,7 +4347,7 @@ class SensorTof : public SensorRival {
 		bool verify(int n);
 	public:
 		//constructor
-		SensorTof(const uint8_t* _can, int _maxd);
+		SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd);
 		//destructor
 		~SensorTof();
 		//inicializa los sensores ToF
