@@ -4,7 +4,7 @@
 #include "vl53l.hpp"
 #include "SensorRival.h"
 #include "../core/GestorI2C.h"
-#include "../actuadores/ExpansorIO.h"
+#include "driver/gpio.h"
 #include <vector>
 
 //numero de sensores ToF
@@ -14,8 +14,8 @@ class SensorTof : public SensorRival {
 	private:
 		//gestor I2C
 		GestorI2C& i2c;
-		//expansor de pines
-		ExpansorIO expansor;
+		//pines xshut
+		gpio_num_t xshut[NUM_TOF];
 		//objetos toF de la libreria
 		espp::Vl53l* tof[NUM_TOF];
 		//canales

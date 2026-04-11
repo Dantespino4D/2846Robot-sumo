@@ -35,13 +35,15 @@ El proyecto está diseñado en dos fases de desarrollo para optimizar el rendimi
 * **Detección de Tatami:** 2 Sensores de color TCS34725
 * **Expansión I2C:** Multiplexor TCA9548A
 * **Alimentación:** Batería LiPo 2s 2200mAh 50C, gestionada por un BMS 2s de 20A.
-* **Regulación:** Actualmente usa un **LM2596**, con plan de migración al módulo **Mini 360 (MP2307)** para mayor eficiencia y ahorro de espacio.
+* **Regulación:** Regulador **LM2596** para el sistema lógico.
 * **Cableado:** Alambre AWG 24 para señales lógicas y cable de silicona AWG 18 para potencia.
 
 ### Fase 2: Versión Final Competitiva
 * **Tracción de Alta Velocidad:** Actualización a 4 Motores Pololu de 1000 RPM (reducción 50:1) para maximizar la velocidad de embestida.
 * **Precisión Láser:** Sustitución de los sensores ultrasónicos por 6 sensores ToF **VL53L0X** (Láser) gestionados mediante un expansor **PCF8574** para direccionamiento dinámico (XSHUT).
+* **Eficiencia I2C:** Eliminación del multiplexor TCA9548A en favor del bus compartido de los ToF, simplificando el cableado y mejorando la velocidad de comunicación.
 * **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
+* **Alimentación Optimizada:** Sustitución del regulador LM2596 por el módulo **Mini 360 (MP2307)**, logrando mayor eficiencia energética y un diseño más compacto.
 
 ---
 
@@ -163,7 +165,6 @@ Esta arquitectura permite que el procesador filtre **grupos completos de sensore
 ├── src/
 │   ├── actuadores/           # Control PWM, MUX y Expansión
 │   │   ├── ControlMotores.*  # Control PWM de motores
-│   │   ├── ExpansorIO.*      # Expansor de I/O (PCF8574)
 │   │   ├── Multiplexor.*     # Multiplexor I2C (TCA9548A)
 │   │   └── rgb.h             # Control LED RGB
 │   ├── comunicaciones/       # Conectividad y telemetría
@@ -203,4 +204,6 @@ Esta arquitectura permite que el procesador filtre **grupos completos de sensore
 ├── sdkconfig.defaults        # Valores por defecto de Kconfig
 ├── sdkconfig.esp32           # Configuración generada para ESP32
 └── sdkconfig.esp32-s3        # Configuración generada para ESP32-S3
+```
+2-s3        # Configuración generada para ESP32-S3
 ```

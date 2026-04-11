@@ -1015,61 +1015,6 @@ class ControlMotores{
 
 
 ==========================================
-FILE PATH: ./src/actuadores/ExpansorIO.cpp
-==========================================
-
-#include "ExpansorIO.h"
-#include "../core/GestorI2C.h"
-#include "driver/i2c.h"
-
-ExpansorIO::ExpansorIO(GestorI2C& _i2c) :
-	direccion(0x20),
-	estado(0),
-	i2c(_i2c)
-{}
-
-void ExpansorIO::escribir(uint8_t pin, uint8_t value) {
-	if (value) {
-		estado |= (1 << pin);
-	} else {
-		estado &= ~(1 << pin);
-	}
-	i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-	i2c_master_start(cmd);
-	i2c_master_write_byte(cmd, (direccion << 1) | I2C_MASTER_WRITE, true);
-	i2c_master_write_byte(cmd, estado, true);
-	i2c_master_stop(cmd);
-	esp_err_t res = i2c_master_cmd_begin(i2c.port(), cmd, 1000 / portTICK_PERIOD_MS);
-	i2c_cmd_link_delete(cmd);
-	if (res != ESP_OK) {
-		i2c.error();
-	}
-}
-
-
-==========================================
-FILE PATH: ./src/actuadores/ExpansorIO.h
-==========================================
-
-#ifndef EXPANSORIO_H
-#define EXPANSORIO_H
-#include "../core/GestorI2C.h"
-#include <sys/types.h>
-
-class ExpansorIO {
-	private:
-		uint8_t direccion;
-		uint8_t estado;
-		GestorI2C& i2c; // Cambiado a referencia
-  	public:
-		ExpansorIO(GestorI2C& _i2c); // Cambiado a referencia
-		void escribir(uint8_t pin, uint8_t value);
-};
-
-#endif
-
-
-==========================================
 FILE PATH: ./src/actuadores/Multiplexor.cpp
 ==========================================
 
@@ -2018,12 +1963,20 @@ FILE PATH: ./src/configuracion/pines.h
 	// Sensores TCRT
 	#define TCRT_1 GPIO_NUM_1
 	#define TCRT_2 GPIO_NUM_10
+
+    // ToF XSHUT
+    #define XSHUT_1 GPIO_NUM_11
+    #define XSHUT_2 GPIO_NUM_12
+    #define XSHUT_3 GPIO_NUM_13
+    #define XSHUT_4 GPIO_NUM_14
+    #define XSHUT_5 GPIO_NUM_16
+    #define XSHUT_6 GPIO_NUM_17
 #else
     // Pines para ESP32 Estándar
     #define MUS GPIO_NUM_4
     #define INI GPIO_NUM_26
 
-    // Ultrasonicos
+    // Ultrasonicos(se comparten con algunos de los pines de XSHUT, ya que nunca se usaran ambos sensores simultaneamente)
     #define TRIG_1 GPIO_NUM_19
     #define ECHO_1 GPIO_NUM_23
     #define TRIG_2 GPIO_NUM_18
@@ -2036,9 +1989,16 @@ FILE PATH: ./src/configuracion/pines.h
     #define MOT_B2 GPIO_NUM_17
 
 	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_32
-	#define TCRT_2 GPIO_NUM_33
+	#define TCRT_1 GPIO_NUM_34
+	#define TCRT_2 GPIO_NUM_35
 
+    // ToF XSHUT
+    #define XSHUT_1 GPIO_NUM_19 // Comparte con TRIG_1
+    #define XSHUT_2 GPIO_NUM_23 // Comparte con ECHO_1
+    #define XSHUT_3 GPIO_NUM_18 // Comparte con TRIG_2
+    #define XSHUT_4 GPIO_NUM_25 // Comparte con ECHO_2
+    #define XSHUT_5 GPIO_NUM_27
+    #define XSHUT_6 GPIO_NUM_5
 #endif
 
 #endif
@@ -4140,6 +4100,7 @@ FILE PATH: ./src/sensores/SensorTof.cpp
 #include "../core/Nvs.h"
 #include "../actuadores/rgb.h"
 #include "../configuracion/eventos.h"
+#include "../configuracion/pines.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
@@ -4151,7 +4112,7 @@ static const char* TAG = "SensorToF";
 
 SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd):
 	i2c(_i2c),
-	expansor(_i2c),
+	xshut{XSHUT_1, XSHUT_2, XSHUT_3, XSHUT_4, XSHUT_5, XSHUT_6},
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
@@ -4176,34 +4137,71 @@ bool SensorTof::begin(){
 
 	//configuracion necesaria para la libreria
 	bool b = true;
-	espp::Vl53l::Config config;
-    config.device_address = 0x29;
 
-	//funcion de escritura
-	config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
-        esp_err_t err = i2c_master_write_to_device(i2c.port(), dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
-		if(err != ESP_OK){
-			rgb(0, 1023);
-		}
-    	return (err == ESP_OK);
-    };
+	//configuracion de lso pines xshut
+	gpio_config_t io_conf = {};
+	io_conf.intr_type = GPIO_INTR_DISABLE;
+	io_conf.mode = GPIO_MODE_OUTPUT;
+	io_conf.pin_bit_mask = 0;
+	for(int i = 0; i < NUM_TOF; i++){
+		io_conf.pin_bit_mask |= (1ULL << xshut[i]);
+	}
+	io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
+	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
+	gpio_config(&io_conf);
 
-	//funcion de lectura
-	config.read = [this](uint8_t dev_addr, uint8_t *data, size_t len) -> bool {
-        esp_err_t err = i2c_master_read_from_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10));
-		if(err != ESP_OK){
-			rgb(0, 1023);
-		}
-    	return (err == ESP_OK);
-    };
+	//se apagan todos los xshut
+	for(int i = 0; i < NUM_TOF; i++){
+		gpio_set_level(xshut[i], 0);
+	}
+
+	//pequeña espera
+	vTaskDelay(pdMS_TO_TICKS(10));
 
 	//se aplica para cada SensorTof
 	for(int i = 0; i < NUM_TOF; i++){
+		//ensendemos el xshut
+		gpio_set_level(xshut[i], 1);
 		vTaskDelay(pdMS_TO_TICKS(10));
+
+		uint8_t nueva_dir = 0x30 + i;
+
+		//se cambia la direccion del sensor fisicamente enviando el comando I2C
+		uint8_t payload[3] = {0x00, 0x01, (uint8_t)(nueva_dir & 0x7F)};
+		esp_err_t err_dir = i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10));
+
+		if(err_dir == ESP_OK){
+			ESP_LOGI(TAG, "ToF en canal %d configurado con direccion 0x%02X", can[i], nueva_dir);
+		} else {
+			ESP_LOGE(TAG, "Fallo al configurar direccion del ToF en canal %d", can[i]);
+			b = false;
+		}
 
 		if (tof[i] != nullptr) {
     	    delete tof[i];
     	}
+
+		espp::Vl53l::Config config;
+		// Usamos directamente la nueva direccion
+		config.device_address = nueva_dir;
+
+		//funcion de escritura
+		config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
+			esp_err_t err = i2c_master_write_to_device(i2c.port(), dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
+			if(err != ESP_OK){
+				rgb(0, 1023);
+			}
+			return (err == ESP_OK);
+		};
+
+		//funcion de lectura
+		config.read = [this](uint8_t dev_addr, uint8_t *data, size_t len) -> bool {
+			esp_err_t err = i2c_master_read_from_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10));
+			if(err != ESP_OK){
+				rgb(0, 1023);
+			}
+			return (err == ESP_OK);
+		};
 
 		//creamos los objetos de los sensores tof
 		tof[i] = new espp::Vl53l(config);
@@ -4319,7 +4317,7 @@ FILE PATH: ./src/sensores/SensorTof.h
 #include "vl53l.hpp"
 #include "SensorRival.h"
 #include "../core/GestorI2C.h"
-#include "../actuadores/ExpansorIO.h"
+#include "driver/gpio.h"
 #include <vector>
 
 //numero de sensores ToF
@@ -4329,8 +4327,8 @@ class SensorTof : public SensorRival {
 	private:
 		//gestor I2C
 		GestorI2C& i2c;
-		//expansor de pines
-		ExpansorIO expansor;
+		//pines xshut
+		gpio_num_t xshut[NUM_TOF];
 		//objetos toF de la libreria
 		espp::Vl53l* tof[NUM_TOF];
 		//canales
