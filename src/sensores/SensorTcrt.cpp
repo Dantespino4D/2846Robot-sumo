@@ -1,4 +1,7 @@
 #include "SensorTcrt.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
 #include "../configuracion/eventos.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -73,3 +76,5 @@ void SensorTcrt::tareaTcrt(void* pvParameters) {
 		}
 	}
 }
+
+#endif // CONFIG_IDF_TARGET_ESP32S3

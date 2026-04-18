@@ -1,6 +1,10 @@
 #ifndef SENSORTCRT_H
 #define SENSORTCRT_H
 
+#include "sdkconfig.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
 #include "SensorLimite.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -26,4 +30,5 @@ class SensorTcrt : public SensorLimite {
 		void colores(uint16_t* buffer) override;
 };
 
-#endif
+#endif // CONFIG_IDF_TARGET_ESP32S3
+#endif // SENSORTCRT_H

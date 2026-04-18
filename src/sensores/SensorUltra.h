@@ -1,6 +1,9 @@
 #ifndef SENSORULTRA_H
 #define SENSORULTRA_H
 
+#include "sdkconfig.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
 
 #include "SensorRival.h"
 #include "driver/gpio.h"
@@ -83,4 +86,5 @@ class SensorUltra : public SensorRival {
 		void getDistancias(uint16_t* buffer) override;
 };
 
+#endif // !CONFIG_IDF_TARGET_ESP32S3
 #endif // !SENSORULTRA_H

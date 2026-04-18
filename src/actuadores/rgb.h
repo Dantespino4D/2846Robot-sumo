@@ -3,6 +3,7 @@
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "../configuracion/pines.h"
 
 #define LEDC_TIMER              LEDC_TIMER_3
 #define LEDC_MODE               LEDC_LOW_SPEED_MODE
@@ -10,11 +11,7 @@
 #define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
 
 // --- Configuración LED RGB ---
-// Usamos los GPIO 32 y 33 para evitar conflictos con los motores (16 y 17)
-#define RGB_PIN_A               GPIO_NUM_32
 #define RGB_CHANNEL_A           LEDC_CHANNEL_4
-
-#define RGB_PIN_B               GPIO_NUM_33
 #define RGB_CHANNEL_B           LEDC_CHANNEL_5
 
 static inline void pwm_rgb() {

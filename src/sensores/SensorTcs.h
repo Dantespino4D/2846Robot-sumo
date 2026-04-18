@@ -1,6 +1,10 @@
 #ifndef SENSORTCS_H
 #define SENSORTCS_H
 
+#include "sdkconfig.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
+
 #include "driver/i2c.h"
 #include "freertos/task.h"
 #include "../core/GestorI2C.h"
@@ -48,4 +52,6 @@ class SensorTcs : public SensorLimite {
 
 		void colores(uint16_t* buffer) override;
 };
-#endif
+
+#endif // !CONFIG_IDF_TARGET_ESP32S3
+#endif // SENSORTCS_H

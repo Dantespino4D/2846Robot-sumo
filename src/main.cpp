@@ -5,11 +5,14 @@
 #include "core/MaquinaEstados.h"
 #include "core/GestorI2C.h"
 #include "sensores/SensorLimite.h"
-#include "sensores/SensorTcrt.h"
-#include "sensores/SensorTcs.h"
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    #include "sensores/SensorTcrt.h"
+    #include "sensores/SensorTof.h"
+#else
+    #include "sensores/SensorTcs.h"
+    #include "sensores/SensorUltra.h"
+#endif
 #include "sensores/SensorRival.h"
-#include "sensores/SensorTof.h"
-#include "sensores/SensorUltra.h"
 #include "comunicaciones/Telemetria.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -57,6 +60,9 @@ ControlMotores cm(MOT_A2, MOT_B2, MOT_A1, MOT_B1);
 
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
+
+// variable que define la version del hardware
+bool final = false;
 
 // objeto de la telemetria
 Telemetria* tm = nullptr;
@@ -278,21 +284,30 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sl = new SensorTcs(limCol, &i2c);
-    if (sl == nullptr) {
-        ESP_LOGE(TAG, "no se pudo crear el objeto!");
-    } else {
-        ESP_LOGI(TAG, "sc se creo correctamente: %p", sl);
-        // configuracion de los objetos de sensores de color y ultrasonicos
+    #ifdef CONFIG_IDF_TARGET_ESP32S3
+        final = true;
+        sl = new SensorTcrt(TCRT_1, TCRT_2);
+        sr = new SensorTof(i2c, can, maxd);
+    #else
+        final = false;
+        sl = new SensorTcs(limCol, &i2c);
+        sr = new SensorUltra(maxd);
+    #endif
+
+    if (sl != nullptr) {
         sl->begin();
+    } else {
+        ESP_LOGE(TAG, "No se pudo crear el sensor de limite");
     }
 
-	//se inicializa el sensor rival
-	sr = new SensorUltra(maxd);
-	sr->begin();
+    if (sr != nullptr) {
+        sr->begin();
+    } else {
+        ESP_LOGE(TAG, "No se pudo crear el sensor rival");
+    }
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr);
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr, final);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 

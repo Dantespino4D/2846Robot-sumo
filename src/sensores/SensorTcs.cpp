@@ -1,4 +1,7 @@
 #include "SensorTcs.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
+
 #include "../core/Nvs.h"
 #include "driver/i2c.h"
 #include "../actuadores/rgb.h"
@@ -297,3 +300,5 @@ void SensorTcs::colores(uint16_t* buffer){
 	buffer[14] = b2;
 	buffer[15] = c2;
 }
+
+#endif // !CONFIG_IDF_TARGET_ESP32S3

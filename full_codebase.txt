@@ -1065,6 +1065,7 @@ FILE PATH: ./src/actuadores/rgb.h
 
 #include "driver/gpio.h"
 #include "driver/ledc.h"
+#include "../configuracion/pines.h"
 
 #define LEDC_TIMER              LEDC_TIMER_3
 #define LEDC_MODE               LEDC_LOW_SPEED_MODE
@@ -1072,11 +1073,7 @@ FILE PATH: ./src/actuadores/rgb.h
 #define LEDC_FREQUENCY          (5000)              // Frecuencia 5 kHz
 
 // --- Configuración LED RGB ---
-// Usamos los GPIO 32 y 33 para evitar conflictos con los motores (16 y 17)
-#define RGB_PIN_A               GPIO_NUM_32
 #define RGB_CHANNEL_A           LEDC_CHANNEL_4
-
-#define RGB_PIN_B               GPIO_NUM_33
 #define RGB_CHANNEL_B           LEDC_CHANNEL_5
 
 static inline void pwm_rgb() {
@@ -1825,6 +1822,7 @@ FILE PATH: ./src/configuracion/configuracion.cpp
 ==========================================
 
 #include "configuracion.h"
+#include <cstdint>
 
 // variables que establecen el tiemṕo
 int tiempo1 = 400; // tiempo que retrocede al detectar el borde
@@ -1834,8 +1832,9 @@ int tiempo4 = 2000; // tiempo que avanza en linea recta para buscar al oponente
 int tiempo5 = 500; // tiempo en el que gira para buscar al oponente
 
 // variables que definen limites
-int maxd = 400;    // limite de los sensores ultrasonicos (mm)
-int limCol = 200; // tolerancia del sendor de color
+int maxd = 400;    // limite de los sensores (mm)
+int limCol = 200; // tolerancia del sensor de color e infrarrojo
+uint8_t can[6] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35}; // Direcciones ToF
 
 
 ==========================================
@@ -1845,6 +1844,8 @@ FILE PATH: ./src/configuracion/configuracion.h
 #ifndef CONFIGURACION_H
 #define CONFIGURACION_H
 
+#include <cstdint>
+
 // variables que establecen el tiemṕo
 extern int tiempo1; // tiempo que retrocede al detectar el borde
 extern int tiempo2; // tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
@@ -1853,8 +1854,9 @@ extern int tiempo4; // tiempo que avanza en linea recta para buscar al oponente
 extern int tiempo5; // tiempo en el que gira para buscar al oponente
 
 // variables que definen limites
-extern int maxd;    // limite de los sensores ultrasonicos (mm)
-extern int limCol; // tolerancia del sendor de color
+extern int maxd;    // limite de los sensores (mm)
+extern int limCol; // tolerancia del sensor de color e infrarrojo
+extern uint8_t can[6]; // Direcciones I2C de los sensores ToF
 
 #endif // CONFIGURACION_H
 
@@ -1948,12 +1950,6 @@ FILE PATH: ./src/configuracion/pines.h
     #define MUS GPIO_NUM_47
     #define INI GPIO_NUM_2
 
-    // Ultrasonicos
-    #define TRIG_1 GPIO_NUM_15
-    #define ECHO_1 GPIO_NUM_21
-    #define TRIG_2 GPIO_NUM_38
-    #define ECHO_2 GPIO_NUM_48
-
     // Motores
     #define MOT_A1 GPIO_NUM_4
     #define MOT_A2 GPIO_NUM_5
@@ -1964,6 +1960,10 @@ FILE PATH: ./src/configuracion/pines.h
 	#define TCRT_1 GPIO_NUM_1
 	#define TCRT_2 GPIO_NUM_10
 
+    // I2C
+    #define SDA GPIO_NUM_8
+    #define SCL GPIO_NUM_9
+
     // ToF XSHUT
     #define XSHUT_1 GPIO_NUM_11
     #define XSHUT_2 GPIO_NUM_12
@@ -1971,12 +1971,28 @@ FILE PATH: ./src/configuracion/pines.h
     #define XSHUT_4 GPIO_NUM_14
     #define XSHUT_5 GPIO_NUM_16
     #define XSHUT_6 GPIO_NUM_17
+
+    // ToF Interrupciones
+    #define INT_1 GPIO_NUM_15
+    #define INT_2 GPIO_NUM_21
+    #define INT_3 GPIO_NUM_38
+    #define INT_4 GPIO_NUM_48
+    #define INT_5 GPIO_NUM_18
+    #define INT_6 GPIO_NUM_3
+
+    // LED RGB
+    #define RGB_PIN_A GPIO_NUM_43
+    #define RGB_PIN_B GPIO_NUM_44
 #else
-    // Pines para ESP32 Estándar
+    // Pines para ESP32 Estándar (PROTOTIPO)
     #define MUS GPIO_NUM_4
     #define INI GPIO_NUM_26
 
-    // Ultrasonicos(se comparten con algunos de los pines de XSHUT, ya que nunca se usaran ambos sensores simultaneamente)
+    // I2C
+    #define SDA GPIO_NUM_21
+    #define SCL GPIO_NUM_22
+
+    // Ultrasonicos
     #define TRIG_1 GPIO_NUM_19
     #define ECHO_1 GPIO_NUM_23
     #define TRIG_2 GPIO_NUM_18
@@ -1988,17 +2004,9 @@ FILE PATH: ./src/configuracion/pines.h
     #define MOT_B1 GPIO_NUM_16
     #define MOT_B2 GPIO_NUM_17
 
-	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_34
-	#define TCRT_2 GPIO_NUM_35
-
-    // ToF XSHUT
-    #define XSHUT_1 GPIO_NUM_19 // Comparte con TRIG_1
-    #define XSHUT_2 GPIO_NUM_23 // Comparte con ECHO_1
-    #define XSHUT_3 GPIO_NUM_18 // Comparte con TRIG_2
-    #define XSHUT_4 GPIO_NUM_25 // Comparte con ECHO_2
-    #define XSHUT_5 GPIO_NUM_27
-    #define XSHUT_6 GPIO_NUM_5
+	// LED RGB
+    #define RGB_PIN_A GPIO_NUM_32
+    #define RGB_PIN_B GPIO_NUM_33
 #endif
 
 #endif
@@ -2095,14 +2103,7 @@ FILE PATH: ./src/core/GestorI2C.cpp
 #include "driver/gpio.h"
 #include "esp_rom_sys.h"
 #include "../actuadores/rgb.h"
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    #define I2C_MASTER_SCL_IO GPIO_NUM_9
-    #define I2C_MASTER_SDA_IO GPIO_NUM_8
-#else
-    #define I2C_MASTER_SCL_IO GPIO_NUM_22
-    #define I2C_MASTER_SDA_IO GPIO_NUM_21
-#endif
+#include "../configuracion/pines.h"
 
 #define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 400000
@@ -2118,8 +2119,8 @@ GestorI2C::GestorI2C() :
 void GestorI2C::begin() {
     conf = {};
     conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = I2C_MASTER_SDA_IO;
-    conf.scl_io_num = I2C_MASTER_SCL_IO;
+    conf.sda_io_num = SDA;
+    conf.scl_io_num = SCL;
     conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
@@ -2190,7 +2191,7 @@ FILE PATH: ./src/core/MaquinaEstados.cpp
 #include "../estrategias/Estrategia1.h"
 #include "../estrategias/Estrategia2.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr):
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final):
 	tempTL(0),
 	tempC(0),
 	tempE1(0),
@@ -2208,7 +2209,8 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	memo_TC(0),
 	memo_TL(0),
 	memo_C(0),
-	memo_E(false)
+	memo_E(false),
+	final(_final)
 {
 	estPrototipo = new EstrategiaPrototipo();
 	estE1 = new Estrategia1();
@@ -2371,6 +2373,9 @@ class MaquinaEstados{
 		//puntero de la estrategia actual
 		EstrategiaBase* estActual;
 
+		// version del hardware
+		bool final;
+
 		//metodo de validacion del tiempo
 		void tiempo();
 
@@ -2378,7 +2383,7 @@ class MaquinaEstados{
 		void nvsLeer();
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final);
 
 		//destructor
 		~MaquinaEstados();
@@ -3249,11 +3254,14 @@ FILE PATH: ./src/main.cpp
 #include "core/MaquinaEstados.h"
 #include "core/GestorI2C.h"
 #include "sensores/SensorLimite.h"
-#include "sensores/SensorTcrt.h"
-#include "sensores/SensorTcs.h"
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    #include "sensores/SensorTcrt.h"
+    #include "sensores/SensorTof.h"
+#else
+    #include "sensores/SensorTcs.h"
+    #include "sensores/SensorUltra.h"
+#endif
 #include "sensores/SensorRival.h"
-#include "sensores/SensorTof.h"
-#include "sensores/SensorUltra.h"
 #include "comunicaciones/Telemetria.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -3301,6 +3309,9 @@ ControlMotores cm(MOT_A2, MOT_B2, MOT_A1, MOT_B1);
 
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
+
+// variable que define la version del hardware
+bool final = false;
 
 // objeto de la telemetria
 Telemetria* tm = nullptr;
@@ -3522,21 +3533,30 @@ void begin_hardware() {
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-	sl = new SensorTcs(limCol, &i2c);
-    if (sl == nullptr) {
-        ESP_LOGE(TAG, "no se pudo crear el objeto!");
-    } else {
-        ESP_LOGI(TAG, "sc se creo correctamente: %p", sl);
-        // configuracion de los objetos de sensores de color y ultrasonicos
+    #ifdef CONFIG_IDF_TARGET_ESP32S3
+        final = true;
+        sl = new SensorTcrt(TCRT_1, TCRT_2);
+        sr = new SensorTof(i2c, can, maxd);
+    #else
+        final = false;
+        sl = new SensorTcs(limCol, &i2c);
+        sr = new SensorUltra(maxd);
+    #endif
+
+    if (sl != nullptr) {
         sl->begin();
+    } else {
+        ESP_LOGE(TAG, "No se pudo crear el sensor de limite");
     }
 
-	//se inicializa el sensor rival
-	sr = new SensorUltra(maxd);
-	sr->begin();
+    if (sr != nullptr) {
+        sr->begin();
+    } else {
+        ESP_LOGE(TAG, "No se pudo crear el sensor rival");
+    }
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr);
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr, final);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 
@@ -3619,6 +3639,9 @@ FILE PATH: ./src/sensores/SensorTcrt.cpp
 ==========================================
 
 #include "SensorTcrt.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
 #include "../configuracion/eventos.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -3694,6 +3717,8 @@ void SensorTcrt::tareaTcrt(void* pvParameters) {
 	}
 }
 
+#endif // CONFIG_IDF_TARGET_ESP32S3
+
 
 ==========================================
 FILE PATH: ./src/sensores/SensorTcrt.h
@@ -3701,6 +3726,10 @@ FILE PATH: ./src/sensores/SensorTcrt.h
 
 #ifndef SENSORTCRT_H
 #define SENSORTCRT_H
+
+#include "sdkconfig.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
 
 #include "SensorLimite.h"
 #include "freertos/FreeRTOS.h"
@@ -3727,7 +3756,8 @@ class SensorTcrt : public SensorLimite {
 		void colores(uint16_t* buffer) override;
 };
 
-#endif
+#endif // CONFIG_IDF_TARGET_ESP32S3
+#endif // SENSORTCRT_H
 
 
 ==========================================
@@ -3735,6 +3765,9 @@ FILE PATH: ./src/sensores/SensorTcs.cpp
 ==========================================
 
 #include "SensorTcs.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
+
 #include "../core/Nvs.h"
 #include "driver/i2c.h"
 #include "../actuadores/rgb.h"
@@ -4034,6 +4067,8 @@ void SensorTcs::colores(uint16_t* buffer){
 	buffer[15] = c2;
 }
 
+#endif // !CONFIG_IDF_TARGET_ESP32S3
+
 
 ==========================================
 FILE PATH: ./src/sensores/SensorTcs.h
@@ -4041,6 +4076,10 @@ FILE PATH: ./src/sensores/SensorTcs.h
 
 #ifndef SENSORTCS_H
 #define SENSORTCS_H
+
+#include "sdkconfig.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
 
 #include "driver/i2c.h"
 #include "freertos/task.h"
@@ -4089,7 +4128,9 @@ class SensorTcs : public SensorLimite {
 
 		void colores(uint16_t* buffer) override;
 };
-#endif
+
+#endif // !CONFIG_IDF_TARGET_ESP32S3
+#endif // SENSORTCS_H
 
 
 ==========================================
@@ -4097,14 +4138,15 @@ FILE PATH: ./src/sensores/SensorTof.cpp
 ==========================================
 
 #include "SensorTof.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
 #include "../core/Nvs.h"
 #include "../actuadores/rgb.h"
 #include "../configuracion/eventos.h"
 #include "../configuracion/pines.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/idf_additions.h"
-#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
@@ -4118,7 +4160,7 @@ SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd):
 	for(int i = 0; i < NUM_TOF; i++){
 		can[i] = _can[i];
 		tof[i] = nullptr;
-		dis[i] = 0;
+		dis[i] = 8190;
 	}
 }
 
@@ -4132,13 +4174,9 @@ SensorTof::~SensorTof() {
 }
 
 bool SensorTof::begin(){
-	//carga los datos del nvs
 	nvsLeer();
-
-	//configuracion necesaria para la libreria
 	bool b = true;
 
-	//configuracion de lso pines xshut
 	gpio_config_t io_conf = {};
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
@@ -4146,165 +4184,73 @@ bool SensorTof::begin(){
 	for(int i = 0; i < NUM_TOF; i++){
 		io_conf.pin_bit_mask |= (1ULL << xshut[i]);
 	}
-	io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-	io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
 	gpio_config(&io_conf);
 
-	//se apagan todos los xshut
 	for(int i = 0; i < NUM_TOF; i++){
 		gpio_set_level(xshut[i], 0);
 	}
-
-	//pequeña espera
 	vTaskDelay(pdMS_TO_TICKS(10));
 
-	//se aplica para cada SensorTof
 	for(int i = 0; i < NUM_TOF; i++){
-		//ensendemos el xshut
 		gpio_set_level(xshut[i], 1);
 		vTaskDelay(pdMS_TO_TICKS(10));
 
-		uint8_t nueva_dir = 0x30 + i;
+		espp::Vl53l::Config config;
+		config.device_address = 0x29;
 
-		//se cambia la direccion del sensor fisicamente enviando el comando I2C
+		config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
+			return i2c_master_write_to_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10)) == ESP_OK;
+		};
+		config.read = [this](uint8_t dev_addr, uint8_t *data, size_t len) -> bool {
+			return i2c_master_read_from_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10)) == ESP_OK;
+		};
+
+		tof[i] = new MiVl53l(config);
+
+		std::error_code ec;
+		uint8_t nueva_dir = can[i];
 		uint8_t payload[3] = {0x00, 0x01, (uint8_t)(nueva_dir & 0x7F)};
-		esp_err_t err_dir = i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10));
-
-		if(err_dir == ESP_OK){
-			ESP_LOGI(TAG, "ToF en canal %d configurado con direccion 0x%02X", can[i], nueva_dir);
+		if (i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10)) == ESP_OK) {
+			tof[i]->set_sensor_address(nueva_dir);
+			ESP_LOGI(TAG, "ToF #%d listo en 0x%02X", i, nueva_dir);
 		} else {
-			ESP_LOGE(TAG, "Fallo al configurar direccion del ToF en canal %d", can[i]);
+			ESP_LOGE(TAG, "Fallo remapeo ToF #%d", i);
 			b = false;
 		}
 
-		if (tof[i] != nullptr) {
-    	    delete tof[i];
-    	}
+		tof[i]->set_inter_measurement_period_ms(0, ec);
+		tof[i]->set_timing_budget_ms(20, ec);
 
-		espp::Vl53l::Config config;
-		// Usamos directamente la nueva direccion
-		config.device_address = nueva_dir;
-
-		//funcion de escritura
-		config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
-			esp_err_t err = i2c_master_write_to_device(i2c.port(), dev_addr, (uint8_t*)data, len, pdMS_TO_TICKS(10));
-			if(err != ESP_OK){
-				rgb(0, 1023);
-			}
-			return (err == ESP_OK);
-		};
-
-		//funcion de lectura
-		config.read = [this](uint8_t dev_addr, uint8_t *data, size_t len) -> bool {
-			esp_err_t err = i2c_master_read_from_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10));
-			if(err != ESP_OK){
-				rgb(0, 1023);
-			}
-			return (err == ESP_OK);
-		};
-
-		//creamos los objetos de los sensores tof
-		tof[i] = new espp::Vl53l(config);
-
-		//variable de error
-		std::error_code ec;
-
-        tof[i]->set_inter_measurement_period_ms(0, ec);
-
-        // Configurar en modo High Speed (20ms timing budget)
-        tof[i]->set_timing_budget_ms(20, ec);
-
-		//los inicializamos
 		if(!tof[i]->start_ranging(ec)){
-			ESP_LOGE(TAG, "Fallo al iniciar ToF en canal %d", can[i]);
+			ESP_LOGE(TAG, "Error iniciando ranging en ToF #%d", i);
 			b = false;
-		}else{
-			ESP_LOGI(TAG, "ToF en canal %d iniciado correctamente", can[i]);
 		}
 	}
 	return b;
 }
 
-uint16_t SensorTof::dist(int n){
-	//verifica si el sensor se creo correctamente
-	if(n < 0 || n >= NUM_TOF || tof[n] == nullptr){
-		//valor predeterminado de fuera de rango
-		return 8190;
-	}
+void SensorTof::dist(int n){
 
-	//variable de error
-	std::error_code ec;
-
-	if(!tof[n]->is_data_ready(ec)){
-		//detecta si hubo algun error
-		if(ec){
-			return 8190;
-		}
-		//si no hay datos listos, retorna el valor anterior
-		return dis[n];
-	}
-	//lee la distancia
-	dis[n] = tof[n]->get_distance_mm(ec);
-
-	//limpia la interrupcion de datos listos
-	tof[n]->clear_interrupt(ec);
-
-	//detecta si hubo algun error
-	if (ec) {
-        return 8190;
-    }
-    return dis[n];
 }
 
-//metodo que verifica cada sensor
-bool SensorTof::verify(int n){
-	//variable que registrara el resultado
-	bool res = false;
-	//se lee la distancia
-	uint16_t distancia = dist(n);
-	//se verifica si esta en el rango
-	if(distancia > 10 && distancia < maxd && distancia < 8000){
-		res = true;
-	}
-	return res;
-}
-
-//metodo que lee todos los sensores
 void SensorTof::procesar(){
-	for(uint8_t i = 0; i < NUM_TOF; i++){
-		//se lee la distancia
-    	uint16_t distancia = dist(i);
-		//verifica que la distancia sea valida
-		if(distancia > 10 && distancia < maxd && distancia < 8000){
-			//envia el bit del tof correspondiente
-			xEventGroupSetBits(eventos, TOF_BITS[i]);
-		} else {
-			//borra el bit del tof correspondiente
-			xEventGroupClearBits(eventos, TOF_BITS[i]);
-		}
-	}
 }
 
-//metodo que lee la Nvs
 void SensorTof::nvsLeer(){
-	//se crea el objeto del nvs
 	Nvs nvs("sensores");
-	//se extrae el valor de la distancia maxima
 	maxd = nvs.leer("dist_max", maxd);
-	//se convierte de cm a mm
 	maxd = maxd * 10;
 }
 
-//metodo que envia las medidas de cada sensor a la telemetria
 void SensorTof::getDistancias(uint16_t* buffer){
-    // Posiciones 0 y 1 reservadas para Ultrasonido
     buffer[0] = 0;
     buffer[1] = 0;
-    // Copiamos los 6 sensores ToF a las posiciones 2-7
     for(int i=0; i<NUM_TOF; i++){
         buffer[i+2] = dis[i];
     }
 }
+
+#endif // CONFIG_IDF_TARGET_ESP32S3
 
 
 ==========================================
@@ -4313,6 +4259,10 @@ FILE PATH: ./src/sensores/SensorTof.h
 
 #ifndef SENSORTOF_H
 #define SENSORTOF_H
+
+#include "sdkconfig.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
 
 #include "vl53l.hpp"
 #include "SensorRival.h"
@@ -4323,6 +4273,15 @@ FILE PATH: ./src/sensores/SensorTof.h
 //numero de sensores ToF
 #define NUM_TOF 6
 
+class MiVl53l : public espp::Vl53l {
+	public:
+		using espp::Vl53l::Vl53l;
+        // Metodo para actualizar la direccion I2C del sensor
+        void set_sensor_address(uint8_t addr) {
+            this->espp::BasePeripheral<espp::vl53l_register_t, true>::set_address(addr);
+        }
+};
+
 class SensorTof : public SensorRival {
 	private:
 		//gestor I2C
@@ -4330,19 +4289,16 @@ class SensorTof : public SensorRival {
 		//pines xshut
 		gpio_num_t xshut[NUM_TOF];
 		//objetos toF de la libreria
-		espp::Vl53l* tof[NUM_TOF];
+		MiVl53l* tof[NUM_TOF];
 		//canales
 		uint8_t can[NUM_TOF];
 		//distancia maxima
 		int maxd;
 		//variables de las lecturas de los sensores
 		uint16_t dis[NUM_TOF];
-		//lee determinado sensor ToF
-		uint16_t dist(int n);
 		//metodo que lee si hay una distancia maxima en nvs
 		void nvsLeer();
-		//verifica si detecto un enemigo en determinado sensor
-		bool verify(int n);
+
 	public:
 		//constructor
 		SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd);
@@ -4350,17 +4306,25 @@ class SensorTof : public SensorRival {
 		~SensorTof();
 		//inicializa los sensores ToF
 		bool begin() override;
+		//leera los valores de los sensores
+		void dist(int n);
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
 		void procesar() override;
 		//metodo que envia las medidas de cada sensor a la telemetria
 		void getDistancias(uint16_t* buffer) override;
 };
-#endif
+
+#endif // CONFIG_IDF_TARGET_ESP32S3
+#endif // SENSORTOF_H
 
 
 ==========================================
 FILE PATH: ./src/sensores/SensorUltra.cpp
 ==========================================
+
+#include "sdkconfig.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
 
 #include "driver/rmt_common.h"
 #include "freertos/FreeRTOS.h"
@@ -4647,6 +4611,8 @@ void SensorUltra::getDistancias(uint16_t* buffer){
     }
 }
 
+#endif // !CONFIG_IDF_TARGET_ESP32S3
+
 
 ==========================================
 FILE PATH: ./src/sensores/SensorUltra.h
@@ -4655,6 +4621,9 @@ FILE PATH: ./src/sensores/SensorUltra.h
 #ifndef SENSORULTRA_H
 #define SENSORULTRA_H
 
+#include "sdkconfig.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
 
 #include "SensorRival.h"
 #include "driver/gpio.h"
@@ -4737,4 +4706,5 @@ class SensorUltra : public SensorRival {
 		void getDistancias(uint16_t* buffer) override;
 };
 
+#endif // !CONFIG_IDF_TARGET_ESP32S3
 #endif // !SENSORULTRA_H

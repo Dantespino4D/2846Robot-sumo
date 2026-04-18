@@ -76,6 +76,9 @@ class MaquinaEstados{
 		//puntero de la estrategia actual
 		EstrategiaBase* estActual;
 
+		// version del hardware
+		bool final;
+
 		//metodo de validacion del tiempo
 		void tiempo();
 
@@ -83,7 +86,7 @@ class MaquinaEstados{
 		void nvsLeer();
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final);
 
 		//destructor
 		~MaquinaEstados();

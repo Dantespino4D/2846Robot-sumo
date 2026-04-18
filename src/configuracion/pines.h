@@ -8,12 +8,6 @@
     #define MUS GPIO_NUM_47
     #define INI GPIO_NUM_2
 
-    // Ultrasonicos
-    #define TRIG_1 GPIO_NUM_15
-    #define ECHO_1 GPIO_NUM_21
-    #define TRIG_2 GPIO_NUM_38
-    #define ECHO_2 GPIO_NUM_48
-
     // Motores
     #define MOT_A1 GPIO_NUM_4
     #define MOT_A2 GPIO_NUM_5
@@ -24,6 +18,10 @@
 	#define TCRT_1 GPIO_NUM_1
 	#define TCRT_2 GPIO_NUM_10
 
+    // I2C
+    #define SDA GPIO_NUM_8
+    #define SCL GPIO_NUM_9
+
     // ToF XSHUT
     #define XSHUT_1 GPIO_NUM_11
     #define XSHUT_2 GPIO_NUM_12
@@ -31,12 +29,28 @@
     #define XSHUT_4 GPIO_NUM_14
     #define XSHUT_5 GPIO_NUM_16
     #define XSHUT_6 GPIO_NUM_17
+
+    // ToF Interrupciones
+    #define INT_1 GPIO_NUM_15
+    #define INT_2 GPIO_NUM_21
+    #define INT_3 GPIO_NUM_38
+    #define INT_4 GPIO_NUM_48
+    #define INT_5 GPIO_NUM_18
+    #define INT_6 GPIO_NUM_3
+
+    // LED RGB
+    #define RGB_PIN_A GPIO_NUM_43
+    #define RGB_PIN_B GPIO_NUM_44
 #else
-    // Pines para ESP32 Estándar
+    // Pines para ESP32 Estándar (PROTOTIPO)
     #define MUS GPIO_NUM_4
     #define INI GPIO_NUM_26
 
-    // Ultrasonicos(se comparten con algunos de los pines de XSHUT, ya que nunca se usaran ambos sensores simultaneamente)
+    // I2C
+    #define SDA GPIO_NUM_21
+    #define SCL GPIO_NUM_22
+
+    // Ultrasonicos
     #define TRIG_1 GPIO_NUM_19
     #define ECHO_1 GPIO_NUM_23
     #define TRIG_2 GPIO_NUM_18
@@ -48,17 +62,9 @@
     #define MOT_B1 GPIO_NUM_16
     #define MOT_B2 GPIO_NUM_17
 
-	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_34
-	#define TCRT_2 GPIO_NUM_35
-
-    // ToF XSHUT
-    #define XSHUT_1 GPIO_NUM_19 // Comparte con TRIG_1
-    #define XSHUT_2 GPIO_NUM_23 // Comparte con ECHO_1
-    #define XSHUT_3 GPIO_NUM_18 // Comparte con TRIG_2
-    #define XSHUT_4 GPIO_NUM_25 // Comparte con ECHO_2
-    #define XSHUT_5 GPIO_NUM_27
-    #define XSHUT_6 GPIO_NUM_5
+	// LED RGB
+    #define RGB_PIN_A GPIO_NUM_32
+    #define RGB_PIN_B GPIO_NUM_33
 #endif
 
 #endif

@@ -1,3 +1,7 @@
+#include "sdkconfig.h"
+
+#ifndef CONFIG_IDF_TARGET_ESP32S3
+
 #include "driver/rmt_common.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -282,3 +286,5 @@ void SensorUltra::getDistancias(uint16_t* buffer){
         buffer[i] = 0;
     }
 }
+
+#endif // !CONFIG_IDF_TARGET_ESP32S3
