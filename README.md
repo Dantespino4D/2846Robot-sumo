@@ -49,7 +49,7 @@ El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tar
 ```text
 Core 0                         Core 1
 ──────────────────────         ──────────────────────
-Sensores (Fondo) (Prio: 2)     Motores (Prio: 5)
+Tareas Sensores (Prio: 2)      Motores (Prio: 5)
 Telemetria (Prio: 1)           Lógica / Combat (Prio: 2)
 Musica (Prio: 1)               Interrupciones (Prio: 3)
 ```
@@ -63,7 +63,7 @@ Musica (Prio: 1)               Interrupciones (Prio: 3)
     - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
-- **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware (ToF vs Ultra, TCS vs TCRT).
+- **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
 - **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza el remapeo de direcciones I2C al arranque mediante los pines **XSHUT**. Implementa una **lectura de ráfaga (burst read) de bajo nivel** al registro `0x0089`, permitiendo extraer en una sola transacción la distancia, el estado del sensor, la tasa de retorno de señal y el ruido de luz ambiente para validar la calidad de la detección en entornos con alta interferencia lumínica.
 - **`GestorI2C`** — Módulo central encargado de la salud y administración del bus I2C. Gestiona la inicialización del driver, el conteo de errores y el reinicio físico del bus en caso de bloqueo.
 - **`Telemetria`** — Stack de conectividad que publica el estado completo del robot al broker MQTT de forma asíncrona.

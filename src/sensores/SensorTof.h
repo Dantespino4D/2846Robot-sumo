@@ -73,7 +73,6 @@ class SensorTof : public SensorRival {
 		static void tareaTof(void* pvParameters);
 		//metodo que envia las medidas de cada sensor a la telemetria
 		void getDistancias(uint16_t* buffer) override;
-		void procesar() override {}
 };
 
 #endif // CONFIG_IDF_TARGET_ESP32S3

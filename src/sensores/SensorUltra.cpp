@@ -127,6 +127,9 @@ bool SensorUltra::begin(){
 	ESP_ERROR_CHECK(rmt_enable(txC2));
 	ESP_ERROR_CHECK(rmt_enable(rxC1));
 	ESP_ERROR_CHECK(rmt_enable(rxC2));
+
+	//se crea la tarea
+	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, (void*)this, 2, NULL, 0);
 	return true;
 }
 
@@ -269,6 +272,15 @@ void SensorUltra::procesar(){
 	}else{
 		xEventGroupClearBits(eventos, BIT_ULTRA_B);
 	}
+}
+
+void SensorUltra::senRival(void* pvParameters){
+	SensorUltra* sensor = (SensorUltra*)pvParameters;
+	while(true){
+		sensor->procesar();
+		vTaskDelay(pdMS_TO_TICKS(100));
+	}
+	vTaskDelete(NULL);
 }
 
 //metodo que lee de la nvs la distancia maxima guardada

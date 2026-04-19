@@ -73,9 +73,9 @@ TaskHandle_t motr = NULL;
 //protoripos de las tareas
 void robot(void *pvParameters);
 void motores(void *pvParameters);
-void senRival(void *pvParameters);
 void musica(void *pvParameters);
 void telemetria(void *pvParameters);
+
 //prototipos de las funciones
 void begin();
 void begin_hardware();
@@ -93,7 +93,6 @@ extern "C" void app_main(void){
   	// se crean las tareas
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
-	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 	ESP_LOGI(TAG, "se inicializo las tareas");
 }
@@ -152,21 +151,6 @@ void motores(void *pvParameters) {
       	// Aplica el nuevo movimiento
       	cm.controlador(accion);
 	}
-}
-
-
-// SENSORES RIVAL
-
-
-void senRival(void *pvParameters) {
-	while (true) {
-		//inicia el combate
-		if(start){
-			//se verifican los sensores de la deteccion del rival(tof o ultrasonicos)
-    		sr->procesar();
-		}
-    	vTaskDelay(pdMS_TO_TICKS(20));
-  	}
 }
 
 

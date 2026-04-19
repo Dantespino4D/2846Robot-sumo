@@ -80,7 +80,10 @@ class SensorUltra : public SensorRival {
 		bool begin()override;
 
 		//metodo que lee ambos sensores ultrasonicos
-		void procesar()override;
+		void procesar();
+
+		//funcion de la tarea
+		static void senRival(void *pvParameters);
 
 		//metodo para devolver las distancias estandarizado
 		void getDistancias(uint16_t* buffer) override;

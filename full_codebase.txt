@@ -3322,9 +3322,9 @@ TaskHandle_t motr = NULL;
 //protoripos de las tareas
 void robot(void *pvParameters);
 void motores(void *pvParameters);
-void senRival(void *pvParameters);
 void musica(void *pvParameters);
 void telemetria(void *pvParameters);
+
 //prototipos de las funciones
 void begin();
 void begin_hardware();
@@ -3342,7 +3342,6 @@ extern "C" void app_main(void){
   	// se crean las tareas
   	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
   	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
-	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, NULL, 2, NULL, 0);
 	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
 	ESP_LOGI(TAG, "se inicializo las tareas");
 }
@@ -3401,21 +3400,6 @@ void motores(void *pvParameters) {
       	// Aplica el nuevo movimiento
       	cm.controlador(accion);
 	}
-}
-
-
-// SENSORES RIVAL
-
-
-void senRival(void *pvParameters) {
-	while (true) {
-		//inicia el combate
-		if(start){
-			//se verifican los sensores de la deteccion del rival(tof o ultrasonicos)
-    		sr->procesar();
-		}
-    	vTaskDelay(pdMS_TO_TICKS(20));
-  	}
 }
 
 
@@ -3628,7 +3612,6 @@ class SensorRival {
 	public:
 		virtual ~SensorRival() {}
 		virtual bool begin() = 0;
-		virtual void procesar() = 0;
 		virtual void getDistancias(uint16_t* buffer) = 0;
 };
 #endif // SENSORRIVAL_H
@@ -4421,7 +4404,6 @@ class SensorTof : public SensorRival {
 		static void tareaTof(void* pvParameters);
 		//metodo que envia las medidas de cada sensor a la telemetria
 		void getDistancias(uint16_t* buffer) override;
-		void procesar() override {}
 };
 
 #endif // CONFIG_IDF_TARGET_ESP32S3
@@ -4479,8 +4461,6 @@ for(int i = 0; i < N_MUESTRAS; i++) {
         mem2[i] = 0;
     }
 }
-
-
 
 //metodo que inicializa cosas
 bool SensorUltra::begin(){
@@ -4563,6 +4543,9 @@ bool SensorUltra::begin(){
 	ESP_ERROR_CHECK(rmt_enable(txC2));
 	ESP_ERROR_CHECK(rmt_enable(rxC1));
 	ESP_ERROR_CHECK(rmt_enable(rxC2));
+
+	//se crea la tarea
+	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, (void*)this, 2, NULL, 0);
 	return true;
 }
 
@@ -4707,6 +4690,15 @@ void SensorUltra::procesar(){
 	}
 }
 
+void SensorUltra::senRival(void* pvParameters){
+	SensorUltra* sensor = (SensorUltra*)pvParameters;
+	while(true){
+		sensor->procesar();
+		vTaskDelay(pdMS_TO_TICKS(100));
+	}
+	vTaskDelete(NULL);
+}
+
 //metodo que lee de la nvs la distancia maxima guardada
 void SensorUltra::nvsLeer(){
 	Nvs nvs("sensores");
@@ -4812,7 +4804,10 @@ class SensorUltra : public SensorRival {
 		bool begin()override;
 
 		//metodo que lee ambos sensores ultrasonicos
-		void procesar()override;
+		void procesar();
+
+		//funcion de la tarea
+		static void senRival(void *pvParameters);
 
 		//metodo para devolver las distancias estandarizado
 		void getDistancias(uint16_t* buffer) override;
