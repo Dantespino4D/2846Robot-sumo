@@ -196,7 +196,10 @@ void SensorTof::getDistancias(uint16_t* buffer){
     buffer[0] = 0;
     buffer[1] = 0;
     for(int i=0; i<NUM_TOF; i++){
-        buffer[i+2] = data[i].distancia;
+        buffer[i] = data[i].distancia;
+		buffer[i+6] = data[i].estado;
+		buffer[i+12] = data[i].señal;
+		buffer[i+18] = data[i].ambiente;
     }
 }
 

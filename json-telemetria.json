@@ -6,38 +6,23 @@
     "pila": 7.6,
     "wifi": -55,
     "ciclo": 6,
-    "prototipo": true
+    "prototipo": 0
   },
   "estado": {
     "modo": 2,
-    "tiempo_bus": 10,
-    "tiempo_ataq": 5,
-    "timepo_retr": 3,
-    "tiempo_emp": 0,
     "estrategia": 1,
-    "inicio": true,
-    "perdio": false
+    "inicio": 1
   },
   "motores": {
     "pwm_izq": 255,
     "pwm_der": 200,
-    "stall": false
+    "stall": 0
   },
   "sensores": {
-    "temp_m1": 32,
-    "temp_m2": 34,
-    "temp_m3": 31,
-    "temp_m4": 33,
-    "ultra_del": 20,
-    "ultra_atr": 0,
-    "tof_del": [150, 400, 8190],
-    "fiabilidad_del": [0, 0, 4],
-    "tof_atr": [500, 1200, 8190],
-    "fiabilidad_atr": [0, 2, 4],
-    "referencia_del": {"r": 100, "g": 150, "b": 200, "c": 250},
-    "referencia_atr": {"r": 200, "g": 250, "b": 100, "c": 50},
-    "col_del": {"r": 150, "g": 200, "b": 180, "c": 400},
-    "col_atr": {"r": 160, "g": 210, "b": 190, "c": 320},
-    "tcrt": [0, 0]
+    "tof": [150, 400, 8190, 500, 1200, 8190],
+    "f_estado": [0, 0, 4, 0, 2, 4],
+    "f_señal": [1200, 800, 50, 1100, 600, 40],
+    "f_amb": [30, 45, 100, 35, 50, 110],
+    "tcrt": [0, 1]
   }
 }

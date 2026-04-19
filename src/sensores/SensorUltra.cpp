@@ -294,7 +294,7 @@ void SensorUltra::getDistancias(uint16_t* buffer){
     buffer[0] = dis1;
     buffer[1] = dis2;
     // Rellenamos el resto (reservado para ToF) con 0
-    for(int i=2; i<8; i++) {
+    for(int i = 2; i < 24; i++) {
         buffer[i] = 0;
     }
 }

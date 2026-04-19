@@ -35,19 +35,20 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	estE2 = new Estrategia2();
 
 	nvsLeer();
-	switch(estrategia){
-		case 0:
-			estActual = estPrototipo;
-			break;
-		case 1:
-			estActual = estE1;
-			break;
-		case 2:
-			estActual = estE2;
-			break;
-		default:
-			estActual = estPrototipo;
-			break;
+	if(final){
+		switch(estrategia){
+			case 0:
+				estActual = estE1;
+				break;
+			case 1:
+				estActual = estE2;
+				break;
+			default:
+				estActual = estE1;
+				break;
+		}
+	}else{
+		estActual = estPrototipo;
 	}
 }
 

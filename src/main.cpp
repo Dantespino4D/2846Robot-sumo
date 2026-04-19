@@ -310,7 +310,7 @@ void comunicaciones() {
  		mq.begin();
 
 		//se inicializa el objeto de telemetria
-		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi); // sr pasado DIRECTAMENTE
+		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, final); // sr pasado DIRECTAMENTE
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 10240, NULL, 1, NULL, 0);

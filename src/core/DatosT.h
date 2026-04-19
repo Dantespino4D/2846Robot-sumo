@@ -22,12 +22,26 @@ struct Datos{
 	uint16_t ToF6;
 
 	//variables de la fiablilidad de los sensores ToF
-	uint16_t fToF1;
-	uint16_t fToF2;
-	uint16_t fToF3;
-	uint16_t fToF4;
-	uint16_t fToF5;
-	uint16_t fToF6;
+	uint16_t estadoToF1;
+	uint16_t estadoToF2;
+	uint16_t estadoToF3;
+	uint16_t estadoToF4;
+	uint16_t estadoToF5;
+	uint16_t estadoToF6;
+
+	uint16_t señalTof1;
+	uint16_t señalTof2;
+	uint16_t señalTof3;
+	uint16_t señalTof4;
+	uint16_t señalTof5;
+	uint16_t señalTof6;
+
+	uint16_t ambienteToF1;
+	uint16_t ambienteToF2;
+	uint16_t ambienteToF3;
+	uint16_t ambienteToF4;
+	uint16_t ambienteToF5;
+	uint16_t ambienteToF6;
 
 	//variables de la calibracion de los sensores de color
 	uint16_t cR1;

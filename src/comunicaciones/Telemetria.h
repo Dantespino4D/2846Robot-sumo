@@ -15,6 +15,8 @@ class Telemetria{
 	private:
 		//struct con los datos
 		Datos d;
+		//variable de deteccion de verion del hardware
+		bool final;
 		//punteros de los objetos
 		MaquinaEstados* me;
 		ControlMotores* cm;
@@ -22,11 +24,15 @@ class Telemetria{
 		SensorRival* sr; // Polimorfismo!
 		Mqtt* mq;
 		Wifi* wf;
+		//sensor de limite
+		void sensorLimite();
+		//sensor rival
+		void sensorRival();
 		//se arma el struct
 		void recopilar();
 	public:
 		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w);
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, bool _final);
 		//envia el stuct
 		void enviar();
 };
