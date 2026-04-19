@@ -6,22 +6,34 @@
 #include "../actuadores/rgb.h"
 #include "../configuracion/eventos.h"
 #include "../configuracion/pines.h"
+#include "driver/gpio.h"
+#include "esp_attr.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
+#include "portmacro.h"
+#include <cstddef>
 
 static const char* TAG = "SensorToF";
+
+TaskHandle_t SensorTof::tarea = NULL;
+
+SensorTof* SensorTof::instancia = nullptr;
 
 SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
 	i2c(_i2c),
 	xshut{XSHUT_1, XSHUT_2, XSHUT_3, XSHUT_4, XSHUT_5, XSHUT_6},
+	intp{INT_1, INT_2, INT_3, INT_4, INT_5, INT_6},
+	listo{0},
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
 		dir[i] = _dir[i];
 		tof[i] = nullptr;
+		listo[i] = 0;
 		data[i].distancia = 8190;
 		data[i].estado = 0;
 		data[i].señal = 0;
@@ -41,7 +53,9 @@ SensorTof::~SensorTof() {
 bool SensorTof::begin(){
 	nvsLeer();
 	bool b = true;
+	instancia = this;
 
+	//configuracion de los pines xshut
 	gpio_config_t io_conf = {};
 	io_conf.intr_type = GPIO_INTR_DISABLE;
 	io_conf.mode = GPIO_MODE_OUTPUT;
@@ -51,6 +65,25 @@ bool SensorTof::begin(){
 	}
 	gpio_config(&io_conf);
 
+	//configuracion de los pines de interrupcion
+	gpio_config_t io_conf_intp = {};
+	io_conf_intp.intr_type = GPIO_INTR_NEGEDGE;
+	io_conf_intp.mode = GPIO_MODE_INPUT;
+	io_conf_intp.pin_bit_mask = 0;
+	for(int i = 0; i < NUM_TOF; i++){
+		io_conf_intp.pin_bit_mask |= (1ULL << intp[i]);
+	}
+	gpio_config(&io_conf_intp);
+
+	//instalar las interrupciones
+	gpio_install_isr_service(0);
+
+	//añadir las interrupciones
+	for(int i = 0; i < NUM_TOF; i++){
+		gpio_isr_handler_add(intp[i], &SensorTof::tofIntr, (void*)i);
+	}
+
+	//apagado general de los xsgut
 	for(int i = 0; i < NUM_TOF; i++){
 		gpio_set_level(xshut[i], 0);
 	}
@@ -91,6 +124,8 @@ bool SensorTof::begin(){
 			b = false;
 		}
 	}
+	//creacion de la tarea
+	xTaskCreatePinnedToCore(SensorTof::tareaTof, "tareaTof", 2048, this, 10, &tarea, 0);
 	return b;
 }
 
@@ -108,8 +143,47 @@ SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
 	return res;
 }
 
-void SensorTof::procesar(){
+void IRAM_ATTR SensorTof::tofIntr(void* arg){
+	//recibe el puntero del sensor que genero la interrupcion
+	uint8_t tof =(uint8_t) (uint32_t) arg;
+	BaseType_t cambioC = pdFALSE;
 
+	//se marca cual fue el sensor que dio la interrupcion
+	instancia->listo[tof] = true;
+
+	vTaskNotifyGiveFromISR(tarea, &cambioC);
+
+	//cambia el estado del bit correspondiente al sensor que genero la interrupcion
+	if(cambioC){
+		portYIELD_FROM_ISR();
+	}
+}
+
+void SensorTof::tareaTof(void* pvParameters){
+	SensorTof* sensor = (SensorTof*)pvParameters;
+	while(true){
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		for(int i = 0; i < NUM_TOF; i++){
+			if(sensor->listo[i]){
+				//se recolectan los datos
+				sensor->listo[i] = 0;
+				TofData res = sensor->dist(sensor->dir[i]);
+				sensor->data[i] = res;
+
+				//validaciones y eventos
+				if(res.estado == 0 && res.distancia < sensor->maxd){
+					//evento de deteccion
+					xEventGroupSetBits(eventos, TOF_BITS[i]);
+				}else{
+					//evento de no deteccion
+					xEventGroupClearBits(eventos, TOF_BITS[i]);
+					//valor de error o fuera de rango
+					sensor->data[i].distancia = 8190;
+				}
+			}
+		}
+	}
+	vTaskDelete(NULL);
 }
 
 void SensorTof::nvsLeer(){
