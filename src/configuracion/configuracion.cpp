@@ -11,4 +11,4 @@ int tiempo5 = 500; // tiempo en el que gira para buscar al oponente
 // variables que definen limites
 int maxd = 400;    // limite de los sensores (mm)
 int limCol = 200; // tolerancia del sensor de color e infrarrojo
-uint8_t can[6] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35}; // Direcciones ToF
+uint8_t dir[6] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35}; // Direcciones ToF

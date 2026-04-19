@@ -8,20 +8,24 @@
 #include "../configuracion/pines.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
 static const char* TAG = "SensorToF";
 
-SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd):
+SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
 	i2c(_i2c),
 	xshut{XSHUT_1, XSHUT_2, XSHUT_3, XSHUT_4, XSHUT_5, XSHUT_6},
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
-		can[i] = _can[i];
+		dir[i] = _dir[i];
 		tof[i] = nullptr;
-		dis[i] = 8190;
+		data[i].distancia = 8190;
+		data[i].estado = 0;
+		data[i].señal = 0;
+		data[i].ambiente = 0;
 	}
 }
 
@@ -69,7 +73,7 @@ bool SensorTof::begin(){
 		tof[i] = new MiVl53l(config);
 
 		std::error_code ec;
-		uint8_t nueva_dir = can[i];
+		uint8_t nueva_dir = dir[i];
 		uint8_t payload[3] = {0x00, 0x01, (uint8_t)(nueva_dir & 0x7F)};
 		if (i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10)) == ESP_OK) {
 			tof[i]->set_sensor_address(nueva_dir);
@@ -90,11 +94,22 @@ bool SensorTof::begin(){
 	return b;
 }
 
-void SensorTof::dist(int n){
-
+SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
+	uint8_t inicio[2] = {0x00, 0x89};
+	uint8_t datos[15];
+	i2c_master_write_read_device(i2c.port(), i2c_dir, inicio, 2, datos, 15, pdMS_TO_TICKS(10));
+	TofData res;
+	res.distancia = (datos[13] << 8) | datos[14];
+	res.estado = datos[0] & 0x1F;
+	res.señal = (datos[5] << 8) | datos[6];
+	res.ambiente = (datos[7] << 8) | datos[8];
+	uint8_t clear[3] = {0x00, 0x86, 0x01};
+	i2c_master_write_to_device(i2c.port(), i2c_dir, clear, 3, pdMS_TO_TICKS(10));
+	return res;
 }
 
 void SensorTof::procesar(){
+
 }
 
 void SensorTof::nvsLeer(){
@@ -107,7 +122,7 @@ void SensorTof::getDistancias(uint16_t* buffer){
     buffer[0] = 0;
     buffer[1] = 0;
     for(int i=0; i<NUM_TOF; i++){
-        buffer[i+2] = dis[i];
+        buffer[i+2] = data[i].distancia;
     }
 }
 

@@ -287,7 +287,7 @@ void begin_hardware() {
     #ifdef CONFIG_IDF_TARGET_ESP32S3
         final = true;
         sl = new SensorTcrt(TCRT_1, TCRT_2);
-        sr = new SensorTof(i2c, can, maxd);
+        sr = new SensorTof(i2c, dir, maxd);
     #else
         final = false;
         sl = new SensorTcs(limCol, &i2c);

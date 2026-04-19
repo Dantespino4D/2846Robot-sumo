@@ -13,6 +13,6 @@ extern int tiempo5; // tiempo en el que gira para buscar al oponente
 // variables que definen limites
 extern int maxd;    // limite de los sensores (mm)
 extern int limCol; // tolerancia del sensor de color e infrarrojo
-extern uint8_t can[6]; // Direcciones I2C de los sensores ToF
+extern uint8_t dir[6]; // Direcciones I2C de los sensores ToF
 
 #endif // CONFIGURACION_H

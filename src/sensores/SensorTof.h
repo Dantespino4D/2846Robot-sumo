@@ -24,6 +24,15 @@ class MiVl53l : public espp::Vl53l {
 };
 
 class SensorTof : public SensorRival {
+	public:
+		//struct de los datos leidos
+		struct TofData {
+			uint16_t distancia;
+			uint16_t estado;
+			uint16_t señal;
+			uint16_t ambiente;
+		};
+
 	private:
 		//gestor I2C
 		GestorI2C& i2c;
@@ -31,24 +40,24 @@ class SensorTof : public SensorRival {
 		gpio_num_t xshut[NUM_TOF];
 		//objetos toF de la libreria
 		MiVl53l* tof[NUM_TOF];
-		//canales
-		uint8_t can[NUM_TOF];
+		//direcciones I2C
+		uint8_t dir[NUM_TOF];
 		//distancia maxima
 		int maxd;
 		//variables de las lecturas de los sensores
-		uint16_t dis[NUM_TOF];
+		TofData data[NUM_TOF];
 		//metodo que lee si hay una distancia maxima en nvs
 		void nvsLeer();
 
 	public:
 		//constructor
-		SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd);
+		SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd);
 		//destructor
 		~SensorTof();
 		//inicializa los sensores ToF
 		bool begin() override;
 		//leera los valores de los sensores
-		void dist(int n);
+		TofData dist(uint8_t i2c_dir);
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
 		void procesar() override;
 		//metodo que envia las medidas de cada sensor a la telemetria

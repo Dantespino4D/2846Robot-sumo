@@ -46,12 +46,13 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 
 El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tareas FreeRTOS, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos. La inicialización del hardware es dinámica y se basa en la placa detectada durante el arranque.
 
+```text
 Core 0                         Core 1
 ──────────────────────         ──────────────────────
 Sensores (Fondo) (Prio: 2)     Motores (Prio: 5)
 Telemetria (Prio: 1)           Lógica / Combat (Prio: 2)
 Musica (Prio: 1)               Interrupciones (Prio: 3)
-
+```
 ### Módulos principales
 
 - **`MaquinaEstados`** — Núcleo táctico del robot. Utiliza un **Patrón Strategy** con un puntero polimórfico (`estActual`) para ejecutar diferentes comportamientos en tiempo real. Recibe el flag `final` para ajustar su comportamiento según el hardware disponible. Implementa un avanzado sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados y un sistema de **memoria a largo plazo** para la persecución ciega y predictiva del rival.
@@ -63,7 +64,7 @@ Musica (Prio: 1)               Interrupciones (Prio: 3)
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
 - **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware (ToF vs Ultra, TCS vs TCRT).
-- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza el remapeo de direcciones I2C al arranque (desde 0x29 a 0x30-0x35) mediante el control individual de los pines **XSHUT**.
+- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza el remapeo de direcciones I2C al arranque mediante los pines **XSHUT**. Implementa una lectura optimizada de bajo nivel para obtener simultáneamente la distancia y parámetros de fiabilidad (status, señal y ambiente).
 - **`GestorI2C`** — Módulo central encargado de la salud y administración del bus I2C. Gestiona la inicialización del driver, el conteo de errores y el reinicio físico del bus en caso de bloqueo.
 - **`Telemetria`** — Stack de conectividad que publica el estado completo del robot al broker MQTT de forma asíncrona.
 

@@ -1834,7 +1834,7 @@ int tiempo5 = 500; // tiempo en el que gira para buscar al oponente
 // variables que definen limites
 int maxd = 400;    // limite de los sensores (mm)
 int limCol = 200; // tolerancia del sensor de color e infrarrojo
-uint8_t can[6] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35}; // Direcciones ToF
+uint8_t dir[6] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35}; // Direcciones ToF
 
 
 ==========================================
@@ -1856,7 +1856,7 @@ extern int tiempo5; // tiempo en el que gira para buscar al oponente
 // variables que definen limites
 extern int maxd;    // limite de los sensores (mm)
 extern int limCol; // tolerancia del sensor de color e infrarrojo
-extern uint8_t can[6]; // Direcciones I2C de los sensores ToF
+extern uint8_t dir[6]; // Direcciones I2C de los sensores ToF
 
 #endif // CONFIGURACION_H
 
@@ -3536,7 +3536,7 @@ void begin_hardware() {
     #ifdef CONFIG_IDF_TARGET_ESP32S3
         final = true;
         sl = new SensorTcrt(TCRT_1, TCRT_2);
-        sr = new SensorTof(i2c, can, maxd);
+        sr = new SensorTof(i2c, dir, maxd);
     #else
         final = false;
         sl = new SensorTcs(limCol, &i2c);
@@ -4147,20 +4147,24 @@ FILE PATH: ./src/sensores/SensorTof.cpp
 #include "../configuracion/pines.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
 
 static const char* TAG = "SensorToF";
 
-SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd):
+SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
 	i2c(_i2c),
 	xshut{XSHUT_1, XSHUT_2, XSHUT_3, XSHUT_4, XSHUT_5, XSHUT_6},
 	maxd(_maxd)
 {
 	for(int i = 0; i < NUM_TOF; i++){
-		can[i] = _can[i];
+		dir[i] = _dir[i];
 		tof[i] = nullptr;
-		dis[i] = 8190;
+		data[i].distancia = 8190;
+		data[i].estado = 0;
+		data[i].señal = 0;
+		data[i].ambiente = 0;
 	}
 }
 
@@ -4208,7 +4212,7 @@ bool SensorTof::begin(){
 		tof[i] = new MiVl53l(config);
 
 		std::error_code ec;
-		uint8_t nueva_dir = can[i];
+		uint8_t nueva_dir = dir[i];
 		uint8_t payload[3] = {0x00, 0x01, (uint8_t)(nueva_dir & 0x7F)};
 		if (i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10)) == ESP_OK) {
 			tof[i]->set_sensor_address(nueva_dir);
@@ -4229,11 +4233,22 @@ bool SensorTof::begin(){
 	return b;
 }
 
-void SensorTof::dist(int n){
-
+SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
+	uint8_t inicio[2] = {0x00, 0x89};
+	uint8_t datos[15];
+	i2c_master_write_read_device(i2c.port(), i2c_dir, inicio, 2, datos, 15, pdMS_TO_TICKS(10));
+	TofData res;
+	res.distancia = (datos[13] << 8) | datos[14];
+	res.estado = datos[0] & 0x1F;
+	res.señal = (datos[5] << 8) | datos[6];
+	res.ambiente = (datos[7] << 8) | datos[8];
+	uint8_t clear[3] = {0x00, 0x86, 0x01};
+	i2c_master_write_to_device(i2c.port(), i2c_dir, clear, 3, pdMS_TO_TICKS(10));
+	return res;
 }
 
 void SensorTof::procesar(){
+
 }
 
 void SensorTof::nvsLeer(){
@@ -4246,7 +4261,7 @@ void SensorTof::getDistancias(uint16_t* buffer){
     buffer[0] = 0;
     buffer[1] = 0;
     for(int i=0; i<NUM_TOF; i++){
-        buffer[i+2] = dis[i];
+        buffer[i+2] = data[i].distancia;
     }
 }
 
@@ -4283,6 +4298,15 @@ class MiVl53l : public espp::Vl53l {
 };
 
 class SensorTof : public SensorRival {
+	public:
+		//struct de los datos leidos
+		struct TofData {
+			uint16_t distancia;
+			uint16_t estado;
+			uint16_t señal;
+			uint16_t ambiente;
+		};
+
 	private:
 		//gestor I2C
 		GestorI2C& i2c;
@@ -4290,24 +4314,24 @@ class SensorTof : public SensorRival {
 		gpio_num_t xshut[NUM_TOF];
 		//objetos toF de la libreria
 		MiVl53l* tof[NUM_TOF];
-		//canales
-		uint8_t can[NUM_TOF];
+		//direcciones I2C
+		uint8_t dir[NUM_TOF];
 		//distancia maxima
 		int maxd;
 		//variables de las lecturas de los sensores
-		uint16_t dis[NUM_TOF];
+		TofData data[NUM_TOF];
 		//metodo que lee si hay una distancia maxima en nvs
 		void nvsLeer();
 
 	public:
 		//constructor
-		SensorTof(GestorI2C& _i2c, const uint8_t* _can, int _maxd);
+		SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd);
 		//destructor
 		~SensorTof();
 		//inicializa los sensores ToF
 		bool begin() override;
 		//leera los valores de los sensores
-		void dist(int n);
+		TofData dist(uint8_t i2c_dir);
 		//verifica cada uno de los sensores ToF para enviar las notificaciones correspondientes
 		void procesar() override;
 		//metodo que envia las medidas de cada sensor a la telemetria
