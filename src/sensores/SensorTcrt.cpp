@@ -38,14 +38,9 @@ void SensorTcrt::begin() {
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
 
-    gpio_install_isr_service(0);
-
-    gpio_isr_handler_add(pin1, &SensorTcrt::limite_isr, (void*)pin1);
-    gpio_isr_handler_add(pin2, &SensorTcrt::limite_isr, (void*)pin2);
-
     ESP_LOGI(TAG, "Interrupciones configuradas para TCRT en pines %d y %d", pin1, pin2);
 
-	xTaskCreate(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea);
+	xTaskCreatePinnedToCore(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea, 1);
 }
 
 void SensorTcrt::colores(uint16_t* buffer) {
@@ -58,6 +53,12 @@ void SensorTcrt::colores(uint16_t* buffer) {
 
 void SensorTcrt::tareaTcrt(void* pvParameters) {
 	SensorTcrt* sensor = (SensorTcrt*)pvParameters;
+
+	//instalar la interrupcion
+    gpio_install_isr_service(0);
+
+    gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor->pin1);
+    gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor->pin2);
 	while (true) {
 		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(sensor == nullptr) {

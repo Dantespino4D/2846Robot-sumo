@@ -6,13 +6,20 @@
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     // Pines para ESP32-S3
     #define MUS GPIO_NUM_47
-    #define INI GPIO_NUM_2
+    #define INI GPIO_NUM_35
+
+    // Lectura de ADC
+    #define BAT GPIO_NUM_2
+    #define TERM_1 GPIO_NUM_4
+    #define TERM_2 GPIO_NUM_5
+    #define TERM_3 GPIO_NUM_6
+    #define TERM_4 GPIO_NUM_7
 
     // Motores
-    #define MOT_A1 GPIO_NUM_4
-    #define MOT_A2 GPIO_NUM_5
-    #define MOT_B1 GPIO_NUM_6
-    #define MOT_B2 GPIO_NUM_7
+    #define MOT_A1 GPIO_NUM_39
+    #define MOT_A2 GPIO_NUM_40
+    #define MOT_B1 GPIO_NUM_41
+    #define MOT_B2 GPIO_NUM_42
 
 	// Sensores TCRT
 	#define TCRT_1 GPIO_NUM_1

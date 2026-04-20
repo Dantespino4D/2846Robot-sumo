@@ -35,10 +35,11 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 ### Versión Final Competitiva (ESP32-S3)
 * **Tracción de Alta Velocidad:** Actualización a 4 Motores Pololu de 1000 RPM (reducción 50:1) para maximizar la velocidad de embestida.
 * **Precisión Láser:** Sustitución de los sensores ultrasónicos por 6 sensores ToF **VL53L1X** (Láser) con direccionamiento dinámico mediante pines **XSHUT** dedicados.
-* **Gestión de Eventos:** Uso de los pines **INT** de los ToF para optimizar la velocidad de respuesta.
+* **Gestión de Eventos:** Uso de los pines **INT** de los ToF. Gracias a la matriz IO_MUX del ESP32-S3, se dedica un pin físico independiente para la interrupción de cada uno de los 6 sensores, eliminando por completo la latencia de hacer "polling" vía I2C.
 * **Eficiencia I2C:** Eliminación del multiplexor TCA9548A en favor del bus compartido de los ToF, simplificando el cableado.
 * **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
 * **Alimentación Optimizada:** Sustitución del regulador LM2596 por el módulo **Mini 360 (MP2307)**, logrando mayor eficiencia energética y un diseño más compacto.
+* **Monitor del Sistema:** Lectura en tiempo real del voltaje de la batería y temperatura de 4 termistores utilizando la API ADC Oneshot de ESP-IDF.
 
 ---
 
@@ -49,9 +50,11 @@ El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tar
 ```text
 Core 0                         Core 1
 ──────────────────────         ──────────────────────
-Tareas Sensores (Prio: 2)      Motores (Prio: 5)
-Telemetria (Prio: 1)           Lógica / Combat (Prio: 2)
-Musica (Prio: 1)               Interrupciones (Prio: 3)
+Sensores ToF (Prio: 10)        Motores (Prio: 5)
+Telemetria (Prio: 1)           Sensores TCRT (Prio: 10)
+Musica (Prio: 1)               Lógica / Combat (Prio: 2)
+                               Sensores TCS (Prio: 3)
+                               Interrupciones (Prio: 3)
 ```
 ### Módulos principales
 
@@ -66,7 +69,11 @@ Musica (Prio: 1)               Interrupciones (Prio: 3)
 - **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
 - **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza el remapeo de direcciones I2C al arranque mediante los pines **XSHUT**. Implementa una **lectura de ráfaga (burst read) de bajo nivel** al registro `0x0089`, permitiendo extraer en una sola transacción la distancia, el estado del sensor, la tasa de retorno de señal y el ruido de luz ambiente para validar la calidad de la detección en entornos con alta interferencia lumínica.
 - **`GestorI2C`** — Módulo central encargado de la salud y administración del bus I2C. Gestiona la inicialización del driver, el conteo de errores y el reinicio físico del bus en caso de bloqueo.
-- **`Telemetria`** — Stack de conectividad que publica el estado completo del robot al broker MQTT de forma asíncrona.
+- **`Telemetria`** — Stack de conectividad que publica el estado completo del robot de forma asíncrona. El JSON de telemetría se auto-adapta dinámicamente mediante el flag `final` según el hardware detectado.
+    - **Middleware de Persistencia:** Utiliza un script externo (`telemetria.py`) que escucha vía MQTT, realiza una gestión de cola (batching) en una base de datos local SQLite y reenvía los datos mediante HTTP/HTTPS (con integración a una **base de datos externa** prevista próximamente).
+    - **Salud de Sensores:** Reporta métricas de calidad para los ToF (estado, señal y ruido ambiental).
+    - **Diagnóstico del Sistema:** El payload incluye telemetría profunda: memoria libre (`heap`), versión del firmware (`commit`), calidad de señal WiFi, ciclo de control y estado de los motores (PWM y detección de `stall`).
+- **`MonitorSistema`** — Módulo dedicado a la lectura analógica del estado del robot (batería y temperatura), integrado directamente en el flujo de telemetría y compatible con ambas versiones de hardware.
 
 ---
 
@@ -85,11 +92,25 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 
 | Clave NVS | Descripción |
 |---|---|
-| `tiempos/ataque_ciego` | Tiempo de empuje sostenido tras perder contacto visual con el rival. |
+| **Tiempos y Estrategia** | |
 | `tiempos/retroceso` | Milisegundos de reversa al pisar la línea blanca. |
 | `tiempos/recta_star` | Avance en rutina de búsqueda tipo estrella. |
 | `tiempos/giro_star` | Rotación en rutina de búsqueda tipo estrella. |
 | `tiempos/estrategia` | Algoritmo inicial seleccionado (0 = EP, 1 = E1, 2 = E2). |
+| `tof_corto_plazo` | Memoria de persistencia de detección (Anti-jitter). |
+| `tof_largo_plazo` | Tiempo de búsqueda predictiva. |
+| `tiempo_rampa` | Aceleración progresiva de los motores (ms). |
+| **Velocidades (PWM)** | |
+| `velocidad_nI` / `nD` | Velocidad nominal (Búsqueda). |
+| `velocidad_aI` / `aD` | Velocidad de ataque. |
+| `velocidad_mI` / `mD` | Velocidad de maniobra. |
+| `velocidad_pI` / `pD` | Velocidad de patrullaje. |
+| `velocidad_gI` / `gD` | Velocidad de giro sobre eje. |
+| **Sensores y Sistema** | |
+| `umbral_color` | Valor de referencia para detección de línea blanca. |
+| `dist_max` | Rango máximo de detección del rival (cm/mm). |
+| `modo` | Selección de modo de arranque (0=Prueba, 1=Combate). |
+| `monitor` | Nivel de verbosidad del Monitor del Sistema. |
 
 ---
 
@@ -117,11 +138,21 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 
 ## Fortalezas del Diseño
 
+* **Sincronización No Bloqueante (Event Groups):** Las ISR de los sensores (ej. TCRT5000) y las tareas de lectura (ToF) inyectan flags directamente en un `EventGroupHandle_t` mediante `xEventGroupSetBits`. Esto despierta a la máquina de estados de forma inmediata y asíncrona, logrando una latencia de respuesta casi nula sin necesidad de hacer polling.
 * **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate simplemente heredando de `EstrategiaEstandar`.
 * **Encapsulamiento de Sensores Autogestionados:** Cada clase de sensor gestiona su propia lectura, liberando al `main.cpp` de la gestión de hilos y garantizando una migración de hardware transparente.
 * **Jerarquía de Máscaras de Bits:** Permite que la lógica de decisión sea extremadamente rápida y legible, filtrando grupos completos de sensores en un solo ciclo de CPU.
 * **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
 * **Sistema Anti-Jitter (Zero-Order Hold):** Procesa las lecturas de los sensores a través de una matriz de memorias a corto plazo para evitar ruidos en la toma de decisiones.
+
+## Ecosistema de Herramientas
+
+El proyecto incluye un conjunto de herramientas externas para la gestión de datos, automatización de compilación y configuración:
+
+- **`telemetria.py`**: Middleware en Python encargado de suscribirse al broker MQTT, gestionar una base de datos local SQLite para evitar pérdida de datos y realizar el reenvío (batching) a un servidor central.
+- **`commit.py`**: Script de automatización integrado en PlatformIO que inyecta el hash del commit actual en el código fuente durante la compilación, permitiendo la trazabilidad total del firmware.
+- **`json-maestro.json` / `json-telemetria.json`**: Estructuras de definición para la configuración y mapeo de datos de telemetría entre el robot y el backend.
+- **`full_codebase.sh`**: Utilidad para el mantenimiento y empaquetado del repositorio.
 
 ---
 
@@ -146,6 +177,7 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 │   │   ├── DatosT.h          # Estructura de datos de telemetría
 │   │   ├── GestorI2C.*       # Administración y salud del bus I2C
 │   │   ├── MaquinaEstados.*  # Gestor de estados y tiempos
+│   │   ├── MonitorSistema.*  # Supervisión analógica del sistema (ADC)
 │   │   └── Nvs.*             # Abstracción NVS
 │   ├── estrategias/          # Lógicas de combate
 │   │   ├── Estrategia1.*     # Estrategia de combate 1

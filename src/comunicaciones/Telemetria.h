@@ -7,33 +7,28 @@
 #include "../actuadores/ControlMotores.h"
 #include "../sensores/SensorLimite.h"
 #include "../sensores/SensorRival.h"
+#include "../core/MonitorSistema.h"
 #include "Wifi.h"
 
 #define NJSON 2048
 
 class Telemetria{
 	private:
-		//struct con los datos
 		Datos d;
-		//variable de deteccion de verion del hardware
 		bool final;
-		//punteros de los objetos
 		MaquinaEstados* me;
 		ControlMotores* cm;
 		SensorLimite* sc;
-		SensorRival* sr; // Polimorfismo!
+		SensorRival* sr;
 		Mqtt* mq;
 		Wifi* wf;
-		//sensor de limite
+		MonitorSistema* ms;
 		void sensorLimite();
-		//sensor rival
 		void sensorRival();
-		//se arma el struct
+		void sistema();
 		void recopilar();
 	public:
-		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, bool _final);
-		//envia el stuct
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, MonitorSistema* s, bool _final);
 		void enviar();
 };
 

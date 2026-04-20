@@ -1485,7 +1485,7 @@ FILE PATH: ./src/comunicaciones/Telemetria.cpp
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, bool _final):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, MonitorSistema* s, bool _final):
 	d{},
 	final(_final),
 	me(e),
@@ -1493,8 +1493,14 @@ Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, Se
 	sc(c),
 	sr(r),
 	mq(q),
-	wf(w)
+	wf(w),
+	ms(s)
 {}
+
+void Telemetria::sistema(){
+	d.pila = ms->bateria();
+	ms->termistores(d.term1, d.term2, d.term3, d.term4);
+}
 
 //metodo que accede a los datos de los sensores del limite
 void Telemetria::sensorLimite(){
@@ -1503,11 +1509,11 @@ void Telemetria::sensorLimite(){
 	// Polimorfismo para sensores de limite
 	sc->colores(colBuffer);
 	if(final){
-		// Caso específico para TCRT (primeros 2 valores del buffer)
+		// datos para TCRT
 		d.Tcrt1 = colBuffer[0];
 		d.Tcrt2 = colBuffer[1];
 	}else{
-		// Polimorfismo para sensores de limite
+		// datos para sensores de color
 		d.cR1 = colBuffer[0];
 		d.cG1 = colBuffer[1];
 		d.cB1 = colBuffer[2];
@@ -1536,6 +1542,7 @@ void Telemetria::sensorRival(){
 	uint16_t distBuffer[24];
 	sr->getDistancias(distBuffer);
 	if(final){
+		//distancias para sensores ToF
 		d.ToF1 = distBuffer[0];
 		d.ToF2 = distBuffer[1];
 		d.ToF3 = distBuffer[2];
@@ -1543,7 +1550,7 @@ void Telemetria::sensorRival(){
 		d.ToF5 = distBuffer[4];
 		d.ToF6 = distBuffer[5];
 
-	    // Fiabilidad (Inicializados en 0)
+	    // Fiabilidad
 		d.estadoToF1 = distBuffer[6];
 		d.estadoToF2 = distBuffer[7];
 		d.estadoToF3 = distBuffer[8];
@@ -1566,6 +1573,7 @@ void Telemetria::sensorRival(){
 		d.ambienteToF6 = distBuffer[23];
 
 	}else{
+		//distancias para sensores ultrasónicos
 		d.ojos1 = distBuffer[0];
 		d.ojos2 = distBuffer[1];
 	}
@@ -1583,12 +1591,13 @@ void Telemetria::recopilar(){
 	//datos de sensores del limite
 	sensorLimite();
 
+	//dato del sitema
+	sistema();
+
 	//datos generales
-	d.pila = 0;
 	d.prototipo = !final;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
-	d.temperatura = 0;
 	d.stall = 0;
 }
 
@@ -1603,8 +1612,8 @@ void Telemetria::enviar(){
 	if(final){
 		//json del robot final con métricas de fiabilidad extendidas
 		lon = snprintf(json, NJSON,
-    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%"PRIu32",\"heap\":%"PRIu32",\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
-    	COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
+    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
+    	COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
     	d.pwm1, d.pwm2, d.stall,
     	d.ToF1, d.ToF2, d.ToF3, d.ToF4, d.ToF5, d.ToF6,
@@ -1616,8 +1625,8 @@ void Telemetria::enviar(){
 	}else{
 		//json del prototipo
 		lon = snprintf(json, NJSON,
-		"{\"sistema\":{\"commit\":%d,\"tiempo\":%"PRIu32",\"heap\":%"PRIu32",\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
-		COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
+		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+		COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
 		d.pwm1, d.pwm2, d.stall,
 		d.ojos1, d.ojos2,
@@ -1647,33 +1656,28 @@ FILE PATH: ./src/comunicaciones/Telemetria.h
 #include "../actuadores/ControlMotores.h"
 #include "../sensores/SensorLimite.h"
 #include "../sensores/SensorRival.h"
+#include "../core/MonitorSistema.h"
 #include "Wifi.h"
 
 #define NJSON 2048
 
 class Telemetria{
 	private:
-		//struct con los datos
 		Datos d;
-		//variable de deteccion de verion del hardware
 		bool final;
-		//punteros de los objetos
 		MaquinaEstados* me;
 		ControlMotores* cm;
 		SensorLimite* sc;
-		SensorRival* sr; // Polimorfismo!
+		SensorRival* sr;
 		Mqtt* mq;
 		Wifi* wf;
-		//sensor de limite
+		MonitorSistema* ms;
 		void sensorLimite();
-		//sensor rival
 		void sensorRival();
-		//se arma el struct
+		void sistema();
 		void recopilar();
 	public:
-		//constructor
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, bool _final);
-		//envia el stuct
+		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, MonitorSistema* s, bool _final);
 		void enviar();
 };
 
@@ -2016,13 +2020,20 @@ FILE PATH: ./src/configuracion/pines.h
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     // Pines para ESP32-S3
     #define MUS GPIO_NUM_47
-    #define INI GPIO_NUM_2
+    #define INI GPIO_NUM_35
+
+    // Lectura de ADC
+    #define BAT GPIO_NUM_2
+    #define TERM_1 GPIO_NUM_4
+    #define TERM_2 GPIO_NUM_5
+    #define TERM_3 GPIO_NUM_6
+    #define TERM_4 GPIO_NUM_7
 
     // Motores
-    #define MOT_A1 GPIO_NUM_4
-    #define MOT_A2 GPIO_NUM_5
-    #define MOT_B1 GPIO_NUM_6
-    #define MOT_B2 GPIO_NUM_7
+    #define MOT_A1 GPIO_NUM_39
+    #define MOT_A2 GPIO_NUM_40
+    #define MOT_B1 GPIO_NUM_41
+    #define MOT_B2 GPIO_NUM_42
 
 	// Sensores TCRT
 	#define TCRT_1 GPIO_NUM_1
@@ -2163,7 +2174,10 @@ struct Datos{
 	//variables del sistema
 	uint32_t tiempo;
 	uint32_t heap;
-	float temperatura;
+	float term1;
+	float term2;
+	float term3;
+	float term4;
 	int wifi;
 	int ciclo;
 	int prototipo;
@@ -2485,6 +2499,99 @@ class MaquinaEstados{
 		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini);
 };
 #endif // !DEBUG
+
+
+==========================================
+FILE PATH: ./src/core/MonitorSistema.cpp
+==========================================
+
+#include "MonitorSistema.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#include "esp_log.h"
+#endif
+
+MonitorSistema::MonitorSistema() {
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    adc1_handle = NULL;
+#endif
+}
+
+void MonitorSistema::begin() {
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    adc_oneshot_unit_init_cfg_t init_config1 = {
+        .unit_id = ADC_UNIT_1,
+        .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
+    adc_oneshot_new_unit(&init_config1, &adc1_handle);
+
+    adc_oneshot_chan_cfg_t config = {
+        .atten = ADC_ATTEN_DB_12,
+        .bitwidth = ADC_BITWIDTH_DEFAULT,
+    };
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_1, &config);
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_3, &config);
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_4, &config);
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_5, &config);
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_6, &config);
+#endif
+}
+
+float MonitorSistema::bateria() {
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    int raw;
+    adc_oneshot_read(adc1_handle, ADC_CHANNEL_1, &raw);
+    return (float)raw * (3.3 / 4095.0) * 4.03;
+#else
+    return 0.0;
+#endif
+}
+
+void MonitorSistema::termistores(float &t1, float &t2, float &t3, float &t4) {
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    int r1, r2, r3, r4;
+    adc_oneshot_read(adc1_handle, ADC_CHANNEL_3, &r1);
+    adc_oneshot_read(adc1_handle, ADC_CHANNEL_4, &r2);
+    adc_oneshot_read(adc1_handle, ADC_CHANNEL_5, &r3);
+    adc_oneshot_read(adc1_handle, ADC_CHANNEL_6, &r4);
+    t1 = (float)r1 * (3.3 / 4095.0);
+    t2 = (float)r2 * (3.3 / 4095.0);
+    t3 = (float)r3 * (3.3 / 4095.0);
+    t4 = (float)r4 * (3.3 / 4095.0);
+#else
+    t1 = 0.0;
+    t2 = 0.0;
+    t3 = 0.0;
+    t4 = 0.0;
+#endif
+}
+
+
+==========================================
+FILE PATH: ./src/core/MonitorSistema.h
+==========================================
+
+#ifndef MONITOR_SISTEMA_H
+#define MONITOR_SISTEMA_H
+
+#include "../configuracion/pines.h"
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+#include "esp_adc/adc_oneshot.h"
+#endif
+
+class MonitorSistema {
+private:
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    adc_oneshot_unit_handle_t adc1_handle;
+#endif
+public:
+    MonitorSistema();
+    void begin();
+    float bateria();
+    void termistores(float &t1, float &t2, float &t3, float &t4);
+};
+
+#endif
 
 
 ==========================================
@@ -3346,6 +3453,7 @@ FILE PATH: ./src/main.cpp
 #endif
 #include "sensores/SensorRival.h"
 #include "comunicaciones/Telemetria.h"
+#include "core/MonitorSistema.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "actuadores/rgb.h"
@@ -3369,8 +3477,8 @@ static const char* TAG = "main";
 EventGroupHandle_t eventos = NULL;
 
 // variables de control
- volatile bool start = false;
- int32_t modo;
+volatile bool start = false;
+int32_t modo;
 
 //objeto de Wifi
 Wifi wi;
@@ -3378,7 +3486,10 @@ Wifi wi;
 //objeto del protocolo MQTT
 Mqtt mq;
 
-//objeto del Gestor I2C
+//objeto que recopila datos del sistema
+MonitorSistema mon;
+
+//objeto que gestiona el bus I2C
 GestorI2C i2c;
 
 // objeto de los sensores de limite
@@ -3583,8 +3694,8 @@ void begin() {
 	}
 
 
-  	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
+	mon.begin();
   	rgb(1023, 800);
 }
 
@@ -3641,8 +3752,7 @@ void comunicaciones() {
 		wi.espera();
  		mq.begin();
 
-		//se inicializa el objeto de telemetria
-		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, final); // sr pasado DIRECTAMENTE
+		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, &mon, final);
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 10240, NULL, 1, NULL, 0);
@@ -3744,14 +3854,9 @@ void SensorTcrt::begin() {
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
 
-    gpio_install_isr_service(0);
-
-    gpio_isr_handler_add(pin1, &SensorTcrt::limite_isr, (void*)pin1);
-    gpio_isr_handler_add(pin2, &SensorTcrt::limite_isr, (void*)pin2);
-
     ESP_LOGI(TAG, "Interrupciones configuradas para TCRT en pines %d y %d", pin1, pin2);
 
-	xTaskCreate(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea);
+	xTaskCreatePinnedToCore(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea, 1);
 }
 
 void SensorTcrt::colores(uint16_t* buffer) {
@@ -3764,6 +3869,12 @@ void SensorTcrt::colores(uint16_t* buffer) {
 
 void SensorTcrt::tareaTcrt(void* pvParameters) {
 	SensorTcrt* sensor = (SensorTcrt*)pvParameters;
+
+	//instalar la interrupcion
+    gpio_install_isr_service(0);
+
+    gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor->pin1);
+    gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor->pin2);
 	while (true) {
 		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		if(sensor == nullptr) {

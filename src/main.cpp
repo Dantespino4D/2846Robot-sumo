@@ -14,6 +14,7 @@
 #endif
 #include "sensores/SensorRival.h"
 #include "comunicaciones/Telemetria.h"
+#include "core/MonitorSistema.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "actuadores/rgb.h"
@@ -37,8 +38,8 @@ static const char* TAG = "main";
 EventGroupHandle_t eventos = NULL;
 
 // variables de control
- volatile bool start = false;
- int32_t modo;
+volatile bool start = false;
+int32_t modo;
 
 //objeto de Wifi
 Wifi wi;
@@ -46,7 +47,10 @@ Wifi wi;
 //objeto del protocolo MQTT
 Mqtt mq;
 
-//objeto del Gestor I2C
+//objeto que recopila datos del sistema
+MonitorSistema mon;
+
+//objeto que gestiona el bus I2C
 GestorI2C i2c;
 
 // objeto de los sensores de limite
@@ -251,8 +255,8 @@ void begin() {
 	}
 
 
-  	//se inicializan los canales y pines del led rgb
   	pwm_rgb();
+	mon.begin();
   	rgb(1023, 800);
 }
 
@@ -309,8 +313,7 @@ void comunicaciones() {
 		wi.espera();
  		mq.begin();
 
-		//se inicializa el objeto de telemetria
-		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, final); // sr pasado DIRECTAMENTE
+		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, &mon, final);
 
 		//tarea de telemetria
 		xTaskCreatePinnedToCore(telemetria, "telemetria", 10240, NULL, 1, NULL, 0);

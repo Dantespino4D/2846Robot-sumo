@@ -14,7 +14,7 @@
 #endif
 
 //constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, bool _final):
+Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, MonitorSistema* s, bool _final):
 	d{},
 	final(_final),
 	me(e),
@@ -22,8 +22,14 @@ Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, Se
 	sc(c),
 	sr(r),
 	mq(q),
-	wf(w)
+	wf(w),
+	ms(s)
 {}
+
+void Telemetria::sistema(){
+	d.pila = ms->bateria();
+	ms->termistores(d.term1, d.term2, d.term3, d.term4);
+}
 
 //metodo que accede a los datos de los sensores del limite
 void Telemetria::sensorLimite(){
@@ -32,11 +38,11 @@ void Telemetria::sensorLimite(){
 	// Polimorfismo para sensores de limite
 	sc->colores(colBuffer);
 	if(final){
-		// Caso específico para TCRT (primeros 2 valores del buffer)
+		// datos para TCRT
 		d.Tcrt1 = colBuffer[0];
 		d.Tcrt2 = colBuffer[1];
 	}else{
-		// Polimorfismo para sensores de limite
+		// datos para sensores de color
 		d.cR1 = colBuffer[0];
 		d.cG1 = colBuffer[1];
 		d.cB1 = colBuffer[2];
@@ -65,6 +71,7 @@ void Telemetria::sensorRival(){
 	uint16_t distBuffer[24];
 	sr->getDistancias(distBuffer);
 	if(final){
+		//distancias para sensores ToF
 		d.ToF1 = distBuffer[0];
 		d.ToF2 = distBuffer[1];
 		d.ToF3 = distBuffer[2];
@@ -72,7 +79,7 @@ void Telemetria::sensorRival(){
 		d.ToF5 = distBuffer[4];
 		d.ToF6 = distBuffer[5];
 
-	    // Fiabilidad (Inicializados en 0)
+	    // Fiabilidad
 		d.estadoToF1 = distBuffer[6];
 		d.estadoToF2 = distBuffer[7];
 		d.estadoToF3 = distBuffer[8];
@@ -95,6 +102,7 @@ void Telemetria::sensorRival(){
 		d.ambienteToF6 = distBuffer[23];
 
 	}else{
+		//distancias para sensores ultrasónicos
 		d.ojos1 = distBuffer[0];
 		d.ojos2 = distBuffer[1];
 	}
@@ -112,12 +120,13 @@ void Telemetria::recopilar(){
 	//datos de sensores del limite
 	sensorLimite();
 
+	//dato del sitema
+	sistema();
+
 	//datos generales
-	d.pila = 0;
 	d.prototipo = !final;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
-	d.temperatura = 0;
 	d.stall = 0;
 }
 
@@ -132,8 +141,8 @@ void Telemetria::enviar(){
 	if(final){
 		//json del robot final con métricas de fiabilidad extendidas
 		lon = snprintf(json, NJSON,
-    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%"PRIu32",\"heap\":%"PRIu32",\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
-    	COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
+    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
+    	COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
     	d.pwm1, d.pwm2, d.stall,
     	d.ToF1, d.ToF2, d.ToF3, d.ToF4, d.ToF5, d.ToF6,
@@ -145,8 +154,8 @@ void Telemetria::enviar(){
 	}else{
 		//json del prototipo
 		lon = snprintf(json, NJSON,
-		"{\"sistema\":{\"commit\":%d,\"tiempo\":%"PRIu32",\"heap\":%"PRIu32",\"pila\":%f,\"temp\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
-		COMMIT, d.tiempo, d.heap, d.pila, d.temperatura, d.wifi, d.ciclo ,d.prototipo,
+		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+		COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
 		d.pwm1, d.pwm2, d.stall,
 		d.ojos1, d.ojos2,
