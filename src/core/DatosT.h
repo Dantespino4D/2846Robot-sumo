@@ -68,6 +68,7 @@ struct Datos{
 
 	//variable de la pila
 	float pila;
+	float corriente;
 
 	//variables de los motores
 	int16_t pwm1;

@@ -787,6 +787,16 @@ void ControlMotores::giro(){
 	velocidad(vel_gI, vel_gD, false);
 }
 
+//metodo de evasion frontal
+void ControlMotores::evasion_a(){
+	velocidad(-vel_eI, -vel_eD, false);
+}
+
+//metodo de evasion trasera
+void ControlMotores::evasion_b(){
+	velocidad(vel_eI, vel_eD, false);
+}
+
 //metodo que inicializa y prepara todo
 void ControlMotores::begin(){
 	//se aplican datos de nvs
@@ -877,36 +887,42 @@ void ControlMotores::controlador(int accion){
 			dir_b();
 			break;
 		case 3:
-			ataque_ai();
+			evasion_a();
 			break;
 		case 4:
-			ataque_bi();
+			evasion_b();
 			break;
 		case 5:
-			ataque_ad();
+			ataque_ai();
 			break;
 		case 6:
-			ataque_bd();
+			ataque_bi();
 			break;
 		case 7:
-			pronunciado_ai();
+			ataque_ad();
 			break;
 		case 8:
-			pronunciado_bi();
+			ataque_bd();
 			break;
 		case 9:
-			pronunciado_ad();
+			pronunciado_ai();
 			break;
 		case 10:
-			pronunciado_bd();
+			pronunciado_bi();
 			break;
 		case 11:
-			max_a();
+			pronunciado_ad();
 			break;
 		case 12:
-			max_b();
+			pronunciado_bd();
 			break;
 		case 13:
+			max_a();
+			break;
+		case 14:
+			max_b();
+			break;
+		case 15:
 			giro();
 			break;
 	}
@@ -928,6 +944,8 @@ void ControlMotores::nvsLeer(){
 	vel_pD = nvs.leer("velocidad_pD", vel_pD);
 	vel_gI = nvs.leer("velocidad_gI", vel_gI);
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
+	vel_eI = nvs.leer("velocidad_eI", 950);
+	vel_eD = nvs.leer("velocidad_eD", 200);
 }
 
 //envia los datos a la telemetria
@@ -978,6 +996,8 @@ class ControlMotores{
 		int16_t vel_pD;
 		int16_t vel_gI;
 		int16_t vel_gD;
+		int16_t vel_eI; // Evasión Izquierda
+		int16_t vel_eD; // Evasión Derecha
 
 		//variables que guardan la velocidad actual
 		int16_t vel1;
@@ -997,6 +1017,8 @@ class ControlMotores{
 		void pronunciado_ad();
 		void pronunciado_bd();
 		void giro();
+		void evasion_a();
+		void evasion_b();
 
 		//metodo para leer y aplicar los valores de la nvs
 		void nvsLeer();
@@ -1237,7 +1259,20 @@ void Mqtt::extraer(cJSON *padre, const char* clave, const char* name){
 		int val_j = hijo->valueint;
 		if(val != val_j){
 			nvs.guardar(clave, val_j);
-			ESP_LOGI(TAG, "configuracion nueva recibida:", clave, val_j);
+			ESP_LOGI(TAG, "configuracion nueva recibida: %s: %d", clave, val_j);
+		}
+	}
+}
+
+void Mqtt::extraerFloat(cJSON *padre, const char* clave, const char* name){
+	cJSON *hijo = cJSON_GetObjectItemCaseSensitive(padre, clave);
+	if(cJSON_IsNumber(hijo)){
+		Nvs nvs(name);
+		float val = nvs.leerFloat(clave, -9999.0f);
+		float val_j = hijo->valuedouble;
+		if(val != val_j){
+			nvs.guardarFloat(clave, val_j);
+			ESP_LOGI(TAG, "configuracion nueva recibida: %s: %f", clave, val_j);
 		}
 	}
 }
@@ -1292,11 +1327,13 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	cJSON *motores = cJSON_GetObjectItemCaseSensitive(maestro, "motores");
 	if(motores != NULL){
 		extraer(motores, "tiempo_rampa", "motores");
+		extraerFloat(motores, "u_stall", "motores");
 		extraerM(motores, "normal", "velocidad_nI", "velocidad_nD");
 		extraerM(motores, "ataque", "velocidad_aI", "velocidad_aD");
 		extraerM(motores, "pronunciado", "velocidad_pI", "velocidad_pD");
 		extraerM(motores, "maximo", "velocidad_mI", "velocidad_mD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
+		extraerM(motores, "evasion", "velocidad_eI", "velocidad_eD");
 	}
 
 	//se revisa y aplican cambios en la configuracion de los tiempo
@@ -1307,6 +1344,8 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraer(tiempos, "retroceso", "tiempos");
 		extraer(tiempos, "recta_star", "tiempos");
 		extraer(tiempos, "giro_star", "tiempos");
+		extraer(tiempos, "t_stall", "tiempos");
+		extraer(tiempos, "evasion", "tiempos");
 	}
 
 	//se revisa y aplican cambios en la configuracion de los limites de los sensores
@@ -1355,6 +1394,7 @@ class Mqtt{
 		static void evento(void* arg, esp_event_base_t base, int32_t id, void* data);
 		void configuracion_json(esp_mqtt_event_handle_t evento);
 		void extraer(cJSON *padre, const char* clave, const char* name);
+		void extraerFloat(cJSON *padre, const char* clave, const char* name);
 		void extraerM(cJSON *padre, const char* item, const char* clave1, const char* clave2);
 
 	public:
@@ -1581,7 +1621,10 @@ void Telemetria::sensorRival(){
 
 void Telemetria::recopilar(){
 	//se arma el struct con los valores correspondientes
-	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
+	bool _stall;
+	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio, &_stall);
+	d.stall = _stall ? 1 : 0;
+	d.corriente = me->corrienteA;
 	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
 
@@ -1598,7 +1641,6 @@ void Telemetria::recopilar(){
 	d.prototipo = !final;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
-	d.stall = 0;
 }
 
 void Telemetria::enviar(){
@@ -1612,10 +1654,10 @@ void Telemetria::enviar(){
 	if(final){
 		//json del robot final con métricas de fiabilidad extendidas
 		lon = snprintf(json, NJSON,
-    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
+    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
     	COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
-    	d.pwm1, d.pwm2, d.stall,
+    	d.pwm1, d.pwm2, d.stall, d.corriente,
     	d.ToF1, d.ToF2, d.ToF3, d.ToF4, d.ToF5, d.ToF6,
 		d.estadoToF1, d.estadoToF2, d.estadoToF3, d.estadoToF4, d.estadoToF5, d.estadoToF6,
 		d.señalTof1, d.señalTof2, d.señalTof3, d.señalTof4, d.señalTof5, d.señalTof6,
@@ -1625,10 +1667,10 @@ void Telemetria::enviar(){
 	}else{
 		//json del prototipo
 		lon = snprintf(json, NJSON,
-		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"corriente\":%f},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
 		COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
-		d.pwm1, d.pwm2, d.stall,
+		d.pwm1, d.pwm2, d.corriente,
 		d.ojos1, d.ojos2,
 		d.cR1, d.cG1, d.cB1, d.cC1,
 		d.cR2, d.cG2, d.cB2, d.cC2,
@@ -2036,8 +2078,11 @@ FILE PATH: ./src/configuracion/pines.h
     #define MOT_B2 GPIO_NUM_42
 
 	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_1
+	#define TCRT_1 GPIO_NUM_19
 	#define TCRT_2 GPIO_NUM_10
+
+    // Lectura de corriente
+    #define PIN_STALL GPIO_NUM_1
 
     // I2C
     #define SDA GPIO_NUM_8
@@ -2165,6 +2210,7 @@ struct Datos{
 
 	//variable de la pila
 	float pila;
+	float corriente;
 
 	//variables de los motores
 	int16_t pwm1;
@@ -2292,16 +2338,24 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	tempC(0),
 	tempE1(0),
 	tempE2(0),
+	tempS(0),
+	tempEva(0),
 	tiempo1(_tiempo1),
 	tiempo2(_tiempo2),
 	tiempo3(_tiempo3),
 	tiempo4(_tiempo4),
 	tiempo5(_tiempo5),
+	tiempo6(1000),
+	umbral_stall(2.0f),
+	tiempo_stall(250),
+	corrienteA(0.0f),
 	motr(_motr),
 	modo(-1),
 	estrategia(0),
 	ciclo(0),
 	ini(0),
+	stall(false),
+	memo_eva(0),
 	memo_TC(0),
 	memo_TL(0),
 	memo_C(0),
@@ -2353,6 +2407,11 @@ void MaquinaEstados::tiempo(){
 		//tiempo de la memoria a largo plazo
     	memo_TL = 0;
     }
+	if (stall && (temp - tempEva >= (unsigned long)tiempo6)) {
+		//tiempo de la evasion
+		stall = false;
+		memo_eva = 0;
+	}
 }
 
 void MaquinaEstados::logica(){
@@ -2370,7 +2429,35 @@ void MaquinaEstados::nvsLeer(){
 	tiempo3 = nvs.leer("tof_largo_plazo",tiempo3);
 	tiempo4 = nvs.leer("recta_star",tiempo4);
 	tiempo5 = nvs.leer("giro_star",tiempo5);
+	tiempo_stall = nvs.leer("t_stall", tiempo_stall);
+	tiempo6 = nvs.leer("evasion", tiempo6);
 	estrategia = nvs.leer("estrategia",estrategia);
+
+	Nvs mot("motores");
+	umbral_stall = mot.leerFloat("u_stall", umbral_stall);
+}
+
+//metodo para detectar atascos
+bool MaquinaEstados::detectarStall(float corrienteA){
+	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+	bool mov_frontal = (modo >= 6 && modo <= 12) || modo == 24 || modo == 25 || modo == 28 || modo == 30 || modo == 31;
+	bool mov_trasero = (modo >= 13 && modo <= 19) || modo == 26 || modo == 27 || modo == 29 || modo == 32 || modo == 33;
+
+	if (mov_frontal || mov_trasero) {
+		if (corrienteA > umbral_stall) {
+			if (tempS == 0) tempS = temp;
+			if (temp - tempS > (unsigned long)tiempo_stall) {
+				memo_eva = mov_frontal ? 1 : 2;
+				tempS = 0;
+				return true;
+			}
+		} else {
+			tempS = 0;
+		}
+	} else {
+		tempS = 0;
+	}
+	return false;
 }
 
 //metodo que recibe la duracion del ciclo
@@ -2380,11 +2467,12 @@ void MaquinaEstados::cicloR(int c, int i){
 }
 
 //metodo que entrega el estado actual
-void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini){
+void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall){
 	 *_modo = modo;
 	 *_estra = estrategia;
 	 *_ciclo =ciclo;
 	 *_ini = ini;
+	 *_stall = stall;
 }
 
 
@@ -2400,17 +2488,19 @@ FILE PATH: ./src/core/MaquinaEstados.h
 #define ALTO 0
 #define DIR_A 1
 #define DIR_B 2
-#define ATAQUE_AI 3
-#define ATAQUE_BI 4
-#define ATAQUE_AD 5
-#define ATAQUE_BD 6
-#define PRO_AI 7
-#define PRO_BI 8
-#define PRO_AD 9
-#define PRO_BD 10
-#define MAX_A 11
-#define MAX_B 12
-#define GIRO 13
+#define EVA_A 3
+#define EVA_B 4
+#define ATAQUE_AI 5
+#define ATAQUE_BI 6
+#define ATAQUE_AD 7
+#define ATAQUE_BD 8
+#define PRO_AI 9
+#define PRO_BI 10
+#define PRO_AD 11
+#define PRO_BD 12
+#define MAX_A 13
+#define MAX_B 14
+#define GIRO 15
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -2434,6 +2524,8 @@ class MaquinaEstados{
 		unsigned long tempC;
 		unsigned long tempE1;
 		unsigned long tempE2;
+		unsigned long tempS;
+		unsigned long tempEva;
 
 		//tiempos establecidos
 		int tiempo1;
@@ -2441,7 +2533,14 @@ class MaquinaEstados{
 		int tiempo3;
 		int tiempo4;
 		int tiempo5;
+		int tiempo6;
 
+	public:
+		float umbral_stall;
+		unsigned long tiempo_stall;
+		float corrienteA;
+
+	private:
 		// handle de la tarea de los motores
 		TaskHandle_t* motr;
 
@@ -2450,6 +2549,9 @@ class MaquinaEstados{
 		volatile int estrategia;
 		volatile int ciclo;
 		int ini;
+
+		bool stall;
+		int memo_eva;
 
 		int memo_TC;//control de los ToF a corto plazo
 				   //0 = sin memoria, 1 = AI pro, 2 = AD pro, 3 = BI pro, 4 = BD pro, 5 = AI suave, 6 = AD suave, 7 = BI suave, 8 = BD suave, 9 = frente, 10 = atras
@@ -2478,6 +2580,9 @@ class MaquinaEstados{
 
 		//lee los datos de la nvs
 		void nvsLeer();
+
+		//metodo para detectar atascos
+		bool detectarStall(float corrienteA);
 	public:
 		//constructor
 		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final);
@@ -2496,7 +2601,7 @@ class MaquinaEstados{
 		void cicloR(int c, int i);
 
 		//metodo que entrega el estado actual
-		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini);
+		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall);
 };
 #endif // !DEBUG
 
@@ -2515,6 +2620,7 @@ MonitorSistema::MonitorSistema() {
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     adc1_handle = NULL;
 #endif
+    ema_corriente = 0.0f;
 }
 
 void MonitorSistema::begin() {
@@ -2534,6 +2640,7 @@ void MonitorSistema::begin() {
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_4, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_5, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_6, &config);
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config); // PIN_STALL
 #endif
 }
 
@@ -2542,6 +2649,19 @@ float MonitorSistema::bateria() {
     int raw;
     adc_oneshot_read(adc1_handle, ADC_CHANNEL_1, &raw);
     return (float)raw * (3.3 / 4095.0) * 4.03;
+#else
+    return 0.0;
+#endif
+}
+
+float MonitorSistema::corrienteStall() {
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    int raw;
+    adc_oneshot_read(adc1_handle, ADC_CHANNEL_0, &raw);
+    float v = (float)raw * (3.3 / 4095.0);
+    float i_inst = v / (0.1f * 10.0f);
+    ema_corriente = (i_inst * 0.1f) + (ema_corriente * 0.9f);
+    return ema_corriente;
 #else
     return 0.0;
 #endif
@@ -2584,10 +2704,12 @@ private:
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     adc_oneshot_unit_handle_t adc1_handle;
 #endif
+    float ema_corriente;
 public:
     MonitorSistema();
     void begin();
     float bateria();
+    float corrienteStall();
     void termistores(float &t1, float &t2, float &t3, float &t4);
 };
 
@@ -2632,6 +2754,29 @@ int32_t Nvs::leer(const char* clave, int32_t valor){
 	return valor;
 }
 
+void Nvs::guardarFloat(const char* clave, float valor){
+	//se declara el handle
+	nvs_handle_t nvs;
+	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	if(err == ESP_OK){
+		nvs_set_blob(nvs, clave, &valor, sizeof(float));
+		nvs_commit(nvs);
+		nvs_close(nvs);
+	}
+}
+
+float Nvs::leerFloat(const char* clave, float valor){
+	//se declara el handle
+	nvs_handle_t nvs;
+	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	if(err == ESP_OK){
+		size_t size = sizeof(float);
+		nvs_get_blob(nvs, clave, &valor, &size);
+		nvs_close(nvs);
+	}
+	return valor;
+}
+
 
 ==========================================
 FILE PATH: ./src/core/Nvs.h
@@ -2648,6 +2793,8 @@ class Nvs{
 		Nvs(const char* _nameE);
 		void guardar(const char* clave, int32_t valor);
 		int32_t leer(const char* clave, int32_t valor);
+		void guardarFloat(const char* clave, float valor);
+		float leerFloat(const char* clave, float valor);
 };
 
 #endif
@@ -2682,15 +2829,11 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
 		case 3:
 	  		com = DIR_A;
 	  		break;
-        case 4:
-            com = MAX_A;
-			ctx->memo_TC = 9;
-			ctx->tempTC = temp;
-            break;
-        case 5:
-            com = ATAQUE_AI;
-			ctx->memo_TC = 5;
-			ctx->tempTC = temp;
+		case 4:
+			com = EVA_A;
+			break;
+		case 5:
+			com = EVA_B;
 			break;
         case 6:
             com = MAX_A;
@@ -2698,33 +2841,33 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
 			ctx->tempTC = temp;
             break;
         case 7:
+            com = ATAQUE_AI;
+			ctx->memo_TC = 5;
+			ctx->tempTC = temp;
+			break;
+        case 8:
+            com = MAX_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 9:
             com = ATAQUE_AD;
 			ctx->memo_TC = 6;
 			ctx->tempTC = temp;
             break;
-        case 8:
+        case 10:
             com = PRO_AI;
 			ctx->memo_TC = 1;
 			ctx->tempTC = temp;
 			break;
-        case 9:
+        case 11:
             com = DIR_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 10:
+        case 12:
             com = PRO_AD;
 			ctx->memo_TC = 2;
-			ctx->tempTC = temp;
-            break;
-        case 11:
-            com = MAX_B;
-			ctx->memo_TC = 10;
-			ctx->tempTC = temp;
-            break;
-        case 12:
-            com = ATAQUE_BI;
-			ctx->memo_TC = 7;
 			ctx->tempTC = temp;
             break;
         case 13:
@@ -2733,86 +2876,96 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
 			ctx->tempTC = temp;
             break;
         case 14:
+            com = ATAQUE_BI;
+			ctx->memo_TC = 7;
+			ctx->tempTC = temp;
+            break;
+        case 15:
+            com = MAX_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 16:
             com = ATAQUE_BD;
 			ctx->memo_TC = 8;
 			ctx->tempTC = temp;
             break;
-        case 15:
+        case 17:
             com = PRO_BI;
 			ctx->memo_TC = 3;
 			ctx->tempTC = temp;
             break;
-        case 16:
+        case 18:
             com = DIR_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 17:
+        case 19:
             com = PRO_BD;
 			ctx->memo_TC = 4;
 			ctx->tempTC = temp;
             break;
-		case 18:
+		case 20:
 			com = PRO_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 19:
+		case 21:
 			com = PRO_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 20:
+		case 22:
 			com = PRO_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 21:
+		case 23:
 			com = PRO_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 22:
+		case 24:
 			com = ATAQUE_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 23:
+		case 25:
 			com = ATAQUE_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 24:
+		case 26:
 			com = ATAQUE_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 25:
+		case 27:
 			com = ATAQUE_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 26:
+		case 28:
 			com = MAX_A;
 			ctx->memo_TL = 0;
 			break;
-		case 27:
+		case 29:
 			com = MAX_B;
 			ctx->memo_TL = 0;
 			break;
-		case 28:
+		case 30:
 			com = PRO_AI;
 			break;
-		case 29:
+		case 31:
 			com = PRO_AD;
 			break;
-		case 30:
+		case 32:
 			com = PRO_BI;
 			break;
-		case 31:
+		case 33:
 			com = PRO_BD;
 			break;
-		case 32:
+		case 34:
 			if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
 				com = GIRO;
     			ctx->memo_E = false;
@@ -2821,7 +2974,7 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
       			com = DIR_A;
 			}
       		break;
-		case 33:
+		case 35:
     		if(temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5){
 				com = DIR_A;
     		    ctx->memo_E = true;
@@ -2886,15 +3039,11 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
 		case 3:
 	  		com = DIR_A;
 	  		break;
-        case 4:
-            com = MAX_A;
-			ctx->memo_TC = 9;
-			ctx->tempTC = temp;
-            break;
-        case 5:
-            com = ATAQUE_AI;
-			ctx->memo_TC = 5;
-			ctx->tempTC = temp;
+		case 4:
+			com = EVA_A;
+			break;
+		case 5:
+			com = EVA_B;
 			break;
         case 6:
             com = MAX_A;
@@ -2902,33 +3051,33 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
 			ctx->tempTC = temp;
             break;
         case 7:
+            com = ATAQUE_AI;
+			ctx->memo_TC = 5;
+			ctx->tempTC = temp;
+			break;
+        case 8:
+            com = MAX_A;
+			ctx->memo_TC = 9;
+			ctx->tempTC = temp;
+            break;
+        case 9:
             com = ATAQUE_AD;
 			ctx->memo_TC = 6;
 			ctx->tempTC = temp;
             break;
-        case 8:
+        case 10:
             com = PRO_AI;
 			ctx->memo_TC = 1;
 			ctx->tempTC = temp;
 			break;
-        case 9:
+        case 11:
             com = DIR_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 10:
+        case 12:
             com = PRO_AD;
 			ctx->memo_TC = 2;
-			ctx->tempTC = temp;
-            break;
-        case 11:
-            com = MAX_B;
-			ctx->memo_TC = 10;
-			ctx->tempTC = temp;
-            break;
-        case 12:
-            com = ATAQUE_BI;
-			ctx->memo_TC = 7;
 			ctx->tempTC = temp;
             break;
         case 13:
@@ -2937,86 +3086,96 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
 			ctx->tempTC = temp;
             break;
         case 14:
+            com = ATAQUE_BI;
+			ctx->memo_TC = 7;
+			ctx->tempTC = temp;
+            break;
+        case 15:
+            com = MAX_B;
+			ctx->memo_TC = 10;
+			ctx->tempTC = temp;
+            break;
+        case 16:
             com = ATAQUE_BD;
 			ctx->memo_TC = 8;
 			ctx->tempTC = temp;
             break;
-        case 15:
+        case 17:
             com = PRO_BI;
 			ctx->memo_TC = 3;
 			ctx->tempTC = temp;
             break;
-        case 16:
+        case 18:
             com = DIR_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 17:
+        case 19:
             com = PRO_BD;
 			ctx->memo_TC = 4;
 			ctx->tempTC = temp;
             break;
-		case 18:
+		case 20:
 			com = PRO_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 19:
+		case 21:
 			com = PRO_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 20:
+		case 22:
 			com = PRO_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 21:
+		case 23:
 			com = PRO_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 22:
+		case 24:
 			com = ATAQUE_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 23:
+		case 25:
 			com = ATAQUE_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 24:
+		case 26:
 			com = ATAQUE_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 25:
+		case 27:
 			com = ATAQUE_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 26:
+		case 28:
 			com = MAX_A;
 			ctx->memo_TL = 0;
 			break;
-		case 27:
+		case 29:
 			com = MAX_B;
 			ctx->memo_TL = 0;
 			break;
-		case 28:
+		case 30:
 			com = PRO_AD;
 			break;
-		case 29:
+		case 31:
 			com = PRO_AI;
 			break;
-		case 30:
+		case 32:
 			com = PRO_BD;
 			break;
-		case 31:
+		case 33:
 			com = PRO_BI;
 			break;
-		case 32:
+		case 34:
 			if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
 				com = GIRO;
     			ctx->memo_E = false;
@@ -3025,7 +3184,7 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
       			com = DIR_A;
 			}
       		break;
-		case 33:
+		case 35:
     		if(temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5){
 				com = DIR_A;
     		    ctx->memo_E = true;
@@ -3118,131 +3277,139 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 		else if (ctx->memo_C == 2) {
 			ctx->modo = 3;
 		}
+	}else if(ctx->stall) {
+		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+		return;
+	}else if(ctx->detectarStall(ctx->corrienteA)) {
+		ctx->stall = true;
+		ctx->tempEva = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+		return;
 	//se detecta si los sensores 1, 2, y 3 o sus convinaciones fueron activados
 	}else if(noti & MASK_TOF_A) {
 		//si detecta al robot por ToF1, ToF2 y ToF3
 		if((noti & MASK_TOF_A) == MASK_TOF_A) {
-			ctx->modo = 4;
+			ctx->modo = 6;
 		}
 		//si detecta al robot por ToF1 y Tof2
 		else if((noti & MASK_TOF_1_2) == MASK_TOF_1_2) {
-			ctx->modo = 5;
+			ctx->modo = 7;
 		}
 		//si detecta al robot por ToF1 y ToF3
 		else if((noti & MASK_TOF_1_3) == MASK_TOF_1_3) {
-		ctx->modo = 6;
+			ctx->modo = 8;
 		}
 		//si detecta al robot por ToF2 y ToF3
 		else if((noti & MASK_TOF_2_3) == MASK_TOF_2_3) {
-			ctx->modo = 7;
+			ctx->modo = 9;
 		}
 		// si detecta el robot por ToF1
 		else if (noti & BIT_TOF_AI) {
-			ctx->modo = 8;
+			ctx->modo = 10;
 		}
 		// si detecta el robot por ToF2
 		else if (noti & BIT_TOF_AC) {
-			ctx->modo = 9;
+			ctx->modo = 11;
 		}
 		//si detecta al robot por ToF3
 		else if (noti & BIT_TOF_AD) {
-		  	ctx->modo = 10;
+		  	ctx->modo = 12;
 		}
 	//detecta si los sensores 4, 5, y 6 o sus convinaciones fueron activados
 	}else if(noti & MASK_TOF_B) {
 		//si detecta al robot por ToF4, ToF5 y ToF6
 		if((noti & MASK_TOF_B) == MASK_TOF_B) {
-			ctx->modo = 11;
+			ctx->modo = 13;
 		}
 		//si detecta al robot por ToF4 y ToF5
 		else if((noti & MASK_TOF_4_5) == MASK_TOF_4_5) {
-			ctx->modo = 12;
+			ctx->modo = 14;
 		}
 		//si detecta al robot por ToF4 y ToF6
 		else if((noti & MASK_TOF_4_6) == MASK_TOF_4_6) {
-			ctx->modo = 13;
+			ctx->modo = 15;
 		}
 		//si detecta al robot por ToF5 y ToF6
 		else if((noti & MASK_TOF_5_6) == MASK_TOF_5_6) {
-			ctx->modo = 14;
+			ctx->modo = 16;
 		}
 		// si detecta al robot por ToF4
 		else if (noti & BIT_TOF_BI) {
-		  	ctx->modo = 15;
+		  	ctx->modo = 17;
 		}
 		// si detecta al robot por ToF5
 		else if (noti & BIT_TOF_BC) {
-			ctx->modo = 16;
+			ctx->modo = 18;
 		}
 		//si detecta al robot por ToF6
 		else if (noti & BIT_TOF_BD) {
-			ctx->modo = 17;
+			ctx->modo = 19;
 		}
 	}else if(ctx->memo_TC != 0 || ctx->memo_TL != 0) {
 		//si deja de detectar al robot por direccion AI_P a corto plazo
 		if (ctx->memo_TC == 1) {
-			ctx->modo = 18;
+			ctx->modo = 20;
 		}
 		//si deja de detectar al robot por direccion AD_P a corto plazo
 		else if (ctx->memo_TC == 2) {
-		ctx->modo = 19;
+			ctx->modo = 21;
 		}
 		//si deja de detectar al robot por direccion BI_P a corto plazo
 		else if (ctx->memo_TC == 3) {
-			ctx->modo = 20;
+			ctx->modo = 22;
 		}
 		//si deja de detectar al robot por direccion BD_P a corto plazo
 		else if (ctx->memo_TC == 4) {
-			ctx->modo = 21;
+			ctx->modo = 23;
 		}
 		//si deja de detectar al robot por direccion AI_S a corto plazo
 		else if (ctx->memo_TC == 5) {
-			ctx->modo = 22;
+			ctx->modo = 24;
 		}
 		//si deja de detectar al robot por direccion AD_S a corto plazo
 		else if (ctx->memo_TC == 6) {
-			ctx->modo = 23;
+			ctx->modo = 25;
 		}
 		//si deja de detectar al robot por direccion BI_S a corto plazo
 		else if (ctx->memo_TC == 7) {
-			ctx->modo = 24;
+			ctx->modo = 26;
 		}
 		//si deja de detectar al robot por direccion BD_S a corto plazo
 		else if (ctx->memo_TC == 8) {
-			ctx->modo = 25;
+			ctx->modo = 27;
 		}
 		//si deja de detectar al robot de frente a corto plazo
 		else if (ctx->memo_TC == 9) {
-			ctx->modo = 26;
+			ctx->modo = 28;
 		}
 		//si deja de detectar al robot por atras a corto plazo
 		else if (ctx->memo_TC == 10) {
-			ctx->modo = 27;
+			ctx->modo = 29;
 		}
 		//si deja de detectar al robot por direccion AI a largo plazo
 		else if (ctx->memo_TL == 1) {
-		  	ctx->modo = 28;
+		  	ctx->modo = 30;
 		}
 		//si deja de detectar al robot por direccion AD a largo plazo
 		else if(ctx->memo_TL == 2) {
-		  	ctx->modo = 29;
+		  	ctx->modo = 31;
 		}
 		//si deja de detectar al robot por direccion BI a largo plazo
 		else if (ctx->memo_TL == 3) {
-			ctx->modo = 30;
+			ctx->modo = 32;
 		}
 		//si deja de detectar al robot por direccion BD a largo plazo
 		else if (ctx->memo_TL == 4) {
-		  	ctx->modo = 31;
+		  	ctx->modo = 33;
 		}
 	}else{
 		//memoria de avance de estrella
 		if (ctx->memo_E) {
-			ctx->modo = 32;
+			ctx->modo = 34;
 		}
 		// si no detecta nada
 		else{
-			ctx->modo = 33;
+			ctx->modo = 35;
 		}
 	}
 }
@@ -3305,33 +3472,41 @@ void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
         else if (ctx->memo_C == 2) {
             ctx->modo = 3;
         }
+	}else if(ctx->stall) {
+		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+		return;
+	}else if(ctx->detectarStall(ctx->corrienteA)) {
+		ctx->stall = true;
+		ctx->tempEva = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+		return;
     //se detecta si alguno de los sensores ultrasonicos fue activado
     }else if(noti & MASK_ULTRA) {
         // si detecta el robot por ultrasonico A
         if (noti & BIT_ULTRA_A) {
-            ctx->modo = 4;
+            ctx->modo = 6;
         }
         // si detecta el robot por ultrasonico B
         else if (noti & BIT_ULTRA_B) {
-            ctx->modo = 5;
+            ctx->modo = 7;
         }
     }else if(ctx->memo_TL != 0) {
         // si deja de detectar al robot por ultrasonico A
         if (ctx->memo_TL == 1) {
-            ctx->modo = 6;
+            ctx->modo = 8;
         }
         // si deja de detectar al robot por ultrasonico B
         else if (ctx->memo_TL == 2) {
-            ctx->modo = 7;
+            ctx->modo = 9;
         }
     }else{
         //memoria de avance de estrella
         if (ctx->memo_E) {
-            ctx->modo = 8;
+            ctx->modo = 10;
         }
         // si no detecta nada
         else{
-            ctx->modo = 9;
+            ctx->modo = 11;
         }
     }
 }
@@ -3365,28 +3540,34 @@ void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
         case 3:
             com = DIR_A;
             break;
+		case 4:
+			com = EVA_A;
+			break;
+		case 5:
+			com = EVA_B;
+			break;
         // avanza en direccion a
-        case 4:
+        case 6:
             com = ATAQUE_AI;
             ctx->memo_TL = 1;
             ctx->tempTL = temp;
             break;
         // avanza en direccion b
-        case 5:
+        case 7:
             com = ATAQUE_BI;
             ctx->memo_TL = 2;
             ctx->tempTL = temp;
             break;
         // avanza por un tiempo definido de 4 segundo en direccion a
-        case 6:
+        case 8:
             com = ATAQUE_AI;
             break;
         // avanza por un tiempo definido de 4 segundos en direccion b
-        case 7:
+        case 9:
             com = ATAQUE_BI;
             break;
         // da vueltas hasta encontrar el robot
-        case 8:
+        case 10:
             // aqui pondre la logica para que avanze formando la estrella
             if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
                 ctx->memo_E = false; // ir a girar
@@ -3396,7 +3577,7 @@ void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
                 com = DIR_A;
             }
             break;
-        case 9:
+        case 11:
             if (temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5) {
                 ctx->memo_E = true; // Termina giro → pasará a estado 8
                 ctx->tempE1 = temp; // Reiniciar timer del avance
@@ -3566,7 +3747,15 @@ void robot(void *pvParameters) {
 		// inicia
 
 	  	uint64_t Tini = esp_timer_get_time();
+
+		// se obtienen las distancias de los sensores rivales
+		uint16_t distBuffer[24] = {0};
+		if (sr != nullptr) {
+			sr->getDistancias(distBuffer);
+		}
+
     	// MAQUINA DE ESTADOS
+		me->corrienteA = mon.corrienteStall();
     	me->logica();
 
 		//se calcula y envia la duracion de un ciclo

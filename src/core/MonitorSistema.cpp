@@ -8,6 +8,7 @@ MonitorSistema::MonitorSistema() {
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     adc1_handle = NULL;
 #endif
+    ema_corriente = 0.0f;
 }
 
 void MonitorSistema::begin() {
@@ -27,6 +28,7 @@ void MonitorSistema::begin() {
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_4, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_5, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_6, &config);
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config); // PIN_STALL
 #endif
 }
 
@@ -35,6 +37,19 @@ float MonitorSistema::bateria() {
     int raw;
     adc_oneshot_read(adc1_handle, ADC_CHANNEL_1, &raw);
     return (float)raw * (3.3 / 4095.0) * 4.03;
+#else
+    return 0.0;
+#endif
+}
+
+float MonitorSistema::corrienteStall() {
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    int raw;
+    adc_oneshot_read(adc1_handle, ADC_CHANNEL_0, &raw);
+    float v = (float)raw * (3.3 / 4095.0);
+    float i_inst = v / (0.1f * 10.0f);
+    ema_corriente = (i_inst * 0.1f) + (ema_corriente * 0.9f);
+    return ema_corriente;
 #else
     return 0.0;
 #endif

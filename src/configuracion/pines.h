@@ -22,8 +22,11 @@
     #define MOT_B2 GPIO_NUM_42
 
 	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_1
+	#define TCRT_1 GPIO_NUM_19
 	#define TCRT_2 GPIO_NUM_10
+
+    // Lectura de corriente
+    #define PIN_STALL GPIO_NUM_1
 
     // I2C
     #define SDA GPIO_NUM_8

@@ -30,33 +30,41 @@ void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
         else if (ctx->memo_C == 2) {
             ctx->modo = 3;
         }
+	}else if(ctx->stall) {
+		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+		return;
+	}else if(ctx->detectarStall(ctx->corrienteA)) {
+		ctx->stall = true;
+		ctx->tempEva = (xTaskGetTickCount() * portTICK_PERIOD_MS);
+		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+		return;
     //se detecta si alguno de los sensores ultrasonicos fue activado
     }else if(noti & MASK_ULTRA) {
         // si detecta el robot por ultrasonico A
         if (noti & BIT_ULTRA_A) {
-            ctx->modo = 4;
+            ctx->modo = 6;
         }
         // si detecta el robot por ultrasonico B
         else if (noti & BIT_ULTRA_B) {
-            ctx->modo = 5;
+            ctx->modo = 7;
         }
     }else if(ctx->memo_TL != 0) {
         // si deja de detectar al robot por ultrasonico A
         if (ctx->memo_TL == 1) {
-            ctx->modo = 6;
+            ctx->modo = 8;
         }
         // si deja de detectar al robot por ultrasonico B
         else if (ctx->memo_TL == 2) {
-            ctx->modo = 7;
+            ctx->modo = 9;
         }
     }else{
         //memoria de avance de estrella
         if (ctx->memo_E) {
-            ctx->modo = 8;
+            ctx->modo = 10;
         }
         // si no detecta nada
         else{
-            ctx->modo = 9;
+            ctx->modo = 11;
         }
     }
 }
@@ -90,28 +98,34 @@ void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
         case 3:
             com = DIR_A;
             break;
+		case 4:
+			com = EVA_A;
+			break;
+		case 5:
+			com = EVA_B;
+			break;
         // avanza en direccion a
-        case 4:
+        case 6:
             com = ATAQUE_AI;
             ctx->memo_TL = 1;
             ctx->tempTL = temp;
             break;
         // avanza en direccion b
-        case 5:
+        case 7:
             com = ATAQUE_BI;
             ctx->memo_TL = 2;
             ctx->tempTL = temp;
             break;
         // avanza por un tiempo definido de 4 segundo en direccion a
-        case 6:
+        case 8:
             com = ATAQUE_AI;
             break;
         // avanza por un tiempo definido de 4 segundos en direccion b
-        case 7:
+        case 9:
             com = ATAQUE_BI;
             break;
         // da vueltas hasta encontrar el robot
-        case 8:
+        case 10:
             // aqui pondre la logica para que avanze formando la estrella
             if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
                 ctx->memo_E = false; // ir a girar
@@ -121,7 +135,7 @@ void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
                 com = DIR_A;
             }
             break;
-        case 9:
+        case 11:
             if (temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5) {
                 ctx->memo_E = true; // Termina giro → pasará a estado 8
                 ctx->tempE1 = temp; // Reiniciar timer del avance

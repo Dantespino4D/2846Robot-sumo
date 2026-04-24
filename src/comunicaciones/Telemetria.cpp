@@ -110,7 +110,10 @@ void Telemetria::sensorRival(){
 
 void Telemetria::recopilar(){
 	//se arma el struct con los valores correspondientes
-	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
+	bool _stall;
+	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio, &_stall);
+	d.stall = _stall ? 1 : 0;
+	d.corriente = me->corrienteA;
 	wf->signalW(&d.wifi);
 	cm->velocidades(&d.pwm1, &d.pwm2);
 
@@ -127,7 +130,6 @@ void Telemetria::recopilar(){
 	d.prototipo = !final;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
-	d.stall = 0;
 }
 
 void Telemetria::enviar(){
@@ -141,10 +143,10 @@ void Telemetria::enviar(){
 	if(final){
 		//json del robot final con métricas de fiabilidad extendidas
 		lon = snprintf(json, NJSON,
-    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
+    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
     	COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
-    	d.pwm1, d.pwm2, d.stall,
+    	d.pwm1, d.pwm2, d.stall, d.corriente,
     	d.ToF1, d.ToF2, d.ToF3, d.ToF4, d.ToF5, d.ToF6,
 		d.estadoToF1, d.estadoToF2, d.estadoToF3, d.estadoToF4, d.estadoToF5, d.estadoToF6,
 		d.señalTof1, d.señalTof2, d.señalTof3, d.señalTof4, d.señalTof5, d.señalTof6,
@@ -154,10 +156,10 @@ void Telemetria::enviar(){
 	}else{
 		//json del prototipo
 		lon = snprintf(json, NJSON,
-		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"corriente\":%f},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
 		COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
-		d.pwm1, d.pwm2, d.stall,
+		d.pwm1, d.pwm2, d.corriente,
 		d.ojos1, d.ojos2,
 		d.cR1, d.cG1, d.cB1, d.cC1,
 		d.cR2, d.cG2, d.cB2, d.cC2,

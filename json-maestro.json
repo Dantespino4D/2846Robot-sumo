@@ -1,18 +1,22 @@
 {
   "motores": {
 	"tiempo_rampa": 200,
+    "u_stall": 2.0,
     "normal": { "izq": 700, "der": 700 },
     "ataque": { "izq": 950, "der": 800 },
 		"pronunciado": { "izq": 950, "der": 600 },
 		"maximo": { "izq": 1023, "der": 1023 },
-    "giro": { "izq": 950, "der": -800 }
+    "giro": { "izq": 950, "der": -800 },
+    "evasion": { "izq": 950, "der": 200 }
   },
   "tiempos": {
     "tof_corto_plazo": 250,
 		"tof_largo_plazo": 2000,
     "retroceso": 400,
     "recta_star": 2000,
-    "giro_star": 500
+    "giro_star": 500,
+    "t_stall": 250,
+    "evasion": 1000
   },
   "sensores": {
     "dist_max": 400,

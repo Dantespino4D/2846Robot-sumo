@@ -17,6 +17,7 @@ class Mqtt{
 		static void evento(void* arg, esp_event_base_t base, int32_t id, void* data);
 		void configuracion_json(esp_mqtt_event_handle_t evento);
 		void extraer(cJSON *padre, const char* clave, const char* name);
+		void extraerFloat(cJSON *padre, const char* clave, const char* name);
 		void extraerM(cJSON *padre, const char* item, const char* clave1, const char* clave2);
 
 	public:

@@ -6,17 +6,19 @@
 #define ALTO 0
 #define DIR_A 1
 #define DIR_B 2
-#define ATAQUE_AI 3
-#define ATAQUE_BI 4
-#define ATAQUE_AD 5
-#define ATAQUE_BD 6
-#define PRO_AI 7
-#define PRO_BI 8
-#define PRO_AD 9
-#define PRO_BD 10
-#define MAX_A 11
-#define MAX_B 12
-#define GIRO 13
+#define EVA_A 3
+#define EVA_B 4
+#define ATAQUE_AI 5
+#define ATAQUE_BI 6
+#define ATAQUE_AD 7
+#define ATAQUE_BD 8
+#define PRO_AI 9
+#define PRO_BI 10
+#define PRO_AD 11
+#define PRO_BD 12
+#define MAX_A 13
+#define MAX_B 14
+#define GIRO 15
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -40,6 +42,8 @@ class MaquinaEstados{
 		unsigned long tempC;
 		unsigned long tempE1;
 		unsigned long tempE2;
+		unsigned long tempS;
+		unsigned long tempEva;
 
 		//tiempos establecidos
 		int tiempo1;
@@ -47,7 +51,14 @@ class MaquinaEstados{
 		int tiempo3;
 		int tiempo4;
 		int tiempo5;
+		int tiempo6;
 
+	public:
+		float umbral_stall;
+		unsigned long tiempo_stall;
+		float corrienteA;
+
+	private:
 		// handle de la tarea de los motores
 		TaskHandle_t* motr;
 
@@ -56,6 +67,9 @@ class MaquinaEstados{
 		volatile int estrategia;
 		volatile int ciclo;
 		int ini;
+
+		bool stall;
+		int memo_eva;
 
 		int memo_TC;//control de los ToF a corto plazo
 				   //0 = sin memoria, 1 = AI pro, 2 = AD pro, 3 = BI pro, 4 = BD pro, 5 = AI suave, 6 = AD suave, 7 = BI suave, 8 = BD suave, 9 = frente, 10 = atras
@@ -84,6 +98,9 @@ class MaquinaEstados{
 
 		//lee los datos de la nvs
 		void nvsLeer();
+
+		//metodo para detectar atascos
+		bool detectarStall(float corrienteA);
 	public:
 		//constructor
 		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final);
@@ -102,6 +119,6 @@ class MaquinaEstados{
 		void cicloR(int c, int i);
 
 		//metodo que entrega el estado actual
-		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini);
+		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall);
 };
 #endif // !DEBUG

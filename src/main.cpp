@@ -127,7 +127,15 @@ void robot(void *pvParameters) {
 		// inicia
 
 	  	uint64_t Tini = esp_timer_get_time();
+
+		// se obtienen las distancias de los sensores rivales
+		uint16_t distBuffer[24] = {0};
+		if (sr != nullptr) {
+			sr->getDistancias(distBuffer);
+		}
+
     	// MAQUINA DE ESTADOS
+		me->corrienteA = mon.corrienteStall();
     	me->logica();
 
 		//se calcula y envia la duracion de un ciclo

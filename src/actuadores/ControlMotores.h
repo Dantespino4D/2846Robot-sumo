@@ -35,6 +35,8 @@ class ControlMotores{
 		int16_t vel_pD;
 		int16_t vel_gI;
 		int16_t vel_gD;
+		int16_t vel_eI; // Evasión Izquierda
+		int16_t vel_eD; // Evasión Derecha
 
 		//variables que guardan la velocidad actual
 		int16_t vel1;
@@ -54,6 +56,8 @@ class ControlMotores{
 		void pronunciado_ad();
 		void pronunciado_bd();
 		void giro();
+		void evasion_a();
+		void evasion_b();
 
 		//metodo para leer y aplicar los valores de la nvs
 		void nvsLeer();

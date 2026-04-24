@@ -93,7 +93,20 @@ void Mqtt::extraer(cJSON *padre, const char* clave, const char* name){
 		int val_j = hijo->valueint;
 		if(val != val_j){
 			nvs.guardar(clave, val_j);
-			ESP_LOGI(TAG, "configuracion nueva recibida:", clave, val_j);
+			ESP_LOGI(TAG, "configuracion nueva recibida: %s: %d", clave, val_j);
+		}
+	}
+}
+
+void Mqtt::extraerFloat(cJSON *padre, const char* clave, const char* name){
+	cJSON *hijo = cJSON_GetObjectItemCaseSensitive(padre, clave);
+	if(cJSON_IsNumber(hijo)){
+		Nvs nvs(name);
+		float val = nvs.leerFloat(clave, -9999.0f);
+		float val_j = hijo->valuedouble;
+		if(val != val_j){
+			nvs.guardarFloat(clave, val_j);
+			ESP_LOGI(TAG, "configuracion nueva recibida: %s: %f", clave, val_j);
 		}
 	}
 }
@@ -148,11 +161,13 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 	cJSON *motores = cJSON_GetObjectItemCaseSensitive(maestro, "motores");
 	if(motores != NULL){
 		extraer(motores, "tiempo_rampa", "motores");
+		extraerFloat(motores, "u_stall", "motores");
 		extraerM(motores, "normal", "velocidad_nI", "velocidad_nD");
 		extraerM(motores, "ataque", "velocidad_aI", "velocidad_aD");
 		extraerM(motores, "pronunciado", "velocidad_pI", "velocidad_pD");
 		extraerM(motores, "maximo", "velocidad_mI", "velocidad_mD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
+		extraerM(motores, "evasion", "velocidad_eI", "velocidad_eD");
 	}
 
 	//se revisa y aplican cambios en la configuracion de los tiempo
@@ -163,6 +178,8 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraer(tiempos, "retroceso", "tiempos");
 		extraer(tiempos, "recta_star", "tiempos");
 		extraer(tiempos, "giro_star", "tiempos");
+		extraer(tiempos, "t_stall", "tiempos");
+		extraer(tiempos, "evasion", "tiempos");
 	}
 
 	//se revisa y aplican cambios en la configuracion de los limites de los sensores

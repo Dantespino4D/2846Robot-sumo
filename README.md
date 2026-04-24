@@ -36,6 +36,7 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 * **Tracción de Alta Velocidad:** Actualización a 4 Motores Pololu de 1000 RPM (reducción 50:1) para maximizar la velocidad de embestida.
 * **Precisión Láser:** Sustitución de los sensores ultrasónicos por 6 sensores ToF **VL53L1X** (Láser) con direccionamiento dinámico mediante pines **XSHUT** dedicados.
 * **Gestión de Eventos:** Uso de los pines **INT** de los ToF. Gracias a la matriz IO_MUX del ESP32-S3, se dedica un pin físico independiente para la interrupción de cada uno de los 6 sensores, eliminando por completo la latencia de hacer "polling" vía I2C.
+* **Detección de Stall (Atasco):** Implementación de detección por hardware mediante la medición de caída de voltaje en una resistencia shunt leída por el ADC (**GPIO_NUM_1**). Esto permite identificar bloqueos mecánicos o empujes del rival de forma instantánea.
 * **Eficiencia I2C:** Eliminación del multiplexor TCA9548A en favor del bus compartido de los ToF, simplificando el cableado.
 * **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
 * **Alimentación Optimizada:** Sustitución del regulador LM2596 por el módulo **Mini 360 (MP2307)**, logrando mayor eficiencia energética y un diseño más compacto.
@@ -72,7 +73,7 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
 - **`Telemetria`** — Stack de conectividad que publica el estado completo del robot de forma asíncrona. El JSON de telemetría se auto-adapta dinámicamente mediante el flag `final` según el hardware detectado.
     - **Middleware de Persistencia:** Utiliza un script externo (`telemetria.py`) que escucha vía MQTT, realiza una gestión de cola (batching) en una base de datos local SQLite y reenvía los datos mediante HTTP/HTTPS (con integración a una **base de datos externa** prevista próximamente).
     - **Salud de Sensores:** Reporta métricas de calidad para los ToF (estado, señal y ruido ambiental).
-    - **Diagnóstico del Sistema:** El payload incluye telemetría profunda: memoria libre (`heap`), versión del firmware (`commit`), calidad de señal WiFi, ciclo de control y estado de los motores (PWM y detección de `stall`).
+    - **Diagnóstico del Sistema:** El payload incluye telemetría profunda: memoria libre (`heap`), versión del firmware (`commit`), calidad de señal WiFi, ciclo de control, corriente en amperios (**corriente**) y estado de los motores (PWM y detección de `stall`).
 - **`MonitorSistema`** — Módulo dedicado a la lectura analógica del estado del robot (batería y temperatura), integrado directamente en el flujo de telemetría y compatible con ambas versiones de hardware.
 
 ---
@@ -94,6 +95,7 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 |---|---|
 | **Tiempos y Estrategia** | |
 | `tiempos/retroceso` | Milisegundos de reversa al pisar la línea blanca. |
+| `tiempos/evasion` | Duración de la maniobra de escape tras detectar un atasco (ms). |
 | `tiempos/recta_star` | Avance en rutina de búsqueda tipo estrella. |
 | `tiempos/giro_star` | Rotación en rutina de búsqueda tipo estrella. |
 | `tiempos/estrategia` | Algoritmo inicial seleccionado (0 = EP, 1 = E1, 2 = E2). |
@@ -103,10 +105,13 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 | **Velocidades (PWM)** | |
 | `velocidad_nI` / `nD` | Velocidad nominal (Búsqueda). |
 | `velocidad_aI` / `aD` | Velocidad de ataque. |
+| `velocidad_eI` / `eD` | Velocidad de evasión tras stall. |
 | `velocidad_mI` / `mD` | Velocidad de maniobra. |
 | `velocidad_pI` / `pD` | Velocidad de patrullaje. |
 | `velocidad_gI` / `gD` | Velocidad de giro sobre eje. |
 | **Sensores y Sistema** | |
+| `u_stall` | Umbral de corriente para detectar atasco (Float en Amperios). |
+| `t_stall` | Tiempo de confirmación de corriente alta para activar stall (ms). |
 | `umbral_color` | Valor de referencia para detección de línea blanca. |
 | `dist_max` | Rango máximo de detección del rival (cm/mm). |
 | `modo` | Selección de modo de arranque (0=Prueba, 1=Combate). |

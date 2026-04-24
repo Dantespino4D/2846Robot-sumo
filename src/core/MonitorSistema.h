@@ -11,10 +11,12 @@ private:
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     adc_oneshot_unit_handle_t adc1_handle;
 #endif
+    float ema_corriente;
 public:
     MonitorSistema();
     void begin();
     float bateria();
+    float corrienteStall();
     void termistores(float &t1, float &t2, float &t3, float &t4);
 };
 

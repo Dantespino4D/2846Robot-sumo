@@ -174,6 +174,16 @@ void ControlMotores::giro(){
 	velocidad(vel_gI, vel_gD, false);
 }
 
+//metodo de evasion frontal
+void ControlMotores::evasion_a(){
+	velocidad(-vel_eI, -vel_eD, false);
+}
+
+//metodo de evasion trasera
+void ControlMotores::evasion_b(){
+	velocidad(vel_eI, vel_eD, false);
+}
+
 //metodo que inicializa y prepara todo
 void ControlMotores::begin(){
 	//se aplican datos de nvs
@@ -264,36 +274,42 @@ void ControlMotores::controlador(int accion){
 			dir_b();
 			break;
 		case 3:
-			ataque_ai();
+			evasion_a();
 			break;
 		case 4:
-			ataque_bi();
+			evasion_b();
 			break;
 		case 5:
-			ataque_ad();
+			ataque_ai();
 			break;
 		case 6:
-			ataque_bd();
+			ataque_bi();
 			break;
 		case 7:
-			pronunciado_ai();
+			ataque_ad();
 			break;
 		case 8:
-			pronunciado_bi();
+			ataque_bd();
 			break;
 		case 9:
-			pronunciado_ad();
+			pronunciado_ai();
 			break;
 		case 10:
-			pronunciado_bd();
+			pronunciado_bi();
 			break;
 		case 11:
-			max_a();
+			pronunciado_ad();
 			break;
 		case 12:
-			max_b();
+			pronunciado_bd();
 			break;
 		case 13:
+			max_a();
+			break;
+		case 14:
+			max_b();
+			break;
+		case 15:
 			giro();
 			break;
 	}
@@ -315,6 +331,8 @@ void ControlMotores::nvsLeer(){
 	vel_pD = nvs.leer("velocidad_pD", vel_pD);
 	vel_gI = nvs.leer("velocidad_gI", vel_gI);
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
+	vel_eI = nvs.leer("velocidad_eI", 950);
+	vel_eD = nvs.leer("velocidad_eD", 200);
 }
 
 //envia los datos a la telemetria

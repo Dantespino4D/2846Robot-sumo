@@ -20,7 +20,8 @@
   "motores": {
     "pwm_izq": 255,
     "pwm_der": 200,
-    "stall": 0
+    "stall": 0,
+    "corriente": 0.0
   },
   "sensores": {
     "tof": [150, 400, 8190, 500, 1200, 8190],
