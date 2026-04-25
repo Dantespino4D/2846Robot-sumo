@@ -142,7 +142,7 @@ void robot(void *pvParameters) {
 		uint64_t Tfin = esp_timer_get_time();
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
-		vTaskDelay(pdMS_TO_TICKS(10));
+		vTaskDelay(pdMS_TO_TICKS(1));
   	}
 }
 

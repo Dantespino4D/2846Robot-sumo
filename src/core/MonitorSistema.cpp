@@ -1,4 +1,5 @@
 #include "MonitorSistema.h"
+#include <cmath>
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 #include "esp_log.h"
@@ -23,12 +24,13 @@ void MonitorSistema::begin() {
         .atten = ADC_ATTEN_DB_12,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
     };
+
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_1, &config);
+    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_3, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_4, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_5, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_6, &config);
-    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config); // PIN_STALL
 #endif
 }
 
@@ -36,9 +38,9 @@ float MonitorSistema::bateria() {
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     int raw;
     adc_oneshot_read(adc1_handle, ADC_CHANNEL_1, &raw);
-    return (float)raw * (3.3 / 4095.0) * 4.03;
+    return (float)raw * (3.3f / 4095.0f) * 4.03f;
 #else
-    return 0.0;
+    return 0.0f;
 #endif
 }
 
@@ -46,13 +48,35 @@ float MonitorSistema::corrienteStall() {
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     int raw;
     adc_oneshot_read(adc1_handle, ADC_CHANNEL_0, &raw);
-    float v = (float)raw * (3.3 / 4095.0);
+    float v = (float)raw * (3.3f / 4095.0f);
     float i_inst = v / (0.1f * 10.0f);
     ema_corriente = (i_inst * 0.1f) + (ema_corriente * 0.9f);
     return ema_corriente;
 #else
-    return 0.0;
+    return 0.0f;
 #endif
+}
+
+float MonitorSistema::calcularCelsius(int raw) {
+    if (raw <= 0) return 0.0f;
+    if (raw >= 4095) return 99.0f;
+
+    float fixed_resistor = 10000.0f;
+    float r_ntc = fixed_resistor * ((float)raw / (4095.0f - (float)raw));
+
+    float beta = 3950.0f;
+    float r0 = 10000.0f;
+    float t0 = 298.15f;
+
+    float steinhart;
+    steinhart = r_ntc / r0;
+    steinhart = log(steinhart);
+    steinhart /= beta;
+    steinhart += 1.0f / t0;
+    steinhart = 1.0f / steinhart;
+    steinhart -= 273.15f;
+
+    return steinhart;
 }
 
 void MonitorSistema::termistores(float &t1, float &t2, float &t3, float &t4) {
@@ -62,14 +86,15 @@ void MonitorSistema::termistores(float &t1, float &t2, float &t3, float &t4) {
     adc_oneshot_read(adc1_handle, ADC_CHANNEL_4, &r2);
     adc_oneshot_read(adc1_handle, ADC_CHANNEL_5, &r3);
     adc_oneshot_read(adc1_handle, ADC_CHANNEL_6, &r4);
-    t1 = (float)r1 * (3.3 / 4095.0);
-    t2 = (float)r2 * (3.3 / 4095.0);
-    t3 = (float)r3 * (3.3 / 4095.0);
-    t4 = (float)r4 * (3.3 / 4095.0);
+
+    t1 = calcularCelsius(r1);
+    t2 = calcularCelsius(r2);
+    t3 = calcularCelsius(r3);
+    t4 = calcularCelsius(r4);
 #else
-    t1 = 0.0;
-    t2 = 0.0;
-    t3 = 0.0;
-    t4 = 0.0;
+    t1 = 0.0f;
+    t2 = 0.0f;
+    t3 = 0.0f;
+    t4 = 0.0f;
 #endif
 }

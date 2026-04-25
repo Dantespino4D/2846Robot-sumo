@@ -55,6 +55,8 @@ class SensorTof : public SensorRival {
 		int maxd;
 		//variables de las lecturas de los sensores
 		TofData data[NUM_TOF];
+		//reasignacio de la direccion I2C de cada sensor
+		void reasignar();
 		//metodo que lee si hay una distancia maxima en nvs
 		void nvsLeer();
 

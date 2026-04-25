@@ -16,6 +16,7 @@
 #include "driver/i2c.h"
 #include "portmacro.h"
 #include <cstddef>
+#include <system_error>
 
 static const char* TAG = "SensorToF";
 
@@ -129,17 +130,52 @@ bool SensorTof::begin(){
 	return b;
 }
 
+void SensorTof::reasignar(){
+	for(int i = 0; i < NUM_TOF; i++){
+		gpio_set_level(xshut[i], 0);
+	}
+	vTaskDelay(pdMS_TO_TICKS(10));
+	for(int i = 0; i < NUM_TOF; i++){
+		gpio_set_level(xshut[i], 1);
+		vTaskDelay(pdMS_TO_TICKS(5));
+		uint8_t payload[3] = {0x00, 0x01, (uint8_t)(dir[i] & 0x7F)};
+		i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10));
+		std::error_code error;
+
+		if(tof[i] != nullptr){
+			tof[i]->start_ranging(error);
+		}
+	}
+	ESP_LOGI(TAG, "Reasignacion de direcciones ToF completada");
+}
+
 SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
+	//preparamos los buffers
 	uint8_t inicio[2] = {0x00, 0x89};
 	uint8_t datos[15];
-	i2c_master_write_read_device(i2c.port(), i2c_dir, inicio, 2, datos, 15, pdMS_TO_TICKS(10));
+	//iniciamos lectua
+	esp_err_t fallo = i2c_master_write_read_device(i2c.port(), i2c_dir, inicio, 2, datos, 15, pdMS_TO_TICKS(2));
+	//guardamos los datos en el struct
 	TofData res;
 	res.distancia = (datos[13] << 8) | datos[14];
 	res.estado = datos[0] & 0x1F;
 	res.señal = (datos[5] << 8) | datos[6];
 	res.ambiente = (datos[7] << 8) | datos[8];
+
+	//limpiamos el registro de interrupcion
 	uint8_t clear[3] = {0x00, 0x86, 0x01};
-	i2c_master_write_to_device(i2c.port(), i2c_dir, clear, 3, pdMS_TO_TICKS(10));
+	esp_err_t limpiar = i2c_master_write_to_device(i2c.port(), i2c_dir, clear, 3, pdMS_TO_TICKS(2));
+
+	//evaluaos errores
+	if(fallo != ESP_OK || limpiar != ESP_OK){
+		//manejamos el error
+		i2c.error();
+		res.distancia = 8190;
+		res.estado = 255;
+	}else{
+		i2c.reset();
+	}
+	//retornamos el resultado
 	return res;
 }
 
@@ -163,7 +199,18 @@ void SensorTof::tareaTof(void* pvParameters){
 	SensorTof* sensor = (SensorTof*)pvParameters;
 	while(true){
 		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		//verificamos que el i2c este funcionando
+		if(!sensor->i2c.verify()){
+			vTaskDelay(pdMS_TO_TICKS(5));
+			if(sensor->dist(sensor->dir[0]).estado == 255){
+				ESP_LOGE(TAG, "direcciones perdida");
+				sensor->reasignar();
+			}
+			continue;
+		}
+		//procesamos los sensores que tengan un dato listo
 		for(int i = 0; i < NUM_TOF; i++){
+			//verificamos si el sensor tiene un dato listo
 			if(sensor->listo[i]){
 				//se recolectan los datos
 				sensor->listo[i] = 0;
