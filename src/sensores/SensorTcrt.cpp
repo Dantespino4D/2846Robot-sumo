@@ -8,7 +8,6 @@
 #include "freertos/event_groups.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-#include "esp_timer.h"
 #include <cstdint>
 #include <sys/types.h>
 
@@ -20,18 +19,11 @@ TaskHandle_t SensorTcrt::tarea = nullptr;
 
 SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
 	pin1(_p1),
-	pin2(_p2),
-	tempU(0)
+	pin2(_p2)
 {}
 
 void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
-	SensorTcrt* sensor = (SensorTcrt*)arg;
-    BaseType_t cambioC = pdFALSE;
-	uint64_t tempA = esp_timer_get_time();
-	if(tempA - sensor->tempU < 2000){
-		return;
-	}
-	sensor->tempU = tempA;
+	SensorTcrt* sensor = static_cast<SensorTcrt*>(arg);
 	uint32_t estado = 0;
 
 	if(gpio_get_level(sensor->pin1)){
@@ -40,10 +32,11 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 	if(gpio_get_level(sensor->pin2)){
 		estado |= (1 << 1);
 	}
-	xTaskNotifyFromISR(tarea,estado, eSetValueWithOverwrite, &cambioC);
+	xTaskNotifyFromISR(tarea, estado, eSetValueWithOverwrite, &cambioC);
     if (cambioC) {
         portYIELD_FROM_ISR();
     }
+}
 }
 
 void SensorTcrt::begin() {

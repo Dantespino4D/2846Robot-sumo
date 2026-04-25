@@ -16,7 +16,6 @@ class SensorTcrt : public SensorLimite {
 	private:
 		gpio_num_t pin1;
 		gpio_num_t pin2;
-		uint64_t tempU;
 
 		static TaskHandle_t tarea;
 
