@@ -4114,6 +4114,7 @@ FILE PATH: ./src/sensores/SensorTcrt.cpp
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <cstdint>
+#include <sys/types.h>
 
 extern EventGroupHandle_t eventos;
 
@@ -4135,7 +4136,15 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 		return;
 	}
 	sensor->tempU = tempA;
-	vTaskNotifyGiveFromISR(tarea, &cambioC);
+	uint32_t estado = 0;
+
+	if(gpio_get_level(sensor->pin1)){
+		estado |= (1 << 0);
+	}
+	if(gpio_get_level(sensor->pin2)){
+		estado |= (1 << 1);
+	}
+	xTaskNotifyFromISR(tarea,estado, eSetValueWithOverwrite, &cambioC);
     if (cambioC) {
         portYIELD_FROM_ISR();
     }
@@ -4169,23 +4178,26 @@ void SensorTcrt::tareaTcrt(void* pvParameters) {
 	//instalar la interrupcion
     gpio_install_isr_service(0);
 
-    gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor->pin1);
-    gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor->pin2);
+    gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor);
+    gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor);
+
+	uint32_t estado = 0;
 	while (true) {
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-		if(sensor == nullptr) {
-			ESP_LOGE(TAG, "Error: puntero a SensorTcrt es nulo");
-			continue;
-		}
-		if(gpio_get_level(sensor->pin1)){
-			xEventGroupSetBits(eventos, BIT_LIM_A);
-		}else{
-			xEventGroupClearBits(eventos, BIT_LIM_A);
-		}
-		if(gpio_get_level(sensor->pin2)){
-			xEventGroupSetBits(eventos, BIT_LIM_B);
-		}else{
-			xEventGroupClearBits(eventos, BIT_LIM_B);
+		if(xTaskNotifyWait(0, 0, &estado, portMAX_DELAY) == pdTRUE){
+			if(sensor == nullptr) {
+				ESP_LOGE(TAG, "Error: puntero a SensorTcrt es nulo");
+				continue;
+			}
+			if(estado & (1 << 0)){
+				xEventGroupSetBits(eventos, BIT_LIM_A);
+			}else{
+				xEventGroupClearBits(eventos, BIT_LIM_A);
+			}
+			if(estado & (1 << 1)){
+				xEventGroupSetBits(eventos, BIT_LIM_B);
+			}else{
+				xEventGroupClearBits(eventos, BIT_LIM_B);
+			}
 		}
 	}
 }
