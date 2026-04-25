@@ -8,6 +8,7 @@
 #include "freertos/event_groups.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include <cstdint>
 
 extern EventGroupHandle_t eventos;
@@ -18,11 +19,18 @@ TaskHandle_t SensorTcrt::tarea = nullptr;
 
 SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
 	pin1(_p1),
-	pin2(_p2)
+	pin2(_p2),
+	tempU(0)
 {}
 
 void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
+	SensorTcrt* sensor = (SensorTcrt*)arg;
     BaseType_t cambioC = pdFALSE;
+	uint64_t tempA = esp_timer_get_time();
+	if(tempA - sensor->tempU < 2000){
+		return;
+	}
+	sensor->tempU = tempA;
 	vTaskNotifyGiveFromISR(tarea, &cambioC);
     if (cambioC) {
         portYIELD_FROM_ISR();

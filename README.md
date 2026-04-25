@@ -74,7 +74,7 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
     - **Middleware de Persistencia:** Utiliza un script externo (`telemetria.py`) que escucha vía MQTT, realiza una gestión de cola (batching) en una base de datos local SQLite y reenvía los datos mediante HTTP/HTTPS (con integración a una **base de datos externa** prevista próximamente).
     - **Salud de Sensores:** Reporta métricas de calidad para los ToF (estado, señal y ruido ambiental).
     - **Diagnóstico del Sistema:** El payload incluye telemetría profunda: memoria libre (`heap`), versión del firmware (`commit`), calidad de señal WiFi, ciclo de control, corriente en amperios (**corriente**) y estado de los motores (PWM y detección de `stall`).
-- **`MonitorSistema`** — Módulo dedicado a la lectura analógica del estado del robot (batería y temperatura), integrado directamente en el flujo de telemetría y compatible con ambas versiones de hardware.
+- **`MonitorSistema`** — Módulo dedicado a la supervisión analógica. Realiza la lectura del voltaje de batería y la corriente de los motores (Stall). Implementa una conversión de alta precisión para 4 termistores mediante la **ecuación de Steinhart-Hart**, transformando lecturas de voltaje en grados Celsius para el monitoreo térmico del hardware.
 
 ---
 
@@ -143,6 +143,8 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 
 ## Fortalezas del Diseño
 
+* **Detección de Stall y Maniobra de Evasión:** El sistema detecta bloqueos mecánicos mediante el ADC en tiempo real. Al superar el umbral `u_stall` durante un tiempo `t_stall`, la Máquina de Estados interrumpe la estrategia actual para ejecutar una **maniobra de evasión** (retroceso y giro rápido) definida por `tiempos/evasion`, garantizando que el robot no se queme ni quede atrapado en colisiones estáticas.
+* **Filtro Antirebote por Hardware (TCRT5000):** Las interrupciones de los sensores de línea implementan un **debouncing de 2ms** mediante el temporizador de alta resolución de ESP-IDF (`esp_timer_get_time()`). Esto filtra falsos disparos causados por ruido eléctrico o transiciones rápidas en el borde del tatami, garantizando que el `EventGroup` solo se actualice con eventos válidos.
 * **Sincronización No Bloqueante (Event Groups):** Las ISR de los sensores (ej. TCRT5000) y las tareas de lectura (ToF) inyectan flags directamente en un `EventGroupHandle_t` mediante `xEventGroupSetBits`. Esto despierta a la máquina de estados de forma inmediata y asíncrona, logrando una latencia de respuesta casi nula sin necesidad de hacer polling.
 * **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate simplemente heredando de `EstrategiaEstandar`.
 * **Encapsulamiento de Sensores Autogestionados:** Cada clase de sensor gestiona su propia lectura, liberando al `main.cpp` de la gestión de hilos y garantizando una migración de hardware transparente.
