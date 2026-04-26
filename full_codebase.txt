@@ -3920,10 +3920,12 @@ void motores(void *pvParameters) {
     	// Espera una nueva orden indefinidamente
     	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(50)) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
-      		accion = accionNueva;
+			if(accionNueva != accion){
+      			accion = accionNueva;
+		      	// Aplica el nuevo movimiento
+      			cm.controlador(accion);
+			}
 		}
-      	// Aplica el nuevo movimiento
-      	cm.controlador(accion);
 	}
 }
 
@@ -4798,7 +4800,7 @@ bool SensorTof::begin(){
 		}
 
 		tof[i]->set_inter_measurement_period_ms(0, ec);
-		tof[i]->set_timing_budget_ms(20, ec);
+		tof[i]->set_timing_budget_ms(33, ec);
 
 		// Configurar ROI: 16x4 en la parte superior (centro 231)
 		tof[i]->set_roi(16, 4, 231);
@@ -5027,7 +5029,7 @@ class SensorTof : public SensorRival {
 		//direcciones I2C
 		uint8_t dir[NUM_TOF];
 		//arreglo donde se marca cual sensor tiene un dato listo
-		uint8_t listo[NUM_TOF];
+		volatile uint8_t listo[NUM_TOF];
 		//distancia maxima
 		int maxd;
 		//variables de las lecturas de los sensores

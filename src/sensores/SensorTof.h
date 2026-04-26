@@ -77,7 +77,7 @@ class SensorTof : public SensorRival {
 		//direcciones I2C
 		uint8_t dir[NUM_TOF];
 		//arreglo donde se marca cual sensor tiene un dato listo
-		uint8_t listo[NUM_TOF];
+		volatile uint8_t listo[NUM_TOF];
 		//distancia maxima
 		int maxd;
 		//variables de las lecturas de los sensores

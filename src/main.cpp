@@ -198,10 +198,12 @@ void motores(void *pvParameters) {
     	// Espera una nueva orden indefinidamente
     	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(50)) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
-      		accion = accionNueva;
+			if(accionNueva != accion){
+      			accion = accionNueva;
+		      	// Aplica el nuevo movimiento
+      			cm.controlador(accion);
+			}
 		}
-      	// Aplica el nuevo movimiento
-      	cm.controlador(accion);
 	}
 }
 

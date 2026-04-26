@@ -120,7 +120,7 @@ bool SensorTof::begin(){
 		}
 
 		tof[i]->set_inter_measurement_period_ms(0, ec);
-		tof[i]->set_timing_budget_ms(20, ec);
+		tof[i]->set_timing_budget_ms(33, ec);
 
 		// Configurar ROI: 16x4 en la parte superior (centro 231)
 		tof[i]->set_roi(16, 4, 231);
