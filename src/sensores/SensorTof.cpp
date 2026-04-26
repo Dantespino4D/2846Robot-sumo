@@ -122,6 +122,9 @@ bool SensorTof::begin(){
 		tof[i]->set_inter_measurement_period_ms(0, ec);
 		tof[i]->set_timing_budget_ms(20, ec);
 
+		// Configurar ROI: 16x4 en la parte superior (centro 231)
+		tof[i]->set_roi(16, 4, 231);
+
 		if(!tof[i]->start_ranging(ec)){
 			ESP_LOGE(TAG, "Error iniciando ranging en ToF #%d", i);
 			b = false;

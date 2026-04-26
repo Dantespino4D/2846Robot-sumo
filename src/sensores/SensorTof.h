@@ -9,6 +9,7 @@
 #include "SensorRival.h"
 #include "../core/GestorI2C.h"
 #include "driver/gpio.h"
+#include <system_error>
 #include <vector>
 #include "esp_attr.h"
 
@@ -18,6 +19,28 @@
 class MiVl53l : public espp::Vl53l {
 	public:
 		using espp::Vl53l::Vl53l;
+		// metodo para usar el ROI
+		void set_roi(uint8_t ancho, uint8_t largo, uint8_t centro = 199) {
+			std::error_code ec;
+			//validamos el tamaño minimo del ROI
+			if (ancho < 4) {
+				ancho = 4;
+			}
+			if (largo < 4) {
+				largo = 4;
+			}
+			//validamos el tamaño maximo del ROI
+			if (ancho > 16) {
+				ancho = 16;
+			}
+			if (largo > 16) {
+				largo = 16;
+			}
+			uint8_t roi_size = ((largo - 1) << 4) | (ancho - 1);
+
+			write_reg(static_cast<espp::Vl53l::Register>(0x007F), roi_size, ec);
+			write_reg(static_cast<espp::Vl53l::Register>(0x007E), centro, ec);
+		}
         // Metodo para actualizar la direccion I2C del sensor
         void set_sensor_address(uint8_t addr) {
             this->espp::BasePeripheral<espp::vl53l_register_t, true>::set_address(addr);
