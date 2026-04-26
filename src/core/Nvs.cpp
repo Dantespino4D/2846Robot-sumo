@@ -12,7 +12,7 @@ void Nvs::guardar(const char* clave, int32_t valor){
 	//se declara el handle
 	nvs_handle_t nvs;
 
-	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	esp_err_t err = nvs_open_from_partition("configuracion", nameE, NVS_READWRITE, &nvs);
 	if(err == ESP_OK){
 		nvs_set_i32(nvs, clave, valor);
 		nvs_commit(nvs);
@@ -24,7 +24,7 @@ int32_t Nvs::leer(const char* clave, int32_t valor){
 	//se declara el handle
 	nvs_handle_t nvs;
 
-	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	esp_err_t err = nvs_open_from_partition("configuracion", nameE, NVS_READWRITE, &nvs);
 	if(err == ESP_OK){
 		nvs_get_i32(nvs, clave, &valor);
 		nvs_close(nvs);
@@ -35,7 +35,7 @@ int32_t Nvs::leer(const char* clave, int32_t valor){
 void Nvs::guardarFloat(const char* clave, float valor){
 	//se declara el handle
 	nvs_handle_t nvs;
-	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	esp_err_t err = nvs_open_from_partition("configuracion", nameE, NVS_READWRITE, &nvs);
 	if(err == ESP_OK){
 		nvs_set_blob(nvs, clave, &valor, sizeof(float));
 		nvs_commit(nvs);
@@ -46,7 +46,7 @@ void Nvs::guardarFloat(const char* clave, float valor){
 float Nvs::leerFloat(const char* clave, float valor){
 	//se declara el handle
 	nvs_handle_t nvs;
-	esp_err_t err = nvs_open(nameE, NVS_READWRITE, &nvs);
+	esp_err_t err = nvs_open_from_partition("configuracion", nameE, NVS_READWRITE, &nvs);
 	if(err == ESP_OK){
 		size_t size = sizeof(float);
 		nvs_get_blob(nvs, clave, &valor, &size);

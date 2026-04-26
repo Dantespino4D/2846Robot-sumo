@@ -25,6 +25,7 @@ SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
 void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 	SensorTcrt* sensor = static_cast<SensorTcrt*>(arg);
 	uint32_t estado = 0;
+	BaseType_t cambioC = pdFALSE;
 
 	if(gpio_get_level(sensor->pin1)){
 		estado |= (1 << 0);
@@ -36,7 +37,6 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
     if (cambioC) {
         portYIELD_FROM_ISR();
     }
-}
 }
 
 void SensorTcrt::begin() {

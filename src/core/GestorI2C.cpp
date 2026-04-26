@@ -31,6 +31,9 @@ void GestorI2C::begin() {
     if (res != ESP_OK) {
         ESP_LOGE(TAG, "Fallo al instalar I2C: %s", esp_err_to_name(res));
         rgb(0, 1023);
+    }else {
+    	i2c_set_timeout(I2C_NUM_0, 64000);
+		ESP_LOGI(TAG, "I2C instalado con timeout seguro");
     }
 }
 

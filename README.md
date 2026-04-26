@@ -14,7 +14,8 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 | Control de motores | PWM (LEDC de ESP-IDF) gestionando 4 motores mediante drivers independientes |
 | Conectividad | WiFi + MQTT + mDNS + SmartConfig + OTA |
 | Telemetría | Streaming de estado en tiempo real al broker MQTT |
-| Configuración | NVS (Non-Volatile Storage) para parámetros ajustables en caliente |
+| Configuración | NVS (Non-Volatile Storage) en partición dedicada para parámetros ajustables en caliente |
+| Robustez | Watchdog de tareas (WDT) y auto-recuperación de bus I2C con timeout de hardware |
 | Abstracción | Inyección de dependencias para sensores según el hardware (`final` flag) |
 
 ---
@@ -46,7 +47,7 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 
 ## Arquitectura del Software
 
-El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tareas FreeRTOS, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos. La inicialización del hardware es dinámica y se basa en la placa detectada durante el arranque.
+El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tareas FreeRTOS supervisadas por un **Task Watchdog (WDT)**, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos. El sistema implementa una **lógica de reinicio inteligente**: si el Watchdog provoca un reinicio, el robot detecta el estado y omite la espera de seguridad de 5 segundos para reincorporarse al combate instantáneamente. La inicialización del hardware es dinámica y se basa en la placa detectada durante el arranque.
 
 ```text
 Core 0                         Core 1

@@ -17,6 +17,7 @@
 #include "portmacro.h"
 #include <cstddef>
 #include <system_error>
+#include "esp_task_wdt.h"
 
 static const char* TAG = "SensorToF";
 
@@ -196,9 +197,17 @@ void IRAM_ATTR SensorTof::tofIntr(void* arg){
 }
 
 void SensorTof::tareaTof(void* pvParameters){
+	//suscribir la tarea al watchdog
+	esp_err_t err = esp_task_wdt_add(NULL);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "Error al suscribir al watchdog: %s", esp_err_to_name(err));
+	}
+
+
 	SensorTof* sensor = (SensorTof*)pvParameters;
 	while(true){
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		esp_task_wdt_reset();
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
 		//verificamos que el i2c este funcionando
 		if(!sensor->i2c.verify()){
 			vTaskDelay(pdMS_TO_TICKS(5));

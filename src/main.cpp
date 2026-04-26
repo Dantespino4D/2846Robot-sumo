@@ -1,4 +1,5 @@
 #include "sdkconfig.h"
+#include "esp_task_wdt.h"
 #include "comunicaciones/Wifi.h"
 #include "comunicaciones/Mqtt.h"
 #include "actuadores/ControlMotores.h"
@@ -106,15 +107,29 @@ extern "C" void app_main(void){
 
 
 void robot(void *pvParameters) {
-  	// prende al precionar el boton
-  	while (gpio_get_level(INI) == 1) {
-    	vTaskDelay(pdMS_TO_TICKS(100));
-  	}
+	//suscribir la tarea al watchdog
+	esp_err_t err = esp_task_wdt_add(NULL);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "Error al suscribir al watchdog: %s", esp_err_to_name(err));
+	}
+	esp_reset_reason_t rason = esp_reset_reason();
+	bool watchdog = (rason == ESP_RST_TASK_WDT || rason == ESP_RST_WDT);
+	if(!watchdog){
+  		// prende al precionar el boton
+  		while (gpio_get_level(INI) == 1) {
+    		vTaskDelay(pdMS_TO_TICKS(100));
+			esp_task_wdt_reset();
+  		}
 
-	//espera de 5 segundos
-  	ESP_LOGI(TAG, "boton precionado");
-  	vTaskDelay(pdMS_TO_TICKS(5000));
-
+		//espera de 5 segundos
+  		ESP_LOGI(TAG, "boton precionado");
+		for(int i = 0; i < 50; i++){
+            vTaskDelay(pdMS_TO_TICKS(100));
+            esp_task_wdt_reset(); // <-- VITAL
+        }
+	}else{
+		ESP_LOGW(TAG, "Reinicio por Watchdog detectado, omitiendo boton");
+	}
 	//prende el led en verde para indicar que todo esta bien
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
@@ -125,6 +140,9 @@ void robot(void *pvParameters) {
 	//bucle del robot
 	while (true) {
 		// inicia
+
+		// se resetea el watchdog
+		esp_task_wdt_reset();
 
 	  	uint64_t Tini = esp_timer_get_time();
 
@@ -151,12 +169,19 @@ void robot(void *pvParameters) {
 
 
 void motores(void *pvParameters) {
+	//suscribir la tarea al watchdog
+	esp_err_t err = esp_task_wdt_add(NULL);
+	if(err != ESP_OK){
+		ESP_LOGE(TAG, "Error al suscribir al watchdog: %s", esp_err_to_name(err));
+	}
+
   	uint32_t accion = 0;
   	uint32_t accionNueva;
 
   	while (true) {
+		esp_task_wdt_reset();
     	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(50)) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
       		accion = accionNueva;
 		}
@@ -202,8 +227,16 @@ void begin() {
         ESP_LOGW(TAG, "DETECTADO: ESP32 ESTANDAR");
     #endif
 
-	//inicializar la memoria nvs
-	esp_err_t err = nvs_flash_init();
+	//inicializar la memoria nvs personalizada
+	esp_err_t err = nvs_flash_init_partition("configuracion");
+	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
+		ESP_ERROR_CHECK(nvs_flash_erase_partition("configuracion"));
+      	err = nvs_flash_init_partition("configuracion");
+	}
+	ESP_ERROR_CHECK(err);
+
+	//inicializar el monitor del sistema
+	err = nvs_flash_init();
 	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
 		ESP_ERROR_CHECK(nvs_flash_erase());
       	err = nvs_flash_init();
