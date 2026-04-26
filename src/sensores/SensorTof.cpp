@@ -21,8 +21,6 @@
 
 static const char* TAG = "SensorToF";
 
-TaskHandle_t SensorTof::tarea = NULL;
-
 SensorTof* SensorTof::instancia = nullptr;
 
 SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
@@ -77,8 +75,11 @@ bool SensorTof::begin(){
 	}
 	gpio_config(&io_conf_intp);
 
-	//instalar las interrupciones
-	gpio_install_isr_service(0);
+	//instalar las interrupciones si no estan instaladas
+	esp_err_t isr_err = gpio_install_isr_service(0);
+	if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
+		ESP_LOGE(TAG, "Error instalando ISR service: %s", esp_err_to_name(isr_err));
+	}
 
 	//añadir las interrupciones
 	for(int i = 0; i < NUM_TOF; i++){
@@ -127,7 +128,7 @@ bool SensorTof::begin(){
 		}
 	}
 	//creacion de la tarea
-	xTaskCreatePinnedToCore(SensorTof::tareaTof, "tareaTof", 2048, this, 10, &tarea, 0);
+	tarea = xTaskCreateStaticPinnedToCore(SensorTof::tareaTof, "tareaTof", sizeof(stackTof), this, 10, stackTof, &tcbTof, 0);
 	return b;
 }
 
@@ -188,7 +189,7 @@ void IRAM_ATTR SensorTof::tofIntr(void* arg){
 	//se marca cual fue el sensor que dio la interrupcion
 	instancia->listo[tof] = true;
 
-	vTaskNotifyGiveFromISR(tarea, &cambioC);
+	vTaskNotifyGiveFromISR(instancia->tarea, &cambioC);
 
 	//cambia el estado del bit correspondiente al sensor que genero la interrupcion
 	if(cambioC){

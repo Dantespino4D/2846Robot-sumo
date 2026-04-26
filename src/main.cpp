@@ -75,6 +75,20 @@ Telemetria* tm = nullptr;
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
 
+//buffer para el TCB
+StaticTask_t tcbRobot;
+StaticTask_t tcbMotores;
+StaticTask_t tcbMusica;
+StaticTask_t tcbTelemetria;
+
+//stack de las tareas
+StackType_t stackRobot[4096];
+StackType_t stackMotores[2048];
+StackType_t stackMusica[1024];
+StackType_t stackTelemetria[10240];
+
+
+
 //protoripos de las tareas
 void robot(void *pvParameters);
 void motores(void *pvParameters);
@@ -96,9 +110,10 @@ extern "C" void app_main(void){
     comunicaciones();
 
   	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
-  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
-	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
+  	xTaskCreateStaticPinnedToCore(robot, "robot", 4096, NULL, 2, stackRobot, &tcbRobot, 1);
+  	motr = xTaskCreateStaticPinnedToCore(motores, "motores", 2048, NULL, 5, stackMotores, &tcbMotores, 1);
+	xTaskCreateStaticPinnedToCore(musica, "musica", 1024, NULL, 1, stackMusica, &tcbMusica, 0);
+
 	ESP_LOGI(TAG, "se inicializo las tareas");
 }
 
@@ -357,7 +372,7 @@ void comunicaciones() {
 		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, &mon, final);
 
 		//tarea de telemetria
-		xTaskCreatePinnedToCore(telemetria, "telemetria", 10240, NULL, 1, NULL, 0);
+		xTaskCreateStaticPinnedToCore(telemetria, "telemetria", sizeof(stackTelemetria), NULL, 1, stackTelemetria, &tcbTelemetria, 0);
 	}else{
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		esp_log_level_set("*", ESP_LOG_NONE);

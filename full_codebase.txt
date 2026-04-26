@@ -3797,6 +3797,20 @@ Telemetria* tm = nullptr;
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
 
+//buffer para el TCB
+StaticTask_t tcbRobot;
+StaticTask_t tcbMotores;
+StaticTask_t tcbMusica;
+StaticTask_t tcbTelemetria;
+
+//stack de las tareas
+StackType_t stackRobot[4096];
+StackType_t stackMotores[2048];
+StackType_t stackMusica[1024];
+StackType_t stackTelemetria[10240];
+
+
+
 //protoripos de las tareas
 void robot(void *pvParameters);
 void motores(void *pvParameters);
@@ -3818,9 +3832,10 @@ extern "C" void app_main(void){
     comunicaciones();
 
   	// se crean las tareas
-  	xTaskCreatePinnedToCore(robot, "robot", 4096, NULL, 2, NULL, 1);
-  	xTaskCreatePinnedToCore(motores, "motores", 2048, NULL, 5, &motr, 1);
-	xTaskCreatePinnedToCore(musica, "musica", 1024, NULL, 1, NULL, 0);
+  	xTaskCreateStaticPinnedToCore(robot, "robot", 4096, NULL, 2, stackRobot, &tcbRobot, 1);
+  	motr = xTaskCreateStaticPinnedToCore(motores, "motores", 2048, NULL, 5, stackMotores, &tcbMotores, 1);
+	xTaskCreateStaticPinnedToCore(musica, "musica", 1024, NULL, 1, stackMusica, &tcbMusica, 0);
+
 	ESP_LOGI(TAG, "se inicializo las tareas");
 }
 
@@ -4079,7 +4094,7 @@ void comunicaciones() {
 		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, &mon, final);
 
 		//tarea de telemetria
-		xTaskCreatePinnedToCore(telemetria, "telemetria", 10240, NULL, 1, NULL, 0);
+		xTaskCreateStaticPinnedToCore(telemetria, "telemetria", sizeof(stackTelemetria), NULL, 1, stackTelemetria, &tcbTelemetria, 0);
 	}else{
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		esp_log_level_set("*", ESP_LOG_NONE);
@@ -4155,8 +4170,6 @@ extern EventGroupHandle_t eventos;
 
 static const char* TAG = "SensorTcrt";
 
-TaskHandle_t SensorTcrt::tarea = nullptr;
-
 SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
 	pin1(_p1),
 	pin2(_p2)
@@ -4173,7 +4186,7 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 	if(gpio_get_level(sensor->pin2)){
 		estado |= (1 << 1);
 	}
-	xTaskNotifyFromISR(tarea, estado, eSetValueWithOverwrite, &cambioC);
+	xTaskNotifyFromISR(sensor->tarea, estado, eSetValueWithOverwrite, &cambioC);
     if (cambioC) {
         portYIELD_FROM_ISR();
     }
@@ -4190,7 +4203,7 @@ void SensorTcrt::begin() {
 
     ESP_LOGI(TAG, "Interrupciones configuradas para TCRT en pines %d y %d", pin1, pin2);
 
-	xTaskCreatePinnedToCore(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea, 1);
+	tarea = xTaskCreateStaticPinnedToCore(tareaTcrt, "tareaTcrt", sizeof(stackTcrt), (void*)this, 10, stackTcrt, &tcbTcrt, 1);
 }
 
 void SensorTcrt::colores(uint16_t* buffer) {
@@ -4204,8 +4217,11 @@ void SensorTcrt::colores(uint16_t* buffer) {
 void SensorTcrt::tareaTcrt(void* pvParameters) {
 	SensorTcrt* sensor = (SensorTcrt*)pvParameters;
 
-	//instalar la interrupcion
-    gpio_install_isr_service(0);
+	//instalar la interrupcion si no esta instalada
+	esp_err_t isr_err = gpio_install_isr_service(0);
+	if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
+		ESP_LOGE(TAG, "Error instalando ISR service: %s", esp_err_to_name(isr_err));
+	}
 
     gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor);
     gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor);
@@ -4257,10 +4273,19 @@ class SensorTcrt : public SensorLimite {
 		gpio_num_t pin1;
 		gpio_num_t pin2;
 
-		static TaskHandle_t tarea;
+		//handle de la tarea
+		TaskHandle_t tarea = nullptr;
 
+		//buffer de la tarea
+		StaticTask_t tcbTcrt;
+
+		//stack de la tarea
+		StackType_t stackTcrt[2048];
+
+		//tarea de lectura de los sensores
 		static void tareaTcrt(void* pvParameters);
 
+		//funcion de interrupcion para los sensores
 		static void IRAM_ATTR limite_isr(void* arg);
 
 	public:
@@ -4674,8 +4699,6 @@ FILE PATH: ./src/sensores/SensorTof.cpp
 
 static const char* TAG = "SensorToF";
 
-TaskHandle_t SensorTof::tarea = NULL;
-
 SensorTof* SensorTof::instancia = nullptr;
 
 SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
@@ -4730,8 +4753,11 @@ bool SensorTof::begin(){
 	}
 	gpio_config(&io_conf_intp);
 
-	//instalar las interrupciones
-	gpio_install_isr_service(0);
+	//instalar las interrupciones si no estan instaladas
+	esp_err_t isr_err = gpio_install_isr_service(0);
+	if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
+		ESP_LOGE(TAG, "Error instalando ISR service: %s", esp_err_to_name(isr_err));
+	}
 
 	//añadir las interrupciones
 	for(int i = 0; i < NUM_TOF; i++){
@@ -4780,7 +4806,7 @@ bool SensorTof::begin(){
 		}
 	}
 	//creacion de la tarea
-	xTaskCreatePinnedToCore(SensorTof::tareaTof, "tareaTof", 2048, this, 10, &tarea, 0);
+	tarea = xTaskCreateStaticPinnedToCore(SensorTof::tareaTof, "tareaTof", sizeof(stackTof), this, 10, stackTof, &tcbTof, 0);
 	return b;
 }
 
@@ -4841,7 +4867,7 @@ void IRAM_ATTR SensorTof::tofIntr(void* arg){
 	//se marca cual fue el sensor que dio la interrupcion
 	instancia->listo[tof] = true;
 
-	vTaskNotifyGiveFromISR(tarea, &cambioC);
+	vTaskNotifyGiveFromISR(instancia->tarea, &cambioC);
 
 	//cambia el estado del bit correspondiente al sensor que genero la interrupcion
 	if(cambioC){
@@ -4959,7 +4985,11 @@ class SensorTof : public SensorRival {
 		//gestor I2C
 		GestorI2C& i2c;
 		//el controlador de la tarea
-		static TaskHandle_t tarea;
+		TaskHandle_t tarea = NULL;
+		//tcb de la tarea
+		StaticTask_t tcbTof;
+		//stack de la tarea
+		StackType_t stackTof[4096];
 		//instancia de la clase para la interrupcion
 		static SensorTof* instancia;
 		//pines xshut

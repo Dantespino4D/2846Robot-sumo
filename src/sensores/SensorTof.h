@@ -38,7 +38,11 @@ class SensorTof : public SensorRival {
 		//gestor I2C
 		GestorI2C& i2c;
 		//el controlador de la tarea
-		static TaskHandle_t tarea;
+		TaskHandle_t tarea = NULL;
+		//tcb de la tarea
+		StaticTask_t tcbTof;
+		//stack de la tarea
+		StackType_t stackTof[4096];
 		//instancia de la clase para la interrupcion
 		static SensorTof* instancia;
 		//pines xshut

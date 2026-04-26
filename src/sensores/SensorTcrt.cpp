@@ -15,8 +15,6 @@ extern EventGroupHandle_t eventos;
 
 static const char* TAG = "SensorTcrt";
 
-TaskHandle_t SensorTcrt::tarea = nullptr;
-
 SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
 	pin1(_p1),
 	pin2(_p2)
@@ -33,7 +31,7 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 	if(gpio_get_level(sensor->pin2)){
 		estado |= (1 << 1);
 	}
-	xTaskNotifyFromISR(tarea, estado, eSetValueWithOverwrite, &cambioC);
+	xTaskNotifyFromISR(sensor->tarea, estado, eSetValueWithOverwrite, &cambioC);
     if (cambioC) {
         portYIELD_FROM_ISR();
     }
@@ -50,7 +48,7 @@ void SensorTcrt::begin() {
 
     ESP_LOGI(TAG, "Interrupciones configuradas para TCRT en pines %d y %d", pin1, pin2);
 
-	xTaskCreatePinnedToCore(tareaTcrt, "tareaTcrt", 2048, (void*)this, 10, &tarea, 1);
+	tarea = xTaskCreateStaticPinnedToCore(tareaTcrt, "tareaTcrt", sizeof(stackTcrt), (void*)this, 10, stackTcrt, &tcbTcrt, 1);
 }
 
 void SensorTcrt::colores(uint16_t* buffer) {
@@ -64,8 +62,11 @@ void SensorTcrt::colores(uint16_t* buffer) {
 void SensorTcrt::tareaTcrt(void* pvParameters) {
 	SensorTcrt* sensor = (SensorTcrt*)pvParameters;
 
-	//instalar la interrupcion
-    gpio_install_isr_service(0);
+	//instalar la interrupcion si no esta instalada
+	esp_err_t isr_err = gpio_install_isr_service(0);
+	if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
+		ESP_LOGE(TAG, "Error instalando ISR service: %s", esp_err_to_name(isr_err));
+	}
 
     gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor);
     gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor);

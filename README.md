@@ -17,6 +17,7 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 | Configuración | NVS (Non-Volatile Storage) en partición dedicada para parámetros ajustables en caliente |
 | Robustez | Watchdog de tareas (WDT) y auto-recuperación de bus I2C con timeout de hardware |
 | Abstracción | Inyección de dependencias para sensores según el hardware (`final` flag) |
+| Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas críticas, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
 
 ---
 
@@ -42,6 +43,7 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 * **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
 * **Alimentación Optimizada:** Sustitución del regulador LM2596 por el módulo **Mini 360 (MP2307)**, logrando mayor eficiencia energética y un diseño más compacto.
 * **Monitor del Sistema:** Lectura en tiempo real del voltaje de la batería y temperatura de 4 termistores utilizando la API ADC Oneshot de ESP-IDF.
+* **Almacenamiento Expandido:** Configuración de flash de **16MB** en el ESP32-S3 para soportar logs extensos y futuras expansiones de firmware.
 
 ---
 
@@ -70,7 +72,8 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
 - **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
 - **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza un remapeo secuencial de direcciones I2C al arranque mediante los pines **XSHUT**, permitiendo la coexistencia de múltiples sensores en un solo bus sin colisiones. Implementa una **lectura de ráfaga (burst read) de bajo nivel** al registro `0x0089`, permitiendo extraer en una sola transacción la distancia, el estado del sensor, la tasa de retorno de señal y el ruido de luz ambiente para validar la calidad de la detección en entornos con alta interferencia lumínica.
-- **`GestorI2C`** — Módulo crítico encargado de la robustez del hardware. Implementa un sistema de **auto-recuperación (self-healing)** que detecta bloqueos del bus (SDA/SCL pegados) y realiza ciclos de limpieza de bus mediante pulsos de reloj manuales y reinicios de periférico, garantizando que el robot no quede indefenso ante ruidos electromagnéticos de los motores.
+- **`GestorI2C`** — Módulo crítico encargado de la robustez del hardware. Implementa un sistema de **auto-recuperación (self-healing)** que detecta bloqueos del bus y configura un **timeout de hardware (64000 ticks)** para evitar colgar el procesador, garantizando que el robot no quede indefenso ante ruidos electromagnéticos.
+- **`Nvs`** — Abstracción para el almacenamiento no volátil. Utiliza una **partición dedicada ("configuracion")** separada del NVS estándar del sistema para proteger los parámetros tácticos y asegurar su integridad ante actualizaciones o fallos del sistema.
 - **`Telemetria`** — Stack de conectividad que publica el estado completo del robot de forma asíncrona. El JSON de telemetría se auto-adapta dinámicamente mediante el flag `final` según el hardware detectado.
     - **Middleware de Persistencia:** Utiliza un script externo (`telemetria.py`) que escucha vía MQTT, realiza una gestión de cola (batching) en una base de datos local SQLite y reenvía los datos mediante HTTP/HTTPS (con integración a una **base de datos externa** prevista próximamente).
     - **Salud de Sensores:** Reporta métricas de calidad para los ToF (estado, señal y ruido ambiental).
@@ -151,6 +154,8 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 * **Jerarquía de Máscaras de Bits:** Permite que la lógica de decisión sea extremadamente rápida y legible, filtrando grupos completos de sensores en un solo ciclo de CPU.
 * **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
 * **Sistema Anti-Jitter (Zero-Order Hold):** Procesa las lecturas de los sensores a través de una matriz de memorias a corto plazo para evitar ruidos en la toma de decisiones.
+* **Determinismo y Estabilidad de Memoria:** Implementación de **Asignación Estática de FreeRTOS** (`xTaskCreateStatic`) para todas las tareas del sistema (`robot`, `motores`, `telemetría`, etc.). Esto elimina la dependencia del heap en tiempo de ejecución, previene errores de "Out of Memory" por fragmentación y asegura un comportamiento determinista, crítico para la fiabilidad en competencia.
+* **Robustez de Interrupciones y Periféricos:** Mejora en la inicialización de los servicios de interrupción GPIO y gestión de handles de tareas por instancia, permitiendo una coexistencia más segura de múltiples sensores y evitando colisiones de hardware durante el arranque.
 
 ## Ecosistema de Herramientas
 

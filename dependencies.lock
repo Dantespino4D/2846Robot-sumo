@@ -83,5 +83,5 @@ direct_dependencies:
 - espp/vl53l
 - espressif/mdns
 manifest_hash: afa9134287cbb79acf592e7a838299a5aeae443a7a259e6d20986c8d3332561d
-target: esp32s3
+target: esp32
 version: 2.0.0

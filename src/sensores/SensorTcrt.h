@@ -17,10 +17,19 @@ class SensorTcrt : public SensorLimite {
 		gpio_num_t pin1;
 		gpio_num_t pin2;
 
-		static TaskHandle_t tarea;
+		//handle de la tarea
+		TaskHandle_t tarea = nullptr;
 
+		//buffer de la tarea
+		StaticTask_t tcbTcrt;
+
+		//stack de la tarea
+		StackType_t stackTcrt[2048];
+
+		//tarea de lectura de los sensores
 		static void tareaTcrt(void* pvParameters);
 
+		//funcion de interrupcion para los sensores
 		static void IRAM_ATTR limite_isr(void* arg);
 
 	public:
