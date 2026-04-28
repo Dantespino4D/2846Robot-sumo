@@ -612,27 +612,24 @@ FILE PATH: ./src/actuadores/ControlMotores.cpp
 ==========================================
 
 #include "driver/gpio.h"
-#include "driver/ledc.h"
+#include "driver/mcpwm_prelude.h"
 #include "ControlMotores.h"
 #include "../core/Nvs.h"
+#include "../configuracion/pines.h"
+#include "hal/mcpwm_types.h"
 #include <cstdint>
 #include <cstdlib>
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-    #define MODO_PWM LEDC_LOW_SPEED_MODE
+//    #define MODO_PWM LEDC_LOW_SPEED_MODE
 #else
     #define MODO_PWM LEDC_HIGH_SPEED_MODE
 #endif
 
 ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
 // Valores de configuracion pwm
-    freq(20000),
-    solut(LEDC_TIMER_10_BIT),
-    pwmC_1(LEDC_CHANNEL_0),
-    pwmC_2(LEDC_CHANNEL_1),
-    pwmC_3(LEDC_CHANNEL_2),
-    pwmC_4(LEDC_CHANNEL_3),
-
+    freq(20000000),
+    period(1023), // Ajustado a 1023 para coincidir con el rango de velocidad
 	//valor del tiempo de la rampa
 	tRam(200),
 
@@ -664,51 +661,6 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	//variable de las velocidades actuales
 	vel1 = vel_1;
 	vel2 = vel_2;
-	//varaible de la rampa de aceleracion
-	uint32_t fade;
-	//condicional de la rampa de aceleracion
-	if(ram){
-		//aplica rampa de aceleracion
-		fade = tRam;
-	}else{
-		//no aplica rampa de aceleracion
-		fade = 0;
-	}
-	//verifica la direccion de los motores de los canales 1 y 3
-	if(vel_1 > 0){
-		//aplca la velocidad en direccin a
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_1, vel_1, fade);
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_3, 0, fade);
-	}else if(vel_1 < 0){
-		//aplca la velocidad en direccin b
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_1, 0, fade);
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_3, abs(vel_1), fade);
-	}else{
-		//frena el motor
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_1, 1023, fade);
-		ledc_set_fade_with_time(MODO_PWM, pwmC_3, 1023, fade);
-	}
-
-	//verifica la direccion de los motores de los canales 2 y 4
-	if(vel_2 > 0){
-		//aplca la velocidad en direccin a
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_2, vel_2, fade);
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_4, 0, fade);
-	}else if(vel_2 < 0){
-		//aplca la velocidad en direccin b
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_2, 0, fade);
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_4, abs(vel_2), fade);
-	}else{
-		//frena el motor
-    	ledc_set_fade_with_time(MODO_PWM, pwmC_2, 1023, fade);
-		ledc_set_fade_with_time(MODO_PWM, pwmC_4, 1023, fade);
-	}
-
-	//aplica los cambios de velocidad
-	ledc_fade_start(MODO_PWM, pwmC_1, LEDC_FADE_NO_WAIT);
-    ledc_fade_start(MODO_PWM, pwmC_2, LEDC_FADE_NO_WAIT);
-    ledc_fade_start(MODO_PWM, pwmC_3, LEDC_FADE_NO_WAIT);
-    ledc_fade_start(MODO_PWM, pwmC_4, LEDC_FADE_NO_WAIT);
 }
 
 //metodo que para el robot
@@ -798,81 +750,80 @@ void ControlMotores::evasion_b(){
 }
 
 //metodo que inicializa y prepara todo
-void ControlMotores::begin(){
-	//se aplican datos de nvs
-	nvsLeer();
+void ControlMotores::begin() {
+    nvsLeer();
 
-  	// configuracion y asignacion de los pines pwm
+    mcpwm_timer_config_t timer_config = {};
+    timer_config.group_id = 0;
+    timer_config.clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT;
+    timer_config.resolution_hz = freq;
+    timer_config.count_mode = MCPWM_TIMER_COUNT_MODE_UP;
+    timer_config.period_ticks = period;
 
-	//configuracion del timer
-	ledc_timer_config_t ledc_timer = {
-		.speed_mode = MODO_PWM,
-		.duty_resolution = solut,
-		.timer_num = LEDC_TIMER_0,
-		.freq_hz = (uint32_t)freq,
-		.clk_cfg = LEDC_AUTO_CLK,
-		.deconfigure = false
-	};
-	ledc_timer_config(&ledc_timer);
+    ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &timer));
 
-	//configuracion canal 1
-	ledc_channel_config_t ledc_channel_1 = {
-		.gpio_num = mot2[0],
-		.speed_mode = MODO_PWM,
-		.channel = pwmC_1,
-		.intr_type = LEDC_INTR_DISABLE,
-		.timer_sel = LEDC_TIMER_0,
-		.duty = 0,
-		.hpoint = 0,
-		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
-		.flags = 0
-	};
-	ledc_channel_config(&ledc_channel_1);
+    mcpwm_operator_config_t operator_config = {};
+    operator_config.group_id = 0;
+    operator_config.flags.update_gen_action_on_tez = true;
 
-	//configuracion canal 2
-	ledc_channel_config_t ledc_channel_2 = {
-		.gpio_num = mot2[1],
-		.speed_mode = MODO_PWM,
-		.channel = pwmC_2,
-		.intr_type = LEDC_INTR_DISABLE,
-		.timer_sel = LEDC_TIMER_0,
-		.duty = 0,
-		.hpoint = 0,
-		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
-		.flags = 0
-	};
-	ledc_channel_config(&ledc_channel_2);
+    ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper_izq));
+    ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper_der));
 
-	//configuracion canal 3
-	ledc_channel_config_t ledc_channel_3 = {
-		.gpio_num = mot[0],
-		.speed_mode = MODO_PWM,
-		.channel = pwmC_3,
-		.intr_type = LEDC_INTR_DISABLE,
-		.timer_sel = LEDC_TIMER_0,
-		.duty = 0,
-		.hpoint = 0,
-		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
-		.flags = 0
-	};
-	ledc_channel_config(&ledc_channel_3);
+    ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper_izq, timer));
+    ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper_der, timer));
 
-	//configuracion canal 4
-	ledc_channel_config_t ledc_channel_4 = {
-		.gpio_num = mot[1],
-		.speed_mode = MODO_PWM,
-		.channel = pwmC_4,
-		.intr_type = LEDC_INTR_DISABLE,
-		.timer_sel = LEDC_TIMER_0,
-		.duty = 0,
-		.hpoint = 0,
-		.sleep_mode = LEDC_SLEEP_MODE_KEEP_ALIVE,
-		.flags = 0
-	};
-	ledc_channel_config(&ledc_channel_4);
-	//se instala la funcion para la rampa de aceleracion
-	ledc_fade_func_install(0);
-	alto();
+    mcpwm_comparator_config_t comparator_config = {};
+    comparator_config.flags.update_cmp_on_tez = true;
+
+    ESP_ERROR_CHECK(mcpwm_new_comparator(oper_izq, &comparator_config, &cmpr_izq));
+    ESP_ERROR_CHECK(mcpwm_new_comparator(oper_der, &comparator_config, &cmpr_der));
+
+    mcpwm_generator_config_t generator_config = {};
+
+    generator_config.gen_gpio_num = mot[0];
+    ESP_ERROR_CHECK(mcpwm_new_generator(oper_izq, &generator_config, &gen_izq_a));
+    generator_config.gen_gpio_num = mot2[0];
+    ESP_ERROR_CHECK(mcpwm_new_generator(oper_izq, &generator_config, &gen_izq_b));
+
+    generator_config.gen_gpio_num = mot[1];
+    ESP_ERROR_CHECK(mcpwm_new_generator(oper_der, &generator_config, &gen_der_a));
+    generator_config.gen_gpio_num = mot2[1];
+    ESP_ERROR_CHECK(mcpwm_new_generator(oper_der, &generator_config, &gen_der_b));
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+    mcpwm_gpio_fault_config_t fault_config = {};
+    fault_config.group_id = 0;
+    fault_config.gpio_num = TCRT_1;
+    fault_config.intr_priority = 5;
+    fault_config.flags.active_level = 1;
+    fault_config.flags.pull_up = 0;
+    fault_config.flags.pull_down = 0;
+
+    mcpwm_fault_handle_t fallo_izquierdo;
+    ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_izquierdo));
+
+    mcpwm_brake_config_t freno_config = {};
+    freno_config.fault = fallo_izquierdo;
+    freno_config.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
+
+    ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_izq, &freno_config));
+    ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_der, &freno_config));
+
+    mcpwm_gen_brake_event_action_t accion_freno = {};
+    accion_freno.direction = MCPWM_TIMER_DIRECTION_UP;
+    accion_freno.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
+    accion_freno.action = MCPWM_GEN_ACTION_LOW;
+
+    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_a, accion_freno));
+    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_b, accion_freno));
+    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_a, accion_freno));
+    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_b, accion_freno));
+#endif
+
+    ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
+    ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
+
+    alto();
 }
 
 void ControlMotores::controlador(int accion){
@@ -963,18 +914,25 @@ FILE PATH: ./src/actuadores/ControlMotores.h
 #define CONTROLMOTORES_H
 
 #include "driver/gpio.h"
-#include "driver/ledc.h"
+#include "driver/mcpwm_prelude.h"
 #include <cstdint>
 
 class ControlMotores{
 	private:
+		// MCPWM handles
+		mcpwm_timer_handle_t timer;
+		mcpwm_oper_handle_t oper_izq;
+		mcpwm_oper_handle_t oper_der;
+		mcpwm_cmpr_handle_t cmpr_izq;
+		mcpwm_cmpr_handle_t cmpr_der;
+		mcpwm_gen_handle_t gen_izq_a;
+		mcpwm_gen_handle_t gen_izq_b;
+		mcpwm_gen_handle_t gen_der_a;
+		mcpwm_gen_handle_t gen_der_b;
+
 		//variables necesarias
-		int freq;
-		ledc_timer_bit_t solut;
-		ledc_channel_t pwmC_1;
-		ledc_channel_t pwmC_2;
-		ledc_channel_t pwmC_3;
-		ledc_channel_t pwmC_4;
+		uint32_t freq;
+		uint16_t period;
 
 		gpio_num_t mot2[2];
 		gpio_num_t mot[2];

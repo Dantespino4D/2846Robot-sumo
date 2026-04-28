@@ -2,18 +2,25 @@
 #define CONTROLMOTORES_H
 
 #include "driver/gpio.h"
-#include "driver/ledc.h"
+#include "driver/mcpwm_prelude.h"
 #include <cstdint>
 
 class ControlMotores{
 	private:
+		// MCPWM handles
+		mcpwm_timer_handle_t timer;
+		mcpwm_oper_handle_t oper_izq;
+		mcpwm_oper_handle_t oper_der;
+		mcpwm_cmpr_handle_t cmpr_izq;
+		mcpwm_cmpr_handle_t cmpr_der;
+		mcpwm_gen_handle_t gen_izq_a;
+		mcpwm_gen_handle_t gen_izq_b;
+		mcpwm_gen_handle_t gen_der_a;
+		mcpwm_gen_handle_t gen_der_b;
+
 		//variables necesarias
-		int freq;
-		ledc_timer_bit_t solut;
-		ledc_channel_t pwmC_1;
-		ledc_channel_t pwmC_2;
-		ledc_channel_t pwmC_3;
-		ledc_channel_t pwmC_4;
+		uint32_t freq;
+		uint16_t period;
 
 		gpio_num_t mot2[2];
 		gpio_num_t mot[2];

@@ -19,6 +19,13 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 | Abstracción | Inyección de dependencias para sensores según el hardware (`final` flag) |
 | Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas críticas, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
 
+## Estado del Desarrollo (WIP - Trabajo en Progreso)
+
+> [!CAUTION]
+> **Migración de Driver de Motores:** Actualmente el sistema se encuentra en una fase de transición del periférico **LEDC** al más avanzado **MCPWM** (Motor Control PWM). 
+> * **Hardware:** Se ha implementado una parada de emergencia (Brake) por hardware vinculada al pin `TCRT_1`. Si este pin detecta una señal de falla (línea), el periférico bloqueará los motores instantáneamente sin intervención del software.
+> * **Software:** El método `velocidad()` está siendo reescrito. En el commit actual, el robot **no responderá a comandos de movimiento** hasta que se complete el mapeo de los comparadores MCPWM.
+
 ---
 
 ## Especificaciones de Hardware
