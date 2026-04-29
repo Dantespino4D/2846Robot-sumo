@@ -19,13 +19,6 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 | Abstracción | Inyección de dependencias para sensores según el hardware (`final` flag) |
 | Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas críticas, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
 
-## Estado del Desarrollo (WIP - Trabajo en Progreso)
-
-> [!CAUTION]
-> **Migración de Driver de Motores:** Actualmente el sistema se encuentra en una fase de transición del periférico **LEDC** al más avanzado **MCPWM** (Motor Control PWM). 
-> * **Hardware:** Se ha implementado una parada de emergencia (Brake) por hardware vinculada al pin `TCRT_1`. Si este pin detecta una señal de falla (línea), el periférico bloqueará los motores instantáneamente sin intervención del software.
-> * **Software:** El método `velocidad()` está siendo reescrito. En el commit actual, el robot **no responderá a comandos de movimiento** hasta que se complete el mapeo de los comparadores MCPWM.
-
 ---
 
 ## Especificaciones de Hardware
@@ -79,7 +72,7 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
 - **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
-- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza un remapeo secuencial de direcciones I2C al arranque mediante los pines **XSHUT**, permitiendo la coexistencia de múltiples sensores en un solo bus sin colisiones. 
+- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza un remapeo secuencial de direcciones I2C al arranque mediante los pines **XSHUT**, permitiendo la coexistencia de múltiples sensores en un solo bus sin colisiones.
     - **Configuración ROI Dinámica:** Implementa un método `set_roi` que permite modificar físicamente el tamaño y la posición de la matriz de SPADs activa. Esto se utiliza para configurar una ventana de visión optimizada que ignora obstáculos estructurales y el brillo del tatami.
     - **Lectura de ráfaga (burst read):** Implementa una **lectura de ráfaga (burst read) de bajo nivel** al registro `0x0089`, permitiendo extraer en una sola transacción la distancia, el estado del sensor, la tasa de retorno de señal y el ruido de luz ambiente para validar la calidad de la detección en entornos con alta interferencia lumínica.
 - **`GestorI2C`** — Módulo crítico encargado de la robustez del hardware. Implementa un sistema de **auto-recuperación (self-healing)** que detecta bloqueos del bus y configura un **timeout de hardware (64000 ticks)** para evitar colgar el procesador, garantizando que el robot no quede indefenso ante ruidos electromagnéticos.
@@ -224,4 +217,6 @@ El proyecto incluye un conjunto de herramientas externas para la gestión de dat
 ├── sdkconfig.defaults        # Valores por defecto de Kconfig
 ├── sdkconfig.esp32           # Configuración específica Prototipo
 └── sdkconfig.esp32-s3        # Configuración específica Final
+```
+p32-s3        # Configuración específica Final
 ```

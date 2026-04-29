@@ -612,6 +612,7 @@ FILE PATH: ./src/actuadores/ControlMotores.cpp
 ==========================================
 
 #include "driver/gpio.h"
+#include "driver/mcpwm_gen.h"
 #include "driver/mcpwm_prelude.h"
 #include "ControlMotores.h"
 #include "../core/Nvs.h"
@@ -661,6 +662,43 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	//variable de las velocidades actuales
 	vel1 = vel_1;
 	vel2 = vel_2;
+
+	//verifica si se debe aplicar la rampa
+	if(ram){}
+
+	//calcula y aplica la velocidad del lado izquierdo
+	if(vel_1 < 0){
+		//si es en reversa
+		mcpwm_generator_set_force_level(gen_izq_a, 0, true);
+		mcpwm_generator_set_force_level(gen_izq_b, -1, true);
+		mcpwm_comparator_set_compare_value(cmpr_izq, abs(vel_1));
+	}else if(vel_1 > 0){
+		//si es hacia adelante
+		mcpwm_generator_set_force_level(gen_izq_a, -1, true);
+		mcpwm_generator_set_force_level(gen_izq_b, 0, true);
+		mcpwm_comparator_set_compare_value(cmpr_izq, vel_1);
+	}else{
+		//si debe frenar
+		mcpwm_generator_set_force_level(gen_izq_a, 1, true);
+		mcpwm_generator_set_force_level(gen_izq_b, 1, true);
+	}
+
+	//calcula y aplica la velocidad del lado derecho
+	if(vel_2 < 0){
+		//si es en reversa
+		mcpwm_generator_set_force_level(gen_der_a, 0, true);
+		mcpwm_generator_set_force_level(gen_der_b, -1, true);
+		mcpwm_comparator_set_compare_value(cmpr_der, abs(vel_2));
+	}else if(vel_2 > 0){
+		//si es hacia adelante
+		mcpwm_generator_set_force_level(gen_der_a, -1, true);
+		mcpwm_generator_set_force_level(gen_der_b, 0, true);
+		mcpwm_comparator_set_compare_value(cmpr_der, vel_2);
+	}else{
+		//si debe frenar
+		mcpwm_generator_set_force_level(gen_der_a, 1, true);
+		mcpwm_generator_set_force_level(gen_der_b, 1, true);
+	}
 }
 
 //metodo que para el robot
@@ -751,8 +789,10 @@ void ControlMotores::evasion_b(){
 
 //metodo que inicializa y prepara todo
 void ControlMotores::begin() {
+	//se leen los valores del nvs
     nvsLeer();
 
+	//se configura el timer
     mcpwm_timer_config_t timer_config = {};
     timer_config.group_id = 0;
     timer_config.clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT;
@@ -760,37 +800,80 @@ void ControlMotores::begin() {
     timer_config.count_mode = MCPWM_TIMER_COUNT_MODE_UP;
     timer_config.period_ticks = period;
 
+	//se crea el timer
     ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &timer));
 
+	//se configura el operador
     mcpwm_operator_config_t operator_config = {};
     operator_config.group_id = 0;
     operator_config.flags.update_gen_action_on_tez = true;
 
+	//se crean los operadores
     ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper_izq));
     ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper_der));
 
+	//se conectan los operadores al timer
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper_izq, timer));
     ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper_der, timer));
 
+	//se configura el comparador
     mcpwm_comparator_config_t comparator_config = {};
     comparator_config.flags.update_cmp_on_tez = true;
 
+	//se crean los comparadores
     ESP_ERROR_CHECK(mcpwm_new_comparator(oper_izq, &comparator_config, &cmpr_izq));
     ESP_ERROR_CHECK(mcpwm_new_comparator(oper_der, &comparator_config, &cmpr_der));
+	ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(cmpr_izq, 0));
+	ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(cmpr_der, 0));
 
+	//se configuran los generadores
     mcpwm_generator_config_t generator_config = {};
 
-    generator_config.gen_gpio_num = mot[0];
+	//se crean los generadores y se asignan a los pines correspondientes del lado izquierdo
+   	generator_config.gen_gpio_num = mot[0];
     ESP_ERROR_CHECK(mcpwm_new_generator(oper_izq, &generator_config, &gen_izq_a));
     generator_config.gen_gpio_num = mot2[0];
     ESP_ERROR_CHECK(mcpwm_new_generator(oper_izq, &generator_config, &gen_izq_b));
 
+	//se crean los generadores y se asignan a los pines correspondientes del lado derecho
     generator_config.gen_gpio_num = mot[1];
     ESP_ERROR_CHECK(mcpwm_new_generator(oper_der, &generator_config, &gen_der_a));
     generator_config.gen_gpio_num = mot2[1];
     ESP_ERROR_CHECK(mcpwm_new_generator(oper_der, &generator_config, &gen_der_b));
 
+	// Configuración de la acción de los generadores en eventos del timer
+	mcpwm_gen_timer_event_action_t accion_timer = {};
+	accion_timer.direction = MCPWM_TIMER_DIRECTION_UP;
+	accion_timer.event = MCPWM_TIMER_EVENT_EMPTY;
+	accion_timer.action = MCPWM_GEN_ACTION_HIGH;
+
+	//se aplica la acción de los generadores en eventos del timer
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_izq_a, accion_timer));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_izq_b, accion_timer));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_der_a, accion_timer));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_der_b, accion_timer));
+
+	//configuración de la acción de los generadores en eventos del comparador
+	mcpwm_gen_compare_event_action_t accion_comparator = {};
+
+	// Configuración de la acción de los generadores en eventos del comparador
+	accion_comparator.direction = MCPWM_TIMER_DIRECTION_UP;
+	accion_comparator.comparator = cmpr_izq;
+	accion_comparator.action = MCPWM_GEN_ACTION_LOW;
+
+	//se aplica la acción de los generadores en eventos del comparador
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_izq_a, accion_comparator));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_izq_b, accion_comparator));
+
+	//se cambia la acción para el lado derecho
+	accion_comparator.comparator = cmpr_der;
+
+	//se aplica la acción de los generadores en eventos del comparador para el lado derecho
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_der_a, accion_comparator));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_der_b, accion_comparator));
+
 #ifdef CONFIG_IDF_TARGET_ESP32S3
+	// Configuración de falla para el sensor TCRT
     mcpwm_gpio_fault_config_t fault_config = {};
     fault_config.group_id = 0;
     fault_config.gpio_num = TCRT_1;
@@ -799,21 +882,26 @@ void ControlMotores::begin() {
     fault_config.flags.pull_up = 0;
     fault_config.flags.pull_down = 0;
 
+	// Se crea el manejador de falla para el sensor TCRT
     mcpwm_fault_handle_t fallo_izquierdo;
     ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_izquierdo));
 
+	// Configuración de freno para la falla del sensor TCRT
     mcpwm_brake_config_t freno_config = {};
     freno_config.fault = fallo_izquierdo;
     freno_config.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
 
+	// Se asigna la acción de freno a ambos operadores en caso de falla del sensor TCRT
     ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_izq, &freno_config));
     ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_der, &freno_config));
 
+	// Configuración de la acción de freno para los generadores en caso de evento de freno
     mcpwm_gen_brake_event_action_t accion_freno = {};
     accion_freno.direction = MCPWM_TIMER_DIRECTION_UP;
     accion_freno.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
     accion_freno.action = MCPWM_GEN_ACTION_LOW;
 
+	// Se asigna la acción de freno a los generadores en caso de evento de freno
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_a, accion_freno));
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_b, accion_freno));
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_a, accion_freno));
