@@ -48,15 +48,15 @@ class ControlMotores{
 		int16_t vel_eD; // Evasión Derecha
 
 		//variables que guardan la velocidad actual
-		int16_t vel1;
-		int16_t vel2;
+		volatile int16_t vel1;
+		volatile int16_t vel2;
 
 		//booleano de la rampa
-		bool rampa;
+		volatile bool rampa;
 
 		//variables de la velocidad objetivo
-		int16_t vel1_obj;
-		int16_t vel2_obj;
+		volatile int16_t vel1_obj;
+		volatile int16_t vel2_obj;
 
 		//variables de la tarea estatica
 		StaticTask_t tcbMotores;
@@ -93,7 +93,7 @@ class ControlMotores{
 		//alto
 		void alto();
 		//envia los datos a telemetria
-		void velocidades(int16_t* v1, int16_t* v2);
+		void velocidades(int16_t* v1, int16_t* v2, int16_t* vo1, int16_t* vo2);
 };
 
 #endif

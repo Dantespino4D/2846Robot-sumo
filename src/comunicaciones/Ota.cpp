@@ -9,6 +9,10 @@
 
 static const char *TAG = "OTA";
 
+// Buffers estáticos para la tarea
+StaticTask_t Ota::tcbOta;
+StackType_t Ota::stackOta[STACK_OTA];
+
 void Ota::ota(const char* url){
 	char *urlC = strdup(url);
 	if(urlC != NULL){
@@ -40,10 +44,9 @@ void Ota::ota(const char* url){
 
         // Log para ver EXACTAMENTE qué estamos enviando (entre corchetes)
         ESP_LOGI(TAG, "URL Limpia: [%s]", urlT);
-		ESP_LOGI(TAG, "iniciando ota");
-		xTaskCreate(Ota::tareaOta, "tarea ota", 12288, (void*)urlT, 5, NULL);
-	}else{
-		ESP_LOGE(TAG, "error al iniciar la ota");
+        ESP_LOGI(TAG, "iniciando ota");
+        xTaskCreateStaticPinnedToCore(Ota::tareaOta, "tarea ota", sizeof(stackOta), (void*)urlT, 5, stackOta, &tcbOta, 0);
+        }else{		ESP_LOGE(TAG, "error al iniciar la ota");
 	}
 	free(urlC);
 }

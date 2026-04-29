@@ -73,6 +73,8 @@ struct Datos{
 	//variables de los motores
 	int16_t pwm1;
 	int16_t pwm2;
+	int16_t pwm1_obj;
+	int16_t pwm2_obj;
 	int stall;
 
 	//variables del sistema

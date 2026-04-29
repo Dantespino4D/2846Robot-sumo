@@ -431,7 +431,9 @@ void ControlMotores::nvsLeer(){
 }
 
 //envia los datos a la telemetria
-void ControlMotores::velocidades(int16_t* v1, int16_t* v2){
+void ControlMotores::velocidades(int16_t* v1, int16_t* v2, int16_t* vo1, int16_t* vo2){
 	*v1 = vel1;
 	*v2 = vel2;
+	*vo1 = vel1_obj;
+	*vo2 = vel2_obj;
 }

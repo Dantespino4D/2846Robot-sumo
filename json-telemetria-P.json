@@ -4,7 +4,10 @@
     "tiempo": 8200,
     "heap": 15400,
     "pila": 7.4,
-    "temp": 32.5,
+    "tempM_1": 32.5,
+    "tempM_2": 32.0,
+    "tempM_3": 31.8,
+    "tempM_4": 32.2,
     "wifi": -62,
     "ciclo": 4,
     "prototipo": 1
@@ -17,6 +20,8 @@
   "motores": {
     "pwm_izq": 180,
     "pwm_der": 180,
+    "pwm_izq_obj": 180,
+    "pwm_der_obj": 180,
     "corriente": 0.0
   },
   "sensores": {
