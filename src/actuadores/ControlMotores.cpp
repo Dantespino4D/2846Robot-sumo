@@ -17,7 +17,7 @@
 ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
 // Valores de configuracion pwm
     freq(20000000),
-    period(1023), // Ajustado a 1023 para coincidir con el rango de velocidad
+    period(1023),
 	//valor del tiempo de la rampa
 	tRam(200),
 
@@ -34,7 +34,12 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_gD(-800),
 
 	vel1(0),
-	vel2(0)
+	vel2(0),
+
+	rampa(false),
+
+	vel1_obj(0),
+	vel2_obj(0)
 {
 	//pines pwm
 	mot2[0] = motA2;
@@ -47,44 +52,92 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 //estblecer velocidad
 void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	//variable de las velocidades actuales
-	vel1 = vel_1;
-	vel2 = vel_2;
+	vel1_obj = vel_1;
+	vel2_obj = vel_2;
 
-	//verifica si se debe aplicar la rampa
-	if(ram){}
+	//variable de la rampa
+	rampa = ram;
+}
 
-	//calcula y aplica la velocidad del lado izquierdo
-	if(vel_1 < 0){
-		//si es en reversa
-		mcpwm_generator_set_force_level(gen_izq_a, 0, true);
-		mcpwm_generator_set_force_level(gen_izq_b, -1, true);
-		mcpwm_comparator_set_compare_value(cmpr_izq, abs(vel_1));
-	}else if(vel_1 > 0){
-		//si es hacia adelante
-		mcpwm_generator_set_force_level(gen_izq_a, -1, true);
-		mcpwm_generator_set_force_level(gen_izq_b, 0, true);
-		mcpwm_comparator_set_compare_value(cmpr_izq, vel_1);
-	}else{
-		//si debe frenar
-		mcpwm_generator_set_force_level(gen_izq_a, 1, true);
-		mcpwm_generator_set_force_level(gen_izq_b, 1, true);
-	}
+//tarea que aplica la rampa
+void ControlMotores::tareaRampa(void* arg){
+	//se obtiene el puntero a la instancia de ControlMotores
+	ControlMotores* self = static_cast<ControlMotores*>(arg);
+	while(true){
+		//se calcula el paso de incremento o decremento de la velocidad en cada ciclo de la rampa
+		int8_t paso = 10230 / self->tRam;
+		//se verifica si se ha alcanzado el objetivo de velocidad del lado izquierdo
+		if(self->rampa){
+			if(abs(self->vel1 - self->vel1_obj) > paso){
+				//si no se ha alcanzado, se incrementa o decrementa la velocidad actual hacia el objetivo
+				if(self->vel1 < self->vel1_obj){
+					self->vel1 += paso;
+				}else{
+					self->vel1 -= paso;
+				}
+			}else{
+				//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea
+				self->vel1 = self->vel1_obj;
+			}
+		}else{
+			//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea
+			self->vel1 = self->vel1_obj;
+		}
 
-	//calcula y aplica la velocidad del lado derecho
-	if(vel_2 < 0){
-		//si es en reversa
-		mcpwm_generator_set_force_level(gen_der_a, 0, true);
-		mcpwm_generator_set_force_level(gen_der_b, -1, true);
-		mcpwm_comparator_set_compare_value(cmpr_der, abs(vel_2));
-	}else if(vel_2 > 0){
-		//si es hacia adelante
-		mcpwm_generator_set_force_level(gen_der_a, -1, true);
-		mcpwm_generator_set_force_level(gen_der_b, 0, true);
-		mcpwm_comparator_set_compare_value(cmpr_der, vel_2);
-	}else{
-		//si debe frenar
-		mcpwm_generator_set_force_level(gen_der_a, 1, true);
-		mcpwm_generator_set_force_level(gen_der_b, 1, true);
+		//se verifica si se ha alcanzado el objetivo de velocidad del lado derecho
+		if(self->rampa){
+			if(abs(self->vel2 - self->vel2_obj) > paso){
+				//si no se ha alcanzado, se incrementa o decrementa la velocidad actual hacia el objetivo
+				if(self->vel2 < self->vel2_obj){
+					self->vel2 += paso;
+				}else{
+					self->vel2 -= paso;
+				}
+			}else{
+				//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea
+				self->vel2 = self->vel2_obj;
+			}
+		}else{
+			//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea
+			self->vel2 = self->vel2_obj;
+		}
+
+		//se aplican las velocidades
+
+		//calcula y aplica la velocidad del lado izquierdo
+		if(self->vel1 < 0){
+			//si es en reversa
+			mcpwm_generator_set_force_level(self->gen_izq_a, 0, true);
+			mcpwm_generator_set_force_level(self->gen_izq_b, -1, true);
+			mcpwm_comparator_set_compare_value(self->cmpr_izq, abs(self->vel1));
+		}else if(self->vel1 > 0){
+			//si es hacia adelante
+			mcpwm_generator_set_force_level(self->gen_izq_a, -1, true);
+			mcpwm_generator_set_force_level(self->gen_izq_b, 0, true);
+			mcpwm_comparator_set_compare_value(self->cmpr_izq, self->vel1);
+		}else{
+			//si debe frenar
+			mcpwm_generator_set_force_level(self->gen_izq_a, 1, true);
+			mcpwm_generator_set_force_level(self->gen_izq_b, 1, true);
+		}
+
+		//calcula y aplica la velocidad del lado derecho
+		if(self->vel2 < 0){
+			//si es en reversa
+			mcpwm_generator_set_force_level(self->gen_der_a, 0, true);
+			mcpwm_generator_set_force_level(self->gen_der_b, -1, true);
+			mcpwm_comparator_set_compare_value(self->cmpr_der, abs(self->vel2));
+		}else if(self->vel2 > 0){
+			//si es hacia adelante
+			mcpwm_generator_set_force_level(self->gen_der_a, -1, true);
+			mcpwm_generator_set_force_level(self->gen_der_b, 0, true);
+			mcpwm_comparator_set_compare_value(self->cmpr_der, self->vel2);
+		}else{
+			//si debe frenar
+			mcpwm_generator_set_force_level(self->gen_der_a, 1, true);
+			mcpwm_generator_set_force_level(self->gen_der_b, 1, true);
+		}
+		vTaskDelay(10 / portTICK_PERIOD_MS);
 	}
 }
 
@@ -299,6 +352,9 @@ void ControlMotores::begin() {
     ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
 
     alto();
+
+	//se crea la tarea de la rampa
+	xTaskCreateStaticPinnedToCore(tareaRampa, "TareaRampa", sizeof(stackMotores), (void*)this, 5, stackMotores, &tcbMotores, 0);
 }
 
 void ControlMotores::controlador(int accion){

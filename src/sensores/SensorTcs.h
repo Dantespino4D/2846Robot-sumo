@@ -35,6 +35,13 @@ class SensorTcs : public SensorLimite {
 		uint16_t g2;
 		uint16_t b2;
 		uint16_t c2;
+
+		//handle de la tarea
+		TaskHandle_t tarea = NULL;
+		//tcb de la tarea
+		StaticTask_t tcbTcs;
+		//stack de la tarea
+		StackType_t stackTcs[2048];
 	public:
 		SensorTcs(int limCol, GestorI2C* _i2c);
 		virtual ~SensorTcs() {}

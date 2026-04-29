@@ -129,7 +129,7 @@ bool SensorUltra::begin(){
 	ESP_ERROR_CHECK(rmt_enable(rxC2));
 
 	//se crea la tarea
-	xTaskCreatePinnedToCore(senRival, "SensorRival", 4096, (void*)this, 2, NULL, 0);
+	task = xTaskCreateStaticPinnedToCore(senRival, "SensorRival", sizeof(stackUltra), this, 2, stackUltra, &tcbUltra, 0);
 	return true;
 }
 

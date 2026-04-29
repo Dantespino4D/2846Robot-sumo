@@ -41,6 +41,11 @@ class SensorUltra : public SensorRival {
 		//handle de la tarea
 		TaskHandle_t task;
 
+		//tcb de la tarea
+		StaticTask_t tcbUltra;
+		//stack de la tarea
+		StackType_t stackUltra[4096];
+
 		//limite de distancia
 		int maxd;
 

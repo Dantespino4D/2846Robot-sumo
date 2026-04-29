@@ -17,7 +17,7 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 | Configuración | NVS (Non-Volatile Storage) en partición dedicada para parámetros ajustables en caliente |
 | Robustez | Watchdog de tareas (WDT) y auto-recuperación de bus I2C con timeout de hardware |
 | Abstracción | Inyección de dependencias para sensores según el hardware (`final` flag) |
-| Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas críticas, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
+| Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas del sistema, periféricos y sensores, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
 
 ---
 
@@ -70,7 +70,9 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
     - `EstrategiaPrototipo.*`: Estrategia para el prototipo con sensores ultrasónicos (HC-SR04) y TCS34725. Aplica el mismo patrón de máscaras de bits para mantener consistencia arquitectónica.
     - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
-- **`ControlMotores`** — Abstracción para el control PWM de los 4 motores DC. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
+- **`ControlMotores`** — Abstracción para el control de los 4 motores DC mediante el periférico **MCPWM**. 
+    - **Control por Rampas:** Implementa una tarea de FreeRTOS dedicada (`tareaRampa`) que gestiona la aceleración progresiva, eliminando inercias bruscas y protegiendo la mecánica del robot.
+    - **Interfaz Dinámica:** Permite definir velocidades objetivo independientes para cada lado con la opción de activar o desactivar la rampa en tiempo real. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
 - **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
 - **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza un remapeo secuencial de direcciones I2C al arranque mediante los pines **XSHUT**, permitiendo la coexistencia de múltiples sensores en un solo bus sin colisiones.
     - **Configuración ROI Dinámica:** Implementa un método `set_roi` que permite modificar físicamente el tamaño y la posición de la matriz de SPADs activa. Esto se utiliza para configurar una ventana de visión optimizada que ignora obstáculos estructurales y el brillo del tatami.

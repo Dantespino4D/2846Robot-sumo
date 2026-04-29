@@ -172,7 +172,7 @@ void SensorTcs::begin(){
 		calCol();
 	}
 	//se crea la tarea de los sensores de color
-  	xTaskCreatePinnedToCore(senColor, "sensorColor", 2048, (void*)this, 3, NULL, 1);
+  	tarea = xTaskCreateStaticPinnedToCore(senColor, "sensorColor", sizeof(stackTcs), this, 3, stackTcs, &tcbTcs, 1);
 }
 
 bool SensorTcs::sc_1Verify(){

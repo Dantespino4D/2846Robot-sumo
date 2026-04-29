@@ -110,9 +110,9 @@ extern "C" void app_main(void){
     comunicaciones();
 
   	// se crean las tareas
-  	xTaskCreateStaticPinnedToCore(robot, "robot", 4096, NULL, 2, stackRobot, &tcbRobot, 1);
-  	motr = xTaskCreateStaticPinnedToCore(motores, "motores", 2048, NULL, 5, stackMotores, &tcbMotores, 1);
-	xTaskCreateStaticPinnedToCore(musica, "musica", 1024, NULL, 1, stackMusica, &tcbMusica, 0);
+  	xTaskCreateStaticPinnedToCore(robot, "robot", sizeof(stackRobot), NULL, 2, stackRobot, &tcbRobot, 1);
+  	motr = xTaskCreateStaticPinnedToCore(motores, "motores", sizeof(stackMotores), NULL, 5, stackMotores, &tcbMotores, 1);
+	xTaskCreateStaticPinnedToCore(musica, "musica", sizeof(stackMusica), NULL, 1, stackMusica, &tcbMusica, 0);
 
 	ESP_LOGI(TAG, "se inicializo las tareas");
 }

@@ -3,6 +3,8 @@
 
 #include "driver/gpio.h"
 #include "driver/mcpwm_prelude.h"
+#include "freertos/FreeRTOS.h"
+#include "portmacro.h"
 #include <cstdint>
 
 class ControlMotores{
@@ -49,6 +51,17 @@ class ControlMotores{
 		int16_t vel1;
 		int16_t vel2;
 
+		//booleano de la rampa
+		bool rampa;
+
+		//variables de la velocidad objetivo
+		int16_t vel1_obj;
+		int16_t vel2_obj;
+
+		//variables de la tarea estatica
+		StaticTask_t tcbMotores;
+		StackType_t stackMotores[2048];
+
 		//metodos de acciones
 		void dir_a();
 		void dir_b();
@@ -68,10 +81,14 @@ class ControlMotores{
 
 		//metodo para leer y aplicar los valores de la nvs
 		void nvsLeer();
+		//tarea de rampa
+		static void tareaRampa(void* arg);
 	public:
 		//variables control e inicializacion
 		ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1);
+		//begin
 		void begin();
+		//controlador de acciones
 		void controlador(int accion);
 		//alto
 		void alto();
