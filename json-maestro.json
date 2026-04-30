@@ -7,7 +7,8 @@
 		"pronunciado": { "izq": 950, "der": 600 },
 		"maximo": { "izq": 1023, "der": 1023 },
     "giro": { "izq": 950, "der": -800 },
-    "evasion": { "izq": 950, "der": 200 }
+    "evasion": { "izq": 950, "der": 200 },
+    "huida": { "izq": 950, "der": 950 }
   },
   "tiempos": {
     "tof_corto_plazo": 250,

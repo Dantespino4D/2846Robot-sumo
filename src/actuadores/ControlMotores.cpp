@@ -33,6 +33,8 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_pD(600),
 	vel_gI(950),
 	vel_gD(-800),
+	vel_hI(950),
+	vel_hD(950),
 
 	vel1(0),
 	vel2(0),
@@ -263,6 +265,18 @@ void ControlMotores::evasion_b(){
 	velocidad(vel_eI, vel_eD, false);
 }
 
+//metodo de huida direccion a
+void ControlMotores::huir_a(){
+	desbloqueo();
+	velocidad(vel_hI, vel_hD, false);
+}
+
+//metodo de huida direccion b
+void ControlMotores::huir_b(){
+	desbloqueo();
+	velocidad(-vel_hI, -vel_hD, false);
+}
+
 //metodo que inicializa y prepara todo
 void ControlMotores::begin() {
 	//se leen los valores del nvs
@@ -405,6 +419,7 @@ void ControlMotores::begin() {
 
 void ControlMotores::controlador(int accion){
 	//se estable o restablece al freno dependiendo de la accion
+	saltarFreno(false);
 	switch(accion){
 		case 0:
 			alto();
@@ -454,6 +469,12 @@ void ControlMotores::controlador(int accion){
 		case 15:
 			giro();
 			break;
+		case 16:
+			huir_a();
+			break;
+		case 17:
+			huir_b();
+			break;
 	}
 }
 
@@ -475,6 +496,8 @@ void ControlMotores::nvsLeer(){
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
 	vel_eI = nvs.leer("velocidad_eI", 950);
 	vel_eD = nvs.leer("velocidad_eD", 200);
+	vel_hI = nvs.leer("velocidad_hI", vel_hI);
+	vel_hD = nvs.leer("velocidad_hD", vel_hD);
 }
 
 //envia los datos a la telemetria

@@ -72,7 +72,8 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control de los 4 motores DC mediante el periférico **MCPWM**. 
     - **Control por Rampas:** Implementa una tarea de FreeRTOS dedicada (`tareaRampa`) que gestiona la aceleración progresiva, eliminando inercias bruscas y protegiendo la mecánica del robot.
-    - **Interfaz Dinámica:** Permite definir velocidades objetivo independientes para cada lado con la opción de activar o desactivar la rampa en tiempo real. Define comandos estratégicos de alto nivel: direcciones, ataques directos, giros pronunciados y velocidad máxima.
+    - **Interfaz Dinámica:** Permite definir velocidades objetivo independientes para cada lado con la opción de activar o desactivar la rampa en tiempo real. Define comandos estratégicos de alto nivel: direcciones, ataques directos, huida del borde, giros pronunciados y velocidad máxima.
+    - **Gestión de Freno Dinámico:** El controlador restablece automáticamente el estado del freno en cada nueva acción, garantizando una transición limpia entre maniobras agresivas y defensivas.
 - **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
 - **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza un remapeo secuencial de direcciones I2C al arranque mediante los pines **XSHUT**, permitiendo la coexistencia de múltiples sensores en un solo bus sin colisiones.
     - **Configuración ROI Dinámica:** Implementa un método `set_roi` que permite modificar físicamente el tamaño y la posición de la matriz de SPADs activa. Esto se utiliza para configurar una ventana de visión optimizada que ignora obstáculos estructurales y el brillo del tatami.
@@ -118,6 +119,7 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 | `velocidad_mI` / `mD` | Velocidad de maniobra. |
 | `velocidad_pI` / `pD` | Velocidad de patrullaje. |
 | `velocidad_gI` / `gD` | Velocidad de giro sobre eje. |
+| `velocidad_hI` / `hD` | Velocidad de huida del borde. |
 | **Sensores y Sistema** | |
 | `u_stall` | Umbral de corriente para detectar atasco (Float en Amperios). |
 | `t_stall` | Tiempo de confirmación de corriente alta para activar stall (ms). |
@@ -154,6 +156,7 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 
 * **Detección de Stall y Maniobra de Evasión:** El sistema detecta bloqueos mecánicos mediante el ADC en tiempo real. Al superar el umbral `u_stall` durante un tiempo `t_stall`, la Máquina de Estados interrumpe la estrategia actual para ejecutar una **maniobra de evasión** (retroceso y giro rápido) definida por `tiempos/evasion`, garantizando que el robot no se queme ni quede atrapado en colisiones estáticas.
 * **Sincronización No Bloqueante y Atómica (Task Notifications):** Se ha optimizado la comunicación entre las interrupciones (ISR) y las tareas de procesamiento. Para los sensores de línea (TCRT5000), se utiliza `xTaskNotifyFromISR` con transferencia de valor mediante máscaras de bits. Esto garantiza que el estado de los sensores se capture y entregue de forma atómica a la tarea, eliminando inconsistencias por cambios de estado rápidos y reduciendo la latencia al evitar lecturas redundantes del GPIO fuera de la ISR.
+* **Lógica de Huida Especializada (Anti-Borde):** Implementación de comandos tácticos dedicados (`HUIR_A`, `HUIR_B`) que gestionan de forma atómica el desbloqueo de motores y el movimiento a velocidades de escape configurables. Esta especialización separa la lógica de retroceso estándar de la respuesta crítica ante la línea del tatami, mejorando la supervivencia del robot en el borde.
 * **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate simplemente heredando de `EstrategiaEstandar`.
 * **Encapsulamiento de Sensores Autogestionados:** Cada clase de sensor gestiona su propia lectura, liberando al `main.cpp` de la gestión de hilos y garantizando una migración de hardware transparente.
 * **Jerarquía de Máscaras de Bits:** Permite que la lógica de decisión sea extremadamente rápida y legible, filtrando grupos completos de sensores en un solo ciclo de CPU.

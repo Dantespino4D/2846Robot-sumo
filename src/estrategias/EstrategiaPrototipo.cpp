@@ -80,23 +80,23 @@ void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
     switch (ctx->modo) {
         // detiene el movimiento y retrocede en direccion b
         case 0:
-            com = DIR_B;
+            com = HUIR_B;
             ctx->memo_C = 1;
             ctx->tempC = temp;
             break;
         // detiene el movimiento y retrocede en direccion a
         case 1:
-            com = DIR_A;
+            com = HUIR_A;
             ctx->memo_C = 2;
             ctx->tempC = temp;
             break;
         // continua avanzando en direccion b por un tiempo definido para alejarse del borde
         case 2:
-            com = DIR_B;
+            com = HUIR_B;
             break;
         // continua avanzando en direccion a por un tiempo definido para alejarse del borde
         case 3:
-            com = DIR_A;
+            com = HUIR_A;
             break;
 		case 4:
 			com = EVA_A;

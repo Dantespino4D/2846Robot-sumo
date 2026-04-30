@@ -58,6 +58,8 @@ class ControlMotores{
 		int16_t vel_gD;
 		int16_t vel_eI; // Evasión Izquierda
 		int16_t vel_eD; // Evasión Derecha
+		int16_t vel_hI; // Huida Izquierda
+		int16_t vel_hD; // Huida Derecha
 
 		//variables que guardan la velocidad actual
 		volatile int16_t vel1;
@@ -90,6 +92,8 @@ class ControlMotores{
 		void giro();
 		void evasion_a();
 		void evasion_b();
+		void huir_a();
+		void huir_b();
 
 		//metodo para leer y aplicar los valores de la nvs
 		void nvsLeer();

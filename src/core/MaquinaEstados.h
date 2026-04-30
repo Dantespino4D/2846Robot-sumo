@@ -19,6 +19,8 @@
 #define MAX_A 13
 #define MAX_B 14
 #define GIRO 15
+#define HUIR_A 16
+#define HUIR_B 17
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

@@ -168,6 +168,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraerM(motores, "maximo", "velocidad_mI", "velocidad_mD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
 		extraerM(motores, "evasion", "velocidad_eI", "velocidad_eD");
+		extraerM(motores, "huida", "velocidad_hI", "velocidad_hD");
 	}
 
 	//se revisa y aplican cambios en la configuracion de los tiempo

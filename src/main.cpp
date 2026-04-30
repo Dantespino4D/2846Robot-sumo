@@ -184,19 +184,12 @@ void robot(void *pvParameters) {
 
 
 void motores(void *pvParameters) {
-	//suscribir la tarea al watchdog
-	esp_err_t err = esp_task_wdt_add(NULL);
-	if(err != ESP_OK){
-		ESP_LOGE(TAG, "Error al suscribir al watchdog: %s", esp_err_to_name(err));
-	}
-
   	uint32_t accion = 0;
   	uint32_t accionNueva;
 
   	while (true) {
-		esp_task_wdt_reset();
     	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(50)) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
 			if(accionNueva != accion){
       			accion = accionNueva;

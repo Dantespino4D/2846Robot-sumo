@@ -646,6 +646,8 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 	vel_pD(600),
 	vel_gI(950),
 	vel_gD(-800),
+	vel_hI(950),
+	vel_hD(950),
 
 	vel1(0),
 	vel2(0),
@@ -876,6 +878,18 @@ void ControlMotores::evasion_b(){
 	velocidad(vel_eI, vel_eD, false);
 }
 
+//metodo de huida direccion a
+void ControlMotores::huir_a(){
+	desbloqueo();
+	velocidad(vel_hI, vel_hD, false);
+}
+
+//metodo de huida direccion b
+void ControlMotores::huir_b(){
+	desbloqueo();
+	velocidad(-vel_hI, -vel_hD, false);
+}
+
 //metodo que inicializa y prepara todo
 void ControlMotores::begin() {
 	//se leen los valores del nvs
@@ -1018,6 +1032,7 @@ void ControlMotores::begin() {
 
 void ControlMotores::controlador(int accion){
 	//se estable o restablece al freno dependiendo de la accion
+	saltarFreno(false);
 	switch(accion){
 		case 0:
 			alto();
@@ -1067,6 +1082,12 @@ void ControlMotores::controlador(int accion){
 		case 15:
 			giro();
 			break;
+		case 16:
+			huir_a();
+			break;
+		case 17:
+			huir_b();
+			break;
 	}
 }
 
@@ -1088,6 +1109,8 @@ void ControlMotores::nvsLeer(){
 	vel_gD = nvs.leer("velocidad_gD", vel_gD);
 	vel_eI = nvs.leer("velocidad_eI", 950);
 	vel_eD = nvs.leer("velocidad_eD", 200);
+	vel_hI = nvs.leer("velocidad_hI", vel_hI);
+	vel_hD = nvs.leer("velocidad_hD", vel_hD);
 }
 
 //envia los datos a la telemetria
@@ -1163,6 +1186,8 @@ class ControlMotores{
 		int16_t vel_gD;
 		int16_t vel_eI; // Evasión Izquierda
 		int16_t vel_eD; // Evasión Derecha
+		int16_t vel_hI; // Huida Izquierda
+		int16_t vel_hD; // Huida Derecha
 
 		//variables que guardan la velocidad actual
 		volatile int16_t vel1;
@@ -1195,6 +1220,8 @@ class ControlMotores{
 		void giro();
 		void evasion_a();
 		void evasion_b();
+		void huir_a();
+		void huir_b();
 
 		//metodo para leer y aplicar los valores de la nvs
 		void nvsLeer();
@@ -1518,6 +1545,7 @@ void Mqtt::configuracion_json(esp_mqtt_event_handle_t evento){
 		extraerM(motores, "maximo", "velocidad_mI", "velocidad_mD");
 		extraerM(motores, "giro", "velocidad_gI", "velocidad_gD");
 		extraerM(motores, "evasion", "velocidad_eI", "velocidad_eD");
+		extraerM(motores, "huida", "velocidad_hI", "velocidad_hD");
 	}
 
 	//se revisa y aplican cambios en la configuracion de los tiempo
@@ -2772,6 +2800,8 @@ FILE PATH: ./src/core/MaquinaEstados.h
 #define MAX_A 13
 #define MAX_B 14
 #define GIRO 15
+#define HUIR_A 16
+#define HUIR_B 17
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -3112,20 +3142,20 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
 
 	switch (ctx->modo) {
 		case 0:
-	  		com = DIR_B;
+	  		com = HUIR_B;
 	  		ctx->memo_C = 1;
 	  		ctx->tempC = temp;
 	  		break;
 		case 1:
-		  	com = DIR_A;
+		  	com = HUIR_A;
 	  		ctx->memo_C = 2;
 	  		ctx->tempC = temp;
 	  		break;
 		case 2:
-	  		com = DIR_B;
+	  		com = HUIR_B;
 	  		break;
 		case 3:
-	  		com = DIR_A;
+	  		com = HUIR_A;
 	  		break;
 		case 4:
 			com = EVA_A;
@@ -3322,20 +3352,20 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
 
 	switch (ctx->modo) {
 		case 0:
-	  		com = DIR_B;
+	  		com = HUIR_B;
 	  		ctx->memo_C = 1;
 	  		ctx->tempC = temp;
 	  		break;
 		case 1:
-		  	com = DIR_A;
+		  	com = HUIR_A;
 	  		ctx->memo_C = 2;
 	  		ctx->tempC = temp;
 	  		break;
 		case 2:
-	  		com = DIR_B;
+	  		com = HUIR_B;
 	  		break;
 		case 3:
-	  		com = DIR_A;
+	  		com = HUIR_A;
 	  		break;
 		case 4:
 			com = EVA_A;
@@ -3820,23 +3850,23 @@ void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
     switch (ctx->modo) {
         // detiene el movimiento y retrocede en direccion b
         case 0:
-            com = DIR_B;
+            com = HUIR_B;
             ctx->memo_C = 1;
             ctx->tempC = temp;
             break;
         // detiene el movimiento y retrocede en direccion a
         case 1:
-            com = DIR_A;
+            com = HUIR_A;
             ctx->memo_C = 2;
             ctx->tempC = temp;
             break;
         // continua avanzando en direccion b por un tiempo definido para alejarse del borde
         case 2:
-            com = DIR_B;
+            com = HUIR_B;
             break;
         // continua avanzando en direccion a por un tiempo definido para alejarse del borde
         case 3:
-            com = DIR_A;
+            com = HUIR_A;
             break;
 		case 4:
 			com = EVA_A;
@@ -4102,19 +4132,12 @@ void robot(void *pvParameters) {
 
 
 void motores(void *pvParameters) {
-	//suscribir la tarea al watchdog
-	esp_err_t err = esp_task_wdt_add(NULL);
-	if(err != ESP_OK){
-		ESP_LOGE(TAG, "Error al suscribir al watchdog: %s", esp_err_to_name(err));
-	}
-
   	uint32_t accion = 0;
   	uint32_t accionNueva;
 
   	while (true) {
-		esp_task_wdt_reset();
     	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, pdMS_TO_TICKS(50)) == pdPASS) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
 			if(accionNueva != accion){
       			accion = accionNueva;
