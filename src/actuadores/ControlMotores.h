@@ -9,16 +9,28 @@
 
 class ControlMotores{
 	private:
-		// MCPWM handles
+		//handles del MCPWM
+
+		// declaracion del timer
 		mcpwm_timer_handle_t timer;
+
+		//declaracion de operadores
 		mcpwm_oper_handle_t oper_izq;
 		mcpwm_oper_handle_t oper_der;
+
+		//declaracion de comparadores
 		mcpwm_cmpr_handle_t cmpr_izq;
 		mcpwm_cmpr_handle_t cmpr_der;
+
+		//declaracion de generadores
 		mcpwm_gen_handle_t gen_izq_a;
 		mcpwm_gen_handle_t gen_izq_b;
 		mcpwm_gen_handle_t gen_der_a;
 		mcpwm_gen_handle_t gen_der_b;
+
+		//declaracion de fallos
+    	mcpwm_fault_handle_t fallo_a;
+    	mcpwm_fault_handle_t fallo_b;
 
 		//variables necesarias
 		uint32_t freq;
@@ -83,6 +95,8 @@ class ControlMotores{
 		void nvsLeer();
 		//tarea de rampa
 		static void tareaRampa(void* arg);
+		//metodo que se salta el freno de seguridad
+		void saltarFreno(bool estado);
 	public:
 		//variables control e inicializacion
 		ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1);
@@ -94,6 +108,8 @@ class ControlMotores{
 		void alto();
 		//envia los datos a telemetria
 		void velocidades(int16_t* v1, int16_t* v2, int16_t* vo1, int16_t* vo2);
+		//desbloque los motores luego de los fallos
+		void desbloqueo();
 };
 
 #endif

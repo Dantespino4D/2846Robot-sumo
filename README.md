@@ -158,6 +158,7 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 * **Encapsulamiento de Sensores Autogestionados:** Cada clase de sensor gestiona su propia lectura, liberando al `main.cpp` de la gestión de hilos y garantizando una migración de hardware transparente.
 * **Jerarquía de Máscaras de Bits:** Permite que la lógica de decisión sea extremadamente rápida y legible, filtrando grupos completos de sensores en un solo ciclo de CPU.
 * **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
+* **Robustez y Coherencia de Datos:** Uso de calificadores `volatile` en variables de control crítico (velocidades y estado de rampa) para garantizar la integridad de los datos entre la tarea de la Máquina de Estados y la tarea de Rampa de Motores, evitando optimizaciones indeseadas del compilador en un entorno multi-tarea.
 * **Sistema Anti-Jitter (Zero-Order Hold):** Procesa las lecturas de los sensores a través de una matriz de memorias a corto plazo para evitar ruidos en la toma de decisiones.
 * **Determinismo y Estabilidad de Memoria:** Implementación de **Asignación Estática de FreeRTOS** (`xTaskCreateStatic`) para todas las tareas del sistema (`robot`, `motores`, `telemetría`, etc.). Esto elimina la dependencia del heap en tiempo de ejecución, previene errores de "Out of Memory" por fragmentación y asegura un comportamiento determinista, crítico para la fiabilidad en competencia.
 * **Robustez de Interrupciones y Periféricos:** Mejora en la inicialización de los servicios de interrupción GPIO y gestión de handles de tareas por instancia, permitiendo una coexistencia más segura de múltiples sensores y evitando colisiones de hardware durante el arranque.
@@ -219,6 +220,10 @@ El proyecto incluye un conjunto de herramientas externas para la gestión de dat
 ├── sdkconfig.defaults        # Valores por defecto de Kconfig
 ├── sdkconfig.esp32           # Configuración específica Prototipo
 └── sdkconfig.esp32-s3        # Configuración específica Final
+```
+p32-s3        # Configuración específica Final
+```
+── sdkconfig.esp32-s3        # Configuración específica Final
 ```
 p32-s3        # Configuración específica Final
 ```

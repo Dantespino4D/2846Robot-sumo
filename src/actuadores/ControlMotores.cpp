@@ -1,5 +1,6 @@
 #include "driver/gpio.h"
 #include "driver/mcpwm_gen.h"
+#include "driver/mcpwm_oper.h"
 #include "driver/mcpwm_prelude.h"
 #include "ControlMotores.h"
 #include "../core/Nvs.h"
@@ -141,6 +142,40 @@ void ControlMotores::tareaRampa(void* arg){
 	}
 }
 
+//metodo que desbloquea los motores despues de los fallos
+void ControlMotores::desbloqueo(){
+	//se saltar el freno
+	saltarFreno(true);
+
+	//se desblouquean los operadores de ambos lados para ambos fallos
+	mcpwm_operator_recover_from_fault(oper_izq, fallo_a);
+	mcpwm_operator_recover_from_fault(oper_der, fallo_a);
+	mcpwm_operator_recover_from_fault(oper_izq, fallo_b);
+	mcpwm_operator_recover_from_fault(oper_der, fallo_b);
+}
+
+void ControlMotores::saltarFreno(bool estado){
+	//se crea una variable de configuración de la accion
+	mcpwm_gen_brake_event_action_t accion = {};
+	accion.direction = MCPWM_TIMER_DIRECTION_UP;
+	accion.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
+
+	//se evalua si se deb saltar el freno
+	if(estado){
+		//si se desea saltar el freno, se configura la acción para que no afecte a los generadores
+		accion.action = MCPWM_GEN_ACTION_KEEP;
+	}else{
+		//si no se desea saltar el freno, se configura la acción para que active el freno
+		accion.action = MCPWM_GEN_ACTION_HIGH;
+	}
+
+	//aplicamos la accion
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_a, accion));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_b, accion));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_a, accion));
+	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_b, accion));
+}
+
 //metodo que para el robot
 void ControlMotores::alto(){
 	velocidad(0, 0, false);
@@ -148,11 +183,13 @@ void ControlMotores::alto(){
 
 //metodo que avanza en direccion a
 void ControlMotores::dir_a(){
+	desbloqueo();
 	velocidad(vel_nI, vel_nD, false);
 }
 
 //metodo que avanza en direccion b
 void ControlMotores::dir_b(){
+	desbloqueo();
 	velocidad(-vel_nI, -vel_nD, false);
 
 }
@@ -178,7 +215,6 @@ void ControlMotores::ataque_bd(){
 	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
 	velocidad(-vel_aD, -vel_aI, true);
 }
-
 
 //metodo de velocidad maxima en direccion a
 void ControlMotores::max_a(){
@@ -322,24 +358,34 @@ void ControlMotores::begin() {
     fault_config.flags.pull_up = 0;
     fault_config.flags.pull_down = 0;
 
-	// Se crea el manejador de falla para el sensor TCRT
-    mcpwm_fault_handle_t fallo_izquierdo;
-    ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_izquierdo));
+	// Se crea el manejador de falla para el sensor TCRT de la direccion a
+    ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_a));
 
-	// Configuración de freno para la falla del sensor TCRT
+	// Se crea el manejador de falla para el sensor TCRT de la direccion b
+	fault_config.gpio_num = TCRT_2;
+	ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_b));
+
+	// Configuración de freno para la falla del sensor TCRT en direccion a
     mcpwm_brake_config_t freno_config = {};
-    freno_config.fault = fallo_izquierdo;
+    freno_config.fault = fallo_a;
     freno_config.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
 
-	// Se asigna la acción de freno a ambos operadores en caso de falla del sensor TCRT
+	// Se asigna la acción de freno a ambos operadores en caso de falla del sensor TCRT en direccion a
     ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_izq, &freno_config));
     ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_der, &freno_config));
+
+	// Se cambia la configuración de freno para la falla del sensor TCRT en direccion b
+	freno_config.fault = fallo_b;
+
+	// Se asigna la acción de freno a ambos operadores en caso de falla del sensor TCRT en direccion b
+	ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_izq, &freno_config));
+	ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_der, &freno_config));
 
 	// Configuración de la acción de freno para los generadores en caso de evento de freno
     mcpwm_gen_brake_event_action_t accion_freno = {};
     accion_freno.direction = MCPWM_TIMER_DIRECTION_UP;
     accion_freno.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
-    accion_freno.action = MCPWM_GEN_ACTION_LOW;
+    accion_freno.action = MCPWM_GEN_ACTION_HIGH;
 
 	// Se asigna la acción de freno a los generadores en caso de evento de freno
     ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_a, accion_freno));
@@ -358,6 +404,7 @@ void ControlMotores::begin() {
 }
 
 void ControlMotores::controlador(int accion){
+	//se estable o restablece al freno dependiendo de la accion
 	switch(accion){
 		case 0:
 			alto();
