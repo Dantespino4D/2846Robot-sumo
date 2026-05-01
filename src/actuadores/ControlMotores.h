@@ -41,6 +41,10 @@ class ControlMotores{
 
 		//variables de la rampa
 		int tRam;
+		uint8_t indiceRampa;
+
+		//mutex
+		portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
 		//funcion velocidad
 		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
@@ -64,6 +68,10 @@ class ControlMotores{
 		//variables que guardan la velocidad actual
 		volatile int16_t vel1;
 		volatile int16_t vel2;
+
+		//variables que guarda la velocidad inicial
+		volatile int16_t vel1_ini;
+		volatile int16_t vel2_ini;
 
 		//booleano de la rampa
 		volatile bool rampa;

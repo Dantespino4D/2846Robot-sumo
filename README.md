@@ -71,7 +71,7 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
     - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
 - **`ControlMotores`** — Abstracción para el control de los 4 motores DC mediante el periférico **MCPWM**. 
-    - **Control por Rampas:** Implementa una tarea de FreeRTOS dedicada (`tareaRampa`) que gestiona la aceleración progresiva, eliminando inercias bruscas y protegiendo la mecánica del robot.
+    - **Control por Rampas Avanzado:** Implementa una tarea de FreeRTOS dedicada (`tareaRampa`) que gestiona la aceleración mediante una **Look-Up Table (LUT)** de 50 pasos. Esto permite curvas de aceleración no lineales, optimizando el torque inicial y suavizando la llegada a la velocidad objetivo.
     - **Interfaz Dinámica:** Permite definir velocidades objetivo independientes para cada lado con la opción de activar o desactivar la rampa en tiempo real. Define comandos estratégicos de alto nivel: direcciones, ataques directos, huida del borde, giros pronunciados y velocidad máxima.
     - **Gestión de Freno Dinámico:** El controlador restablece automáticamente el estado del freno en cada nueva acción, garantizando una transición limpia entre maniobras agresivas y defensivas.
 - **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
@@ -156,6 +156,9 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 
 * **Detección de Stall y Maniobra de Evasión:** El sistema detecta bloqueos mecánicos mediante el ADC en tiempo real. Al superar el umbral `u_stall` durante un tiempo `t_stall`, la Máquina de Estados interrumpe la estrategia actual para ejecutar una **maniobra de evasión** (retroceso y giro rápido) definida por `tiempos/evasion`, garantizando que el robot no se queme ni quede atrapado en colisiones estáticas.
 * **Sincronización No Bloqueante y Atómica (Task Notifications):** Se ha optimizado la comunicación entre las interrupciones (ISR) y las tareas de procesamiento. Para los sensores de línea (TCRT5000), se utiliza `xTaskNotifyFromISR` con transferencia de valor mediante máscaras de bits. Esto garantiza que el estado de los sensores se capture y entregue de forma atómica a la tarea, eliminando inconsistencias por cambios de estado rápidos y reduciendo la latencia al evitar lecturas redundantes del GPIO fuera de la ISR.
+* **Optimización de Bus de Periféricos:** El controlador de motores implementa un sistema de "cambio sucio" (dirty check), actualizando los comparadores MCPWM únicamente cuando existe una variación real en la velocidad calculada, minimizando la latencia del sistema y el tráfico innecesario en el bus de periféricos.
+* **Determinismo en Rampas:** El uso de `vTaskDelayUntil` garantiza que la rampa se ejecute con una frecuencia precisa y constante, eliminando el jitter temporal en el control de tracción.
+* **Sincronización de Memoria Crítica:** Implementación de secciones críticas de FreeRTOS (`portENTER_CRITICAL`) para la protección de variables compartidas entre tareas, asegurando que los cambios de velocidad y estado de rampa sean atómicos y libres de condiciones de carrera.
 * **Lógica de Huida Especializada (Anti-Borde):** Implementación de comandos tácticos dedicados (`HUIR_A`, `HUIR_B`) que gestionan de forma atómica el desbloqueo de motores y el movimiento a velocidades de escape configurables. Esta especialización separa la lógica de retroceso estándar de la respuesta crítica ante la línea del tatami, mejorando la supervivencia del robot en el borde.
 * **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate simplemente heredando de `EstrategiaEstandar`.
 * **Encapsulamiento de Sensores Autogestionados:** Cada clase de sensor gestiona su propia lectura, liberando al `main.cpp` de la gestión de hilos y garantizando una migración de hardware transparente.
@@ -190,10 +193,11 @@ El proyecto incluye un conjunto de herramientas externas para la gestión de dat
 │   │   ├── Ota.*             # Actualizaciones OTA
 │   │   ├── Telemetria.*      # Publicación de telemetría
 │   │   └── Wifi.*            # Gestión WiFi (STA + SmartConfig + mDNS)
-│   ├── configuracion/        # Variables y hardware map
-│   │   ├── configuracion.*   # Utilidades de configuración
-│   │   ├── eventos.h         # Definición de bits y máscaras
-│   │   └── pines.h           # Mapa de hardware dual (ESP32/S3)
+├── configuracion/        # Variables y hardware map
+│   ├── configuracion.*   # Utilidades de configuración
+│   ├── eventos.h         # Definición de bits y máscaras
+│   ├── LookupTable.h     # Curvas de aceleración para rampas
+│   └── pines.h           # Mapa de hardware dual (ESP32/S3)
 │   ├── core/                 # Lógica base y servicios
 │   │   ├── DatosT.h          # Estructura de datos de telemetría
 │   │   ├── GestorI2C.*       # Administración y salud del bus I2C
