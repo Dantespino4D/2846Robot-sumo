@@ -7,6 +7,7 @@
 #include "../configuracion/pines.h"
 #include "../configuracion/LookupTable.h"
 #include "hal/mcpwm_types.h"
+#include "portmacro.h"
 #include <cstdint>
 #include <cstdlib>
 
@@ -85,7 +86,7 @@ void ControlMotores::tareaRampa(void* arg){
 	int16_t vel2_ant = 0;
 
 	//se calcula el tiempo de la rampa
-	uint64_t tiempoRampa = pdMS_TO_TICKS(self->tRam / 50);
+	TickType_t tiempoRampa = pdMS_TO_TICKS(self->tRam / 50);
 	if(tiempoRampa == 0){
 		tiempoRampa = 1;
 	}
