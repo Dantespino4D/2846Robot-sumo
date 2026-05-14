@@ -14,6 +14,7 @@
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
+#include "esp_heap_caps.h"
 #include "portmacro.h"
 #include <cstddef>
 #include <system_error>
@@ -38,6 +39,8 @@ SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
 		data[i].estado = 0;
 		data[i].señal = 0;
 		data[i].ambiente = 0;
+		tx = (uint8_t*)heap_caps_malloc(32, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+		rx = (uint8_t*)heap_caps_malloc(32, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 	}
 }
 

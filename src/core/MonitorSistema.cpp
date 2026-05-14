@@ -27,10 +27,6 @@ void MonitorSistema::begin() {
 
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_1, &config);
     adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config);
-    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_3, &config);
-    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_4, &config);
-    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_5, &config);
-    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_6, &config);
 #endif
 }
 

@@ -11,7 +11,7 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 | Microcontrolador | ESP32 / ESP32-S3 (Unificado por entorno) |
 | Framework | ESP-IDF 5.x + FreeRTOS |
 | Herramienta de build | PlatformIO |
-| Control de motores | PWM (LEDC de ESP-IDF) gestionando 4 motores mediante drivers independientes |
+| Control de motores | PWM (MCPWM de ESP-IDF) gestionando 4 motores mediante drivers independientes |
 | Conectividad | WiFi + MQTT + mDNS + SmartConfig + OTA |
 | Telemetría | Streaming de estado en tiempo real al broker MQTT |
 | Configuración | NVS (Non-Volatile Storage) en partición dedicada para parámetros ajustables en caliente |
@@ -70,7 +70,7 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
     - `EstrategiaPrototipo.*`: Estrategia para el prototipo con sensores ultrasónicos (HC-SR04) y TCS34725. Aplica el mismo patrón de máscaras de bits para mantener consistencia arquitectónica.
     - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
 - **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
-- **`ControlMotores`** — Abstracción para el control de los 4 motores DC mediante el periférico **MCPWM**. 
+- **`ControlMotores`** — Abstracción para el control de los 4 motores DC mediante el periférico **MCPWM**.
     - **Control por Rampas Avanzado:** Implementa una tarea de FreeRTOS dedicada (`tareaRampa`) que gestiona la aceleración mediante una **Look-Up Table (LUT)** de 50 pasos. Esto permite curvas de aceleración no lineales, optimizando el torque inicial y suavizando la llegada a la velocidad objetivo.
     - **Interfaz Dinámica:** Permite definir velocidades objetivo independientes para cada lado con la opción de activar o desactivar la rampa en tiempo real. Define comandos estratégicos de alto nivel: direcciones, ataques directos, huida del borde, giros pronunciados y velocidad máxima.
     - **Gestión de Freno Dinámico:** El controlador restablece automáticamente el estado del freno en cada nueva acción, garantizando una transición limpia entre maniobras agresivas y defensivas.
@@ -84,7 +84,7 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
     - **Middleware de Persistencia:** Utiliza un script externo (`telemetria.py`) que escucha vía MQTT, realiza una gestión de cola (batching) en una base de datos local SQLite y reenvía los datos mediante HTTP/HTTPS (con integración a una **base de datos externa** prevista próximamente).
     - **Salud de Sensores:** Reporta métricas de calidad para los ToF (estado, señal y ruido ambiental).
     - **Diagnóstico del Sistema:** El payload incluye telemetría profunda: memoria libre (`heap`), versión del firmware (`commit`), calidad de señal WiFi, ciclo de control, corriente en amperios (**corriente**) y estado de los motores (PWM y detección de `stall`).
-- **`MonitorSistema`** — Módulo dedicado a la supervisión analógica. Realiza la lectura del voltaje de batería y la corriente de los motores (Stall). Implementa una conversión de alta precisión para 4 termistores mediante la **ecuación de Steinhart-Hart**, transformando lecturas de voltaje en grados Celsius para el monitoreo térmico del hardware.
+- **`MonitorSistema`** — Módulo dedicado a la supervisión analógica. Realiza la lectura del voltaje de batería y la corriente de los motores (Stall) mediante la API ADC Oneshot de ESP-IDF.
 
 ---
 
@@ -113,11 +113,11 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 | `tof_largo_plazo` | Tiempo de búsqueda predictiva. |
 | `tiempo_rampa` | Aceleración progresiva de los motores (ms). |
 | **Velocidades (PWM)** | |
-| `velocidad_nI` / `nD` | Velocidad nominal (Búsqueda). |
+| `velocidad_nI` / `nD` | Velocidad normal (Búsqueda). |
 | `velocidad_aI` / `aD` | Velocidad de ataque. |
 | `velocidad_eI` / `eD` | Velocidad de evasión tras stall. |
-| `velocidad_mI` / `mD` | Velocidad de maniobra. |
-| `velocidad_pI` / `pD` | Velocidad de patrullaje. |
+| `velocidad_mI` / `mD` | Velocidad de maximo. |
+| `velocidad_pI` / `pD` | Velocidad de pronunciado. |
 | `velocidad_gI` / `gD` | Velocidad de giro sobre eje. |
 | `velocidad_hI` / `hD` | Velocidad de huida del borde. |
 | **Sensores y Sistema** | |
@@ -155,7 +155,7 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 ## Fortalezas del Diseño
 
 * **Detección de Stall y Maniobra de Evasión:** El sistema detecta bloqueos mecánicos mediante el ADC en tiempo real. Al superar el umbral `u_stall` durante un tiempo `t_stall`, la Máquina de Estados interrumpe la estrategia actual para ejecutar una **maniobra de evasión** (retroceso y giro rápido) definida por `tiempos/evasion`, garantizando que el robot no se queme ni quede atrapado en colisiones estáticas.
-* **Sincronización No Bloqueante y Atómica (Task Notifications):** Se ha optimizado la comunicación entre las interrupciones (ISR) y las tareas de procesamiento. Para los sensores de línea (TCRT5000), se utiliza `xTaskNotifyFromISR` con transferencia de valor mediante máscaras de bits. Esto garantiza que el estado de los sensores se capture y entregue de forma atómica a la tarea, eliminando inconsistencias por cambios de estado rápidos y reduciendo la latencia al evitar lecturas redundantes del GPIO fuera de la ISR.
+* **Sincronización No Bloqueante y Atómica (Task Notifications):** Se ha optimizado la comunicación entre las interrupciones (ISR) y las tareas de procesamiento. Para los sensores de línea (TCRT5000), se utiliza `xTaskNotifyFromISR` con transferencia de valor mediante máscaras de bits. Los sensores están mapeados a pines seguros del ESP32-S3 (GPIO 33, 10, 34, 21), y las interrupciones a pines dedicados (ej. GPIO 4 para INT_2), evitando por completo el uso de pines de strapping críticos (45, 46) y USB (19, 20). Esto garantiza que el estado de los sensores se capture y entregue de forma atómica a la tarea, eliminando inconsistencias por cambios de estado rápidos y reduciendo la latencia al evitar lecturas redundantes del GPIO fuera de la ISR.
 * **Optimización de Bus de Periféricos:** El controlador de motores implementa un sistema de "cambio sucio" (dirty check), actualizando los comparadores MCPWM únicamente cuando existe una variación real en la velocidad calculada, minimizando la latencia del sistema y el tráfico innecesario en el bus de periféricos.
 * **Determinismo en Rampas:** El uso de `vTaskDelayUntil` garantiza que la rampa se ejecute con una frecuencia precisa y constante, eliminando el jitter temporal en el control de tracción.
 * **Sincronización de Memoria Crítica:** Implementación de secciones críticas de FreeRTOS (`portENTER_CRITICAL`) para la protección de variables compartidas entre tareas, asegurando que los cambios de velocidad y estado de rampa sean atómicos y libres de condiciones de carrera.
@@ -232,5 +232,11 @@ p32-s3        # Configuración específica Final
 ```
 ── sdkconfig.esp32-s3        # Configuración específica Final
 ```
+alores por defecto de Kconfig
+├── sdkconfig.esp32           # Configuración específica Prototipo
+└── sdkconfig.esp32-s3        # Configuración específica Final
+```
 p32-s3        # Configuración específica Final
+```
+── sdkconfig.esp32-s3        # Configuración específica Final
 ```

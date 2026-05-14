@@ -16,3 +16,8 @@ reporte_cppcheck.txt
 clean_code.txt
 strip_comments.py
 _codeql_detected_source_root
+.gemini/
+GEMINI.md
+graphify-out/
+.graphifyignore
+.rgignore

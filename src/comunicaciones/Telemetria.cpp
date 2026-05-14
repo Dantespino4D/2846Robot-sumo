@@ -156,8 +156,8 @@ void Telemetria::enviar(){
 	}else{
 		//json del prototipo
 		lon = snprintf(json, NJSON,
-		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"tempM_1\":%f,\"tempM_2\":%f,\"tempM_3\":%f,\"tempM_4\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d, \"corriente\":%f},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
-		COMMIT, d.tiempo, d.heap, d.pila, d.term1, d.term2, d.term3, d.term4, d.wifi, d.ciclo ,d.prototipo,
+		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d, \"corriente\":%f},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
+		COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
 		d.pwm1, d.pwm2, d.pwm1_obj, d.pwm2_obj, d.corriente,
 		d.ojos1, d.ojos2,
@@ -170,5 +170,8 @@ void Telemetria::enviar(){
 	//se valida y envia el json
 	if(lon > 0){
 		mq->pub(json, "robot/telemetria", 0, 0);
+	}
+}
+pub(json, "robot/telemetria", 0, 0);
 	}
 }

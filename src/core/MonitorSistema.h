@@ -19,7 +19,6 @@ public:
     void begin();
     float bateria();
     float corrienteStall();
-    void termistores(float &t1, float &t2, float &t3, float &t4);
 };
 
 #endif

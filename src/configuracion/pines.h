@@ -10,10 +10,6 @@
 
     // Lectura de ADC
     #define BAT GPIO_NUM_2
-    #define TERM_1 GPIO_NUM_4
-    #define TERM_2 GPIO_NUM_5
-    #define TERM_3 GPIO_NUM_6
-    #define TERM_4 GPIO_NUM_7
 
     // Motores
     #define MOT_A1 GPIO_NUM_39
@@ -22,8 +18,10 @@
     #define MOT_B2 GPIO_NUM_42
 
 	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_19
+	#define TCRT_1 GPIO_NUM_33
 	#define TCRT_2 GPIO_NUM_10
+	#define TCRT_3 GPIO_NUM_34
+	#define TCRT_4 GPIO_NUM_21
 
     // Lectura de corriente
     #define PIN_STALL GPIO_NUM_1
@@ -42,7 +40,7 @@
 
     // ToF Interrupciones
     #define INT_1 GPIO_NUM_15
-    #define INT_2 GPIO_NUM_21
+    #define INT_2 GPIO_NUM_4
     #define INT_3 GPIO_NUM_38
     #define INT_4 GPIO_NUM_48
     #define INT_5 GPIO_NUM_18
@@ -51,6 +49,10 @@
     // LED RGB
     #define RGB_PIN_A GPIO_NUM_43
     #define RGB_PIN_B GPIO_NUM_44
+
+    // Botones Auxiliares
+    #define VIC GPIO_NUM_36
+    #define DER GPIO_NUM_37
 #else
     // Pines para ESP32 Estándar (PROTOTIPO)
     #define MUS GPIO_NUM_4
