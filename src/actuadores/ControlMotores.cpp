@@ -409,7 +409,7 @@ void ControlMotores::begin() {
     mcpwm_gpio_fault_config_t fault_config = {};
     fault_config.group_id = 0;
     fault_config.gpio_num = TCRT_1;
-    fault_config.intr_priority = 5;
+    fault_config.intr_priority = 0;
     fault_config.flags.active_level = 1;
     fault_config.flags.pull_up = 0;
     fault_config.flags.pull_down = 0;

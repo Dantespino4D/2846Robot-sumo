@@ -25,6 +25,10 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 	uint32_t estado = 0;
 	BaseType_t cambioC = pdFALSE;
 
+	if (sensor == nullptr || sensor->tarea == NULL) {
+		return;
+	}
+
 	if(gpio_get_level(sensor->pin1)){
 		estado |= (1 << 0);
 	}
@@ -62,10 +66,10 @@ void SensorTcrt::colores(uint16_t* buffer) {
 void SensorTcrt::tareaTcrt(void* pvParameters) {
 	SensorTcrt* sensor = (SensorTcrt*)pvParameters;
 
-	//instalar la interrupcion si no esta instalada
+	// instalar la interrupcion si no esta instalada
 	esp_err_t isr_err = gpio_install_isr_service(0);
 	if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
-		ESP_LOGE(TAG, "Error instalando ISR service: %s", esp_err_to_name(isr_err));
+		ESP_LOGE(TAG, "Error instalando ISR service TCRT: %s", esp_err_to_name(isr_err));
 	}
 
     gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor);

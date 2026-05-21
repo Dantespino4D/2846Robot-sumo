@@ -189,7 +189,7 @@ void motores(void *pvParameters) {
 
   	while (true) {
     	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY == pdPASS)) {
+    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
       		// Actualiza solo cuando llega algo nuevo
 			if(accionNueva != accion){
       			accion = accionNueva;

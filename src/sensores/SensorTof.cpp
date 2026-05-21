@@ -81,7 +81,7 @@ bool SensorTof::begin(){
 	//instalar las interrupciones si no estan instaladas
 	esp_err_t isr_err = gpio_install_isr_service(0);
 	if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
-		ESP_LOGE(TAG, "Error instalando ISR service: %s", esp_err_to_name(isr_err));
+		ESP_LOGE(TAG, "Error instalando ISR service ToF: %s", esp_err_to_name(isr_err));
 	}
 
 	//añadir las interrupciones
@@ -191,6 +191,10 @@ void IRAM_ATTR SensorTof::tofIntr(void* arg){
 	//recibe el puntero del sensor que genero la interrupcion
 	uint8_t tof =(uint8_t) (uint32_t) arg;
 	BaseType_t cambioC = pdFALSE;
+
+	if (instancia == nullptr || instancia->tarea == NULL) {
+		return;
+	}
 
 	//se marca cual fue el sensor que dio la interrupcion
 	instancia->listo[tof] = true;

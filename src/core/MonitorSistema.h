@@ -12,7 +12,6 @@ private:
     adc_oneshot_unit_handle_t adc1_handle;
 #endif
     float ema_corriente;
-    float calcularCelsius(int raw);
 
 public:
     MonitorSistema();

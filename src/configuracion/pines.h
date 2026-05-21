@@ -18,9 +18,9 @@
     #define MOT_B2 GPIO_NUM_42
 
 	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_33
+	#define TCRT_1 GPIO_NUM_5
 	#define TCRT_2 GPIO_NUM_10
-	#define TCRT_3 GPIO_NUM_34
+	#define TCRT_3 GPIO_NUM_6
 	#define TCRT_4 GPIO_NUM_21
 
     // Lectura de corriente
