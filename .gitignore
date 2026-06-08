@@ -1,6 +1,5 @@
 .cache/
 .clangd
-CMakeLists.txt
 compile_commands.json
 .git/
 .pio/
@@ -21,3 +20,10 @@ GEMINI.md
 graphify-out/
 .graphifyignore
 .rgignore
+Preprocessing
+.bin_timestamp
+.ninja_deps
+CMakeCache.txt
+CMakeFiles/
+build/
+

@@ -1,4 +1,0 @@
-dependencies:
-  # Esta es la sintaxis para pedirle la librería al registro de Espressif
-  espp/vl53l: "^1.0"
-  espressif/mdns: "^1.2"

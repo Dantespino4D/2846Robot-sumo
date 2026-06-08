@@ -1,23 +1,23 @@
-# Robot Sumo Bidireccional - ESP32 / ESP32-S3
+# Robot Sumo Bidireccional - ESP32 / ESP32-S3 (ESP-IDF v6)
 
 Este proyecto implementa el firmware completo y la integración de hardware de un robot de sumo competitivo de categoría Mini Sumo (10 cm x 10 cm, sin límite de altura). El diseño del robot es **bidireccional**, permitiéndole atacar y defenderse de manera eficaz sin necesidad de girar sobre su propio eje ante ataques por la retaguardia.
 
-El sistema toma decisiones en tiempo real mediante una máquina de estados ejecutada sobre el RTOS FreeRTOS, procesando datos de múltiples sensores y controlando un sistema de tracción en las 4 ruedas. El código base está **unificado**, permitiendo flashear tanto el prototipo como la versión final simplemente seleccionando el entorno en PlatformIO.
+El sistema toma decisiones en tiempo real mediante una máquina de estados ejecutada sobre el RTOS FreeRTOS, procesando datos de múltiples sensores y controlando un sistema de tracción en las 4 ruedas. El código base ha sido migrado a **ESP-IDF v6**, utilizando una arquitectura modular basada en componentes y el sistema de construcción nativo `idf.py`.
 
 ### Características principales del Software
 
 | Característica | Detalle |
 |---|---|
-| Microcontrolador | ESP32 / ESP32-S3 (Unificado por entorno) |
-| Framework | ESP-IDF 5.x + FreeRTOS |
-| Herramienta de build | PlatformIO |
+| Microcontrolador | ESP32 / ESP32-S3 (Unificado por hardware map) |
+| Framework | ESP-IDF 6.x + FreeRTOS |
+| Herramienta de build | idf.py (Nativo) |
+| Arquitectura | Modular basada en Componentes (ESP-IDF Components) |
 | Control de motores | PWM (MCPWM de ESP-IDF) gestionando 4 motores mediante drivers independientes |
 | Conectividad | WiFi + MQTT + mDNS + SmartConfig + OTA |
 | Telemetría | Streaming de estado en tiempo real al broker MQTT |
 | Configuración | NVS (Non-Volatile Storage) en partición dedicada para parámetros ajustables en caliente |
 | Robustez | Watchdog de tareas (WDT) y auto-recuperación de bus I2C con timeout de hardware |
-| Abstracción | Inyección de dependencias para sensores según el hardware (`final` flag) |
-| Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas del sistema, periféricos y sensores, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
+| Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas críticas, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
 
 ---
 
@@ -44,13 +44,13 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 * **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
 * **Alimentación Optimizada:** Sustitución del regulador LM2596 por el módulo **Mini 360 (MP2307)**, logrando mayor eficiencia energética y un diseño más compacto.
 * **Monitor del Sistema:** Lectura en tiempo real del voltaje de la batería y monitorización de corriente utilizando la API ADC Oneshot de ESP-IDF.
-* **Almacenamiento Expandido:** Configuración de flash de **16MB** en el ESP32-S3 para soportar logs extensos y futuras expansiones de firmware.
+* **Almacenamiento Expandido:** Configuración de mapa de particiones de **4MB** por aplicación para soportar el framework v6, logs extensos y futuras expansiones de firmware.
 
 ---
 
 ## Arquitectura del Software
 
-El firmware utiliza al máximo las capacidades del ESP32 mediante múltiples tareas FreeRTOS supervisadas por un **Task Watchdog (WDT)**, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos. El sistema implementa una **lógica de reinicio inteligente**: si el Watchdog provoca un reinicio, el robot detecta el estado y omite la espera de seguridad de 5 segundos para reincorporarse al combate instantáneamente. La inicialización del hardware es dinámica y se basa en la placa detectada durante el arranque.
+El firmware utiliza al máximo las capacidades del microcontrolador mediante múltiples tareas FreeRTOS supervisadas por un **Task Watchdog (WDT)**, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos. El sistema implementa una **lógica de reinicio inteligente**: si el Watchdog provoca un reinicio, el robot detecta el estado y omite la espera de seguridad de 5 segundos para reincorporarse al combate instantáneamente.
 
 ```text
 Core 0                         Core 1
@@ -61,30 +61,23 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
                                Sensores TCS (Prio: 3)
                                Interrupciones (Prio: 3)
 ```
-### Módulos principales
 
-- **`MaquinaEstados`** — Núcleo táctico del robot. Utiliza un **Patrón Strategy** con un puntero polimórfico (`estActual`) para ejecutar diferentes comportamientos en tiempo real. Recibe el flag `final` para ajustar su comportamiento según el hardware disponible. Implementa un avanzado sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados y un sistema de **memoria a largo plazo** para la persecución ciega y predictiva del rival.
-- **`Estrategias`** — Sistema modular de combate que utiliza máscaras de bits para decisiones de alta velocidad:
-    - `EstrategiaBase.h`: Interfaz abstracta que define el contrato de `seleccion()` y `ejecucion()`.
-    - `EstrategiaEstandar.*`: Clase intermedia que implementa la lógica común de los 6 sensores ToF y sensores de línea para evitar duplicidad de código. Utiliza una jerarquía de máscaras para filtrar primero por zonas (MASK_TOF_A, MASK_TOF_B, MASK_COLOR).
-    - `EstrategiaPrototipo.*`: Estrategia para el prototipo con sensores ultrasónicos (HC-SR04) y TCS34725. Aplica el mismo patrón de máscaras de bits para mantener consistencia arquitectónica.
-    - `Estrategia1.*` y `Estrategia2.*`: Estrategias de combate específicas que heredan de EstrategiaEstandar, permitiendo variaciones tácticas sin duplicar código de sensores.
-- **`eventos.h`** — Definición centralizada de la jerarquía de bits y máscaras de acción. La arquitectura de máscara jerárquica permite evaluar grupos de sensores en un solo ciclo de CPU antes de descender a combinaciones específicas, optimizando la toma de decisiones en tiempo real.
-- **`ControlMotores`** — Abstracción para el control de los 4 motores DC mediante el periférico **MCPWM**.
-    - **Control por Rampas Avanzado:** Implementa una tarea de FreeRTOS dedicada (`tareaRampa`) que gestiona la aceleración mediante una **Look-Up Table (LUT)** de 50 pasos. Esto permite curvas de aceleración no lineales, optimizando el torque inicial y suavizando la llegada a la velocidad objetivo.
-    - **Interfaz Dinámica:** Permite definir velocidades objetivo independientes para cada lado con la opción de activar o desactivar la rampa en tiempo real. Define comandos estratégicos de alto nivel: direcciones, ataques directos, huida del borde, giros pronunciados y velocidad máxima.
-    - **Gestión de Freno Dinámico:** El controlador restablece automáticamente el estado del freno en cada nueva acción, garantizando una transición limpia entre maniobras agresivas y defensivas.
-- **`SensorLimite`** y **`SensorRival`** — Interfaces abstractas para sensores que permiten el intercambio transparente de hardware. Implementan un modelo de **procesamiento autónomo**, donde cada sensor gestiona su propia tarea de FreeRTOS para actualizar el `EventGroup` global, eliminando la necesidad de llamadas cíclicas desde el bucle principal.
-- **`SensorTof`** — Gestión de los 6 sensores de tiempo de vuelo (**VL53L1X**). El firmware realiza un remapeo secuencial de direcciones I2C al arranque mediante los pines **XSHUT**, permitiendo la coexistencia de múltiples sensores en un solo bus sin colisiones.
-    - **Configuración ROI Dinámica:** Implementa un método `set_roi` que permite modificar físicamente el tamaño y la posición de la matriz de SPADs activa. Esto se utiliza para configurar una ventana de visión optimizada que ignora obstáculos estructurales y el brillo del tatami.
-    - **Lectura de ráfaga (burst read):** Implementa una **lectura de ráfaga (burst read) de bajo nivel** al registro `0x0089`, permitiendo extraer en una sola transacción la distancia, el estado del sensor, la tasa de retorno de señal y el ruido de luz ambiente para validar la calidad de la detección en entornos con alta interferencia lumínica.
-- **`GestorI2C`** — Módulo crítico encargado de la robustez del hardware. Implementa un sistema de **auto-recuperación (self-healing)** que detecta bloqueos del bus y configura un **timeout de hardware (64000 ticks)** para evitar colgar el procesador, garantizando que el robot no quede indefenso ante ruidos electromagnéticos.
-- **`Nvs`** — Abstracción para el almacenamiento no volátil. Utiliza una **partición dedicada ("configuracion")** separada del NVS estándar del sistema para proteger los parámetros tácticos y asegurar su integridad ante actualizaciones o fallos del sistema.
-- **`Telemetria`** — Stack de conectividad que publica el estado completo del robot de forma asíncrona. El JSON de telemetría se auto-adapta dinámicamente mediante el flag `final` según el hardware detectado.
-    - **Middleware de Persistencia:** Utiliza un script externo (`telemetria.py`) que escucha vía MQTT, realiza una gestión de cola (batching) en una base de datos local SQLite y reenvía los datos mediante HTTP/HTTPS (con integración a una **base de datos externa** prevista próximamente).
-    - **Salud de Sensores:** Reporta métricas de calidad para los ToF (estado, señal y ruido ambiental).
-    - **Diagnóstico del Sistema:** El payload incluye telemetría profunda: memoria libre (`heap`), versión del firmware (`commit`), calidad de señal WiFi, ciclo de control, corriente en amperios (**corriente**) y estado de los motores (PWM y detección de `stall`).
-- **`MonitorSistema`** — Módulo dedicado a la supervisión analógica. Realiza la lectura del voltaje de batería y la corriente de los motores (Stall) mediante la API ADC Oneshot de ESP-IDF.
+### Módulos por Componentes
+
+- **`core`** — El corazón del robot. Contiene la `MaquinaEstados`, el `GestorI2C`, la abstracción `Nvs` y todas las **Estrategias** de combate. 
+    - **Estrategias:** Implementa un **Patrón Strategy** con un puntero polimórfico (`estActual`) para ejecutar diferentes comportamientos (E1, E2, Prototipo) en tiempo real.
+    - **Memoria Táctica:** Sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados y un sistema de **memoria a largo plazo** para la persecución predictiva del rival.
+    - **GestorI2C:** Encargado de la robustez del hardware. Implementa un sistema de **auto-recuperación (self-healing)** que detecta bloqueos del bus y configura un **timeout de hardware (64000 ticks)**.
+- **`actuadores`** — Gestión de potencia. 
+    - **ControlMotores:** Control de los 4 motores DC mediante **MCPWM**. Incluye una tarea dedicada (`tareaRampa`) que gestiona la aceleración mediante una **Look-Up Table (LUT)** de 50 pasos.
+    - **Multiplexor:** Driver para el TCA9548A usado en el prototipo.
+- **`sensores`** — Drivers autogestionados que actualizan el `EventGroup` global de forma autónoma.
+    - **SensorTof:** Gestión de los 6 VL53L1X con remapeo dinámico, configuración ROI y **lectura de ráfaga (burst read)** de bajo nivel al registro `0x0089`.
+    - **Interfaces:** `SensorLimite` y `SensorRival` permiten el intercambio transparente de hardware.
+- **`comunicaciones`** — Stack de conectividad WiFi, MQTT (vía `espressif/mqtt`), mDNS y actualizaciones OTA. El JSON de telemetría se auto-adapta dinámicamente según el hardware detectado.
+- **`ui`** — Componente centralizado para el control del LED RGB, garantizando acceso seguro desde múltiples módulos y evitando conflictos de recursos.
+- **`configuracion`** — Definición centralizada del hardware map (`pines.h`), jerarquía de bits (`eventos.h`) y constantes globales.
+- **`Musica`** — Generación de tonos y melodías para feedback auditivo del robot.
 
 ---
 
@@ -125,16 +118,12 @@ Las variables tácticas críticas se pueden ajustar vía MQTT sin necesidad de u
 | `t_stall` | Tiempo de confirmación de corriente alta para activar stall (ms). |
 | `umbral_color` | Valor de referencia para detección de línea blanca. |
 | `dist_max` | Rango máximo de detección del rival (cm/mm). |
-| `modo` | Selección de modo de arranque (0=Prueba, 1=Combate). |
-| `monitor` | Nivel de verbosidad del Monitor del Sistema. |
 
 ---
 
 ## Sistema de Máscaras de Bits
 
-El proyecto implementa un sofisticado sistema de detección basado en máscaras de bits que permite evaluar combinaciones de sensores con eficiencia máxima:
-
-### Jerarquía de Bits (eventos.h)
+El proyecto implementa un sofisticado sistema de detección basado en máscaras de bits (`eventos.h`) que permite evaluar combinaciones de sensores con eficiencia máxima:
 
 ```cpp
 // Sensores de línea (borde del tatami)
@@ -154,28 +143,21 @@ BIT_ULTRA_A, BIT_ULTRA_B     → MASK_ULTRA
 
 ## Fortalezas del Diseño
 
-* **Detección de Stall y Maniobra de Evasión:** El sistema detecta bloqueos mecánicos mediante el ADC en tiempo real. Al superar el umbral `u_stall` durante un tiempo `t_stall`, la Máquina de Estados interrumpe la estrategia actual para ejecutar una **maniobra de evasión** (retroceso y giro rápido) definida por `tiempos/evasion`, garantizando que el robot no se queme ni quede atrapado en colisiones estáticas.
-* **Sincronización No Bloqueante y Atómica (Task Notifications):** Se ha optimizado la comunicación entre las interrupciones (ISR) y las tareas de procesamiento. Para los sensores de línea (TCRT5000), se utiliza `xTaskNotifyFromISR` con transferencia de valor mediante máscaras de bits. Los sensores están mapeados a pines seguros del ESP32-S3 (GPIO 5, 10, 6, 21), y las interrupciones a pines dedicados (ej. GPIO 4 para INT_2), evitando por completo el uso de pines de strapping críticos (45, 46), USB (19, 20) y pines de memoria Octal (33-37). Esto garantiza que el estado de los sensores se capture y entregue de forma atómica a la tarea, eliminando inconsistencias por cambios de estado rápidos y reduciendo la latencia al evitar lecturas redundantes del GPIO fuera de la ISR.
-* **Optimización de Bus de Periféricos:** El controlador de motores implementa un sistema de "cambio sucio" (dirty check), actualizando los comparadores MCPWM únicamente cuando existe una variación real en la velocidad calculada, minimizando la latencia del sistema y el tráfico innecesario en el bus de periféricos.
-* **Determinismo en Rampas:** El uso de `vTaskDelayUntil` garantiza que la rampa se ejecute con una frecuencia precisa y constante, eliminando el jitter temporal en el control de tracción.
-* **Sincronización de Memoria Crítica:** Implementación de secciones críticas de FreeRTOS (`portENTER_CRITICAL`) para la protección de variables compartidas entre tareas, asegurando que los cambios de velocidad y estado de rampa sean atómicos y libres de condiciones de carrera.
-* **Lógica de Huida Especializada (Anti-Borde):** Implementación de comandos tácticos dedicados (`HUIR_A`, `HUIR_B`) que gestionan de forma atómica el desbloqueo de motores y el movimiento a velocidades de escape configurables. Esta especialización separa la lógica de retroceso estándar de la respuesta crítica ante la línea del tatami, mejorando la supervivencia del robot en el borde.
-* **Arquitectura de Estrategias Modulares:** El uso del Patrón Strategy permite crear nuevas tácticas de combate simplemente heredando de `EstrategiaEstandar`.
-* **Encapsulamiento de Sensores Autogestionados:** Cada clase de sensor gestiona su propia lectura, liberando al `main.cpp` de la gestión de hilos y garantizando una migración de hardware transparente.
-* **Jerarquía de Máscaras de Bits:** Permite que la lógica de decisión sea extremadamente rápida y legible, filtrando grupos completos de sensores en un solo ciclo de CPU.
-* **Diseño Bidireccional:** Aporta una ventaja táctica inmensa, ya que la máquina de estados puede simplemente invertir motores para atacar a un rival trasero sin consumir tiempo valioso en girar.
-* **Robustez y Coherencia de Datos:** Uso de calificadores `volatile` en variables de control crítico (velocidades y estado de rampa) para garantizar la integridad de los datos entre la tarea de la Máquina de Estados y la tarea de Rampa de Motores, evitando optimizaciones indeseadas del compilador en un entorno multi-tarea.
-* **Sistema Anti-Jitter (Zero-Order Hold):** Procesa las lecturas de los sensores a través de una matriz de memorias a corto plazo para evitar ruidos en la toma de decisiones.
-* **Determinismo y Estabilidad de Memoria:** Implementación de **Asignación Estática de FreeRTOS** (`xTaskCreateStatic`) para todas las tareas del sistema (`robot`, `motores`, `telemetría`, etc.). Esto elimina la dependencia del heap en tiempo de ejecución, previene errores de "Out of Memory" por fragmentación y asegura un comportamiento determinista, crítico para la fiabilidad en competencia.
-* **Robustez de Interrupciones y Periféricos:** Mejora en la inicialización de los servicios de interrupción GPIO y gestión de handles de tareas por instancia, permitiendo una coexistencia más segura de múltiples sensores y evitando colisiones de hardware durante el arranque.
+* **Detección de Stall y Maniobra de Evasión:** El sistema detecta bloqueos mecánicos mediante el ADC. Al superar el umbral `u_stall` durante `t_stall`, se ejecuta una maniobra de escape atómica.
+* **Lógica de Huida Especializada (Anti-Borde):** Comandos tácticos dedicados (`HUIR_A`, `HUIR_B`) que gestionan de forma atómica el desbloqueo de motores para salir de la línea blanca a velocidad de escape configurable.
+* **Sincronización No Bloqueante (Task Notifications):** Optimización de la latencia entre interrupciones (ISR) y tareas de procesamiento mediante `xTaskNotifyFromISR` para una respuesta instantánea a los bordes.
+* **Optimización de Bus MCPWM ("dirty check"):** Actualización de los comparadores solo cuando existe una variación real en la velocidad calculada, minimizando el tráfico en el bus de periféricos.
+* **Determinismo en Rampas:** El uso de `vTaskDelayUntil` garantiza que la rampa se ejecute con una frecuencia precisa y constante.
+* **Sincronización de Memoria Crítica:** Uso de `portENTER_CRITICAL` para evitar condiciones de carrera entre la tarea de rampa y la máquina de estados.
+* **Sistema Anti-Jitter (Zero-Order Hold):** Matriz de memorias a corto plazo para mitigar falsos positivos de los ToF en entornos de alta velocidad.
+* **Diseño Bidireccional:** Ventaja táctica que permite invertir el sentido de ataque instantáneamente sin girar sobre el propio eje.
+
+---
 
 ## Ecosistema de Herramientas
 
-El proyecto incluye un conjunto de herramientas externas para la gestión de datos, automatización de compilación y configuración:
-
-- **`telemetria.py`**: Middleware en Python encargado de suscribirse al broker MQTT, gestionar una base de datos local SQLite para evitar pérdida de datos y realizar el reenvío (batching) a un servidor central.
-- **`commit.py`**: Script de automatización integrado en PlatformIO que inyecta el hash del commit actual en el código fuente durante la compilación, permitiendo la trazabilidad total del firmware.
-- **`json-maestro.json` / `json-telemetria.json`**: Estructuras de definición para la configuración y mapeo de datos de telemetría entre el robot y el backend.
+- **`telemetria.py`**: Middleware en Python que gestiona una base de datos local SQLite persistente y realiza el reenvío de datos.
+- **`commit.py`**: Script de automatización que inyecta el hash del commit para trazabilidad del firmware.
 - **`full_codebase.sh`**: Utilidad para el mantenimiento y empaquetado del repositorio.
 
 ---
@@ -183,60 +165,30 @@ El proyecto incluye un conjunto de herramientas externas para la gestión de dat
 ## Estructura del Proyecto
 
 ```text
-├── src/
-│   ├── actuadores/           # Control PWM y periféricos de salida
-│   │   ├── ControlMotores.*  # Control PWM de los 4 motores
-│   │   ├── Multiplexor.*     # TCA9548A (Prototipo)
-│   │   └── rgb.h             # Control LED RGB
-│   ├── comunicaciones/       # Conectividad y telemetría
-│   │   ├── Mqtt.*            # Cliente MQTT
-│   │   ├── Ota.*             # Actualizaciones OTA
-│   │   ├── Telemetria.*      # Publicación de telemetría
-│   │   └── Wifi.*            # Gestión WiFi (STA + SmartConfig + mDNS)
-├── configuracion/        # Variables y hardware map
-│   ├── configuracion.*   # Utilidades de configuración
-│   ├── eventos.h         # Definición de bits y máscaras
-│   ├── LookupTable.h     # Curvas de aceleración para rampas
-│   └── pines.h           # Mapa de hardware dual (ESP32/S3)
-│   ├── core/                 # Lógica base y servicios
-│   │   ├── DatosT.h          # Estructura de datos de telemetría
-│   │   ├── GestorI2C.*       # Administración y salud del bus I2C
-│   │   ├── MaquinaEstados.*  # Gestor de estados y tiempos
-│   │   ├── MonitorSistema.*  # Supervisión analógica del sistema (ADC)
-│   │   └── Nvs.*             # Abstracción NVS
-│   ├── estrategias/          # Lógicas de combate
-│   │   ├── Estrategia1.*     # Estrategia de combate 1
-│   │   ├── Estrategia2.*     # Estrategia de combate 2
-│   │   ├── EstrategiaBase.h  # Interfaz de estrategias
-│   │   ├── EstrategiaEstandar.* # Lógica base para ToF
-│   │   └── EstrategiaPrototipo.* # Lógica base para Ultrasonidos
-│   ├── sensores/             # Hardware de medición
-│   │   ├── SensorLimite.h    # Interfaz para detección de borde
-│   │   ├── SensorRival.h     # Interfaz para detección de oponente
-│   │   ├── SensorTcs.*       # Driver TCS34725 (Prototipo)
-│   │   ├── SensorTcrt.*      # Driver TCRT5000 (Final)
-│   │   ├── SensorTof.*       # Driver VL53L1X (Final)
-│   │   └── SensorUltra.*     # Driver HC-SR04 (Prototipo)
-│   ├── main.cpp              # Punto de entrada e inicialización
-│   ├── Kconfig.projbuild     # Configuración de credenciales
-│   └── idf_component.yml     # Dependencias de componentes
-├── lib/
-│   └── Musica/               # Librería de melodías (buzzer)
-├── platformio.ini            # Configuración de entornos
-├── partitions.csv            # Tabla de particiones flash
-├── sdkconfig.defaults        # Valores por defecto de Kconfig
-├── sdkconfig.esp32           # Configuración específica Prototipo
-└── sdkconfig.esp32-s3        # Configuración específica Final
+├── components/
+│   ├── actuadores/      # Motores y Multiplexor
+│   ├── comunicaciones/  # WiFi, MQTT, OTA, mDNS
+│   ├── configuracion/   # Pines y Eventos
+│   ├── core/            # Maquina de estados, Estrategias y NVS
+│   ├── sensores/        # Drivers ToF, TCRT, TCS, Ultra
+│   ├── ui/              # LED RGB (Interfaz centralizada)
+│   └── Musica/          # Buzzer
+├── main/
+│   ├── main.cpp         # Punto de entrada e inicialización
+│   └── idf_component.yml # Dependencias externas (MQTT, cJSON, etc.)
+├── partitions_s3.csv    # Tabla de particiones (4MB por App)
+├── sdkconfig            # Configuración activa del proyecto
+└── CMakeLists.txt       # Script de construcción principal
 ```
-p32-s3        # Configuración específica Final
-```
-── sdkconfig.esp32-s3        # Configuración específica Final
-```
-alores por defecto de Kconfig
-├── sdkconfig.esp32           # Configuración específica Prototipo
-└── sdkconfig.esp32-s3        # Configuración específica Final
-```
-p32-s3        # Configuración específica Final
-```
-── sdkconfig.esp32-s3        # Configuración específica Final
+
+---
+
+## Compilación y Flasheo
+
+```bash
+# Limpiar y compilar
+idf.py fullclean build
+
+# Flashear y monitorear
+idf.py -p [PUERTO] flash monitor
 ```
