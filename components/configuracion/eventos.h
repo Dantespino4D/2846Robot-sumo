@@ -7,8 +7,14 @@
 extern EventGroupHandle_t eventos;
 
 //bits de sensores de limite (TCS o TCRT)
-#define BIT_LIM_A (1 << 0)
-#define BIT_LIM_B (1 << 1)
+#define BIT_LIM_AI (1 << 10)
+#define BIT_LIM_AD (1 << 11)
+#define BIT_LIM_BI (1 << 12)
+#define BIT_LIM_BD (1 << 13)
+
+//mascaras de sensores de limite
+#define MASK_LIM_A (BIT_LIM_AI | BIT_LIM_AD)
+#define MASK_LIM_B (BIT_LIM_BI | BIT_LIM_BD)
 
 //bits de sensores TOF direccion A
 #define BIT_TOF_AI (1 << 2)
@@ -35,7 +41,7 @@ static const EventBits_t TOF_BITS[6] = {
 #define BIT_ULTRA_B (1 << 9)
 
 //mascara de bits para sensores de limite
-#define MASK_COLOR (BIT_LIM_A | BIT_LIM_B)
+#define MASK_COLOR (MASK_LIM_A | MASK_LIM_B)
 
 //mascara de bits para sensores TOF direccion A
 #define MASK_TOF_A (BIT_TOF_AI | BIT_TOF_AC | BIT_TOF_AD)

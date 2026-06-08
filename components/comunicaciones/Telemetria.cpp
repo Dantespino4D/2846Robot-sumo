@@ -40,6 +40,8 @@ void Telemetria::sensorLimite(){
 		// datos para TCRT
 		d.Tcrt1 = colBuffer[0];
 		d.Tcrt2 = colBuffer[1];
+		d.Tcrt3 = colBuffer[2];
+		d.Tcrt4 = colBuffer[3];
 	}else{
 		// datos para sensores de color
 		d.cR1 = colBuffer[0];
@@ -142,7 +144,7 @@ void Telemetria::enviar(){
 	if(final){
 		//json del robot final con métricas de fiabilidad extendidas
 		lon = snprintf(json, NJSON,
-    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
+    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d,%d,%d]}}",
     	COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
     	d.pwm1, d.pwm2, d.pwm1_obj, d.pwm2_obj, d.stall, d.corriente,
@@ -150,7 +152,7 @@ void Telemetria::enviar(){
 		d.estadoToF1, d.estadoToF2, d.estadoToF3, d.estadoToF4, d.estadoToF5, d.estadoToF6,
 		d.señalTof1, d.señalTof2, d.señalTof3, d.señalTof4, d.señalTof5, d.señalTof6,
 		d.ambienteToF1, d.ambienteToF2, d.ambienteToF3, d.ambienteToF4, d.ambienteToF5, d.ambienteToF6,
-		d.Tcrt1, d.Tcrt2
+		d.Tcrt1, d.Tcrt2, d.Tcrt3, d.Tcrt4
     	);
 	}else{
 		//json del prototipo

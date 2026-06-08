@@ -414,7 +414,7 @@ void ControlMotores::begin() {
 	// Configuración de falla para el sensor TCRT
     mcpwm_gpio_fault_config_t fault_config = {};
     fault_config.group_id = 0;
-    fault_config.gpio_num = TCRT_1;
+    fault_config.gpio_num = FAULT_A;
     fault_config.intr_priority = 0;
     fault_config.flags.active_level = 1;
 
@@ -422,7 +422,7 @@ void ControlMotores::begin() {
     ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_a));
 
 	// Se crea el manejador de falla para el sensor TCRT de la direccion b
-	fault_config.gpio_num = TCRT_2;
+	fault_config.gpio_num = FAULT_B;
 	ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_b));
 
 	// Configuración de freno para la falla del sensor TCRT en direccion a
@@ -1133,6 +1133,8 @@ void Telemetria::sensorLimite(){
 		// datos para TCRT
 		d.Tcrt1 = colBuffer[0];
 		d.Tcrt2 = colBuffer[1];
+		d.Tcrt3 = colBuffer[2];
+		d.Tcrt4 = colBuffer[3];
 	}else{
 		// datos para sensores de color
 		d.cR1 = colBuffer[0];
@@ -1235,7 +1237,7 @@ void Telemetria::enviar(){
 	if(final){
 		//json del robot final con métricas de fiabilidad extendidas
 		lon = snprintf(json, NJSON,
-    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d]}}",
+    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d,%d,%d]}}",
     	COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo ,d.prototipo,
 		d.estado, d.estrategia, d.inicio,
     	d.pwm1, d.pwm2, d.pwm1_obj, d.pwm2_obj, d.stall, d.corriente,
@@ -1243,7 +1245,7 @@ void Telemetria::enviar(){
 		d.estadoToF1, d.estadoToF2, d.estadoToF3, d.estadoToF4, d.estadoToF5, d.estadoToF6,
 		d.señalTof1, d.señalTof2, d.señalTof3, d.señalTof4, d.señalTof5, d.señalTof6,
 		d.ambienteToF1, d.ambienteToF2, d.ambienteToF3, d.ambienteToF4, d.ambienteToF5, d.ambienteToF6,
-		d.Tcrt1, d.Tcrt2
+		d.Tcrt1, d.Tcrt2, d.Tcrt3, d.Tcrt4
     	);
 	}else{
 		//json del prototipo
@@ -1564,8 +1566,14 @@ FILE PATH: ./components/configuracion/eventos.h
 extern EventGroupHandle_t eventos;
 
 //bits de sensores de limite (TCS o TCRT)
-#define BIT_LIM_A (1 << 0)
-#define BIT_LIM_B (1 << 1)
+#define BIT_LIM_AI (1 << 10)
+#define BIT_LIM_AD (1 << 11)
+#define BIT_LIM_BI (1 << 12)
+#define BIT_LIM_BD (1 << 13)
+
+//mascaras de sensores de limite
+#define MASK_LIM_A (BIT_LIM_AI | BIT_LIM_AD)
+#define MASK_LIM_B (BIT_LIM_BI | BIT_LIM_BD)
 
 //bits de sensores TOF direccion A
 #define BIT_TOF_AI (1 << 2)
@@ -1592,7 +1600,7 @@ static const EventBits_t TOF_BITS[6] = {
 #define BIT_ULTRA_B (1 << 9)
 
 //mascara de bits para sensores de limite
-#define MASK_COLOR (BIT_LIM_A | BIT_LIM_B)
+#define MASK_COLOR (MASK_LIM_A | MASK_LIM_B)
 
 //mascara de bits para sensores TOF direccion A
 #define MASK_TOF_A (BIT_TOF_AI | BIT_TOF_AC | BIT_TOF_AD)
@@ -1675,8 +1683,9 @@ FILE PATH: ./components/configuracion/pines.h
 	#define TCRT_3 GPIO_NUM_6
 	#define TCRT_4 GPIO_NUM_21
 
-    // Lectura de corriente
-    #define PIN_STALL GPIO_NUM_1
+    // Hardware Faults para MCPWM (Señales combinadas)
+    #define FAULT_A GPIO_NUM_1
+    #define FAULT_B GPIO_NUM_7
 
     // I2C
     #define SDA GPIO_NUM_8
@@ -1827,6 +1836,8 @@ struct Datos{
 	// Variables de sensores TCRT
 	uint16_t Tcrt1;
 	uint16_t Tcrt2;
+	uint16_t Tcrt3;
+	uint16_t Tcrt4;
 };
 
 #endif
@@ -2291,12 +2302,12 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 
 	//se verifica si se detecto algun sensor de color el que sea
 	if(noti & MASK_COLOR){
-		// si detecta el limite por sc_1
-		if (noti & BIT_LIM_A) {
+		// si detecta el limite por la direccion A
+		if (noti & MASK_LIM_A) {
 			ctx->modo = 0;
 		}
-		// si detecta el limite por sc_2
-		else if (noti & BIT_LIM_B) {
+		// si detecta el limite por la direccion B
+		else if (noti & MASK_LIM_B) {
 	 		 ctx->modo = 1;
 		}
 	//se verifica si hay alguna memoria del sensor de color
@@ -2486,12 +2497,12 @@ void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
 
     //se verifica si se detecto algun sensor de color el que sea
     if(noti & MASK_COLOR){
-        // si detecta el limite por sc_1
-        if (noti & BIT_LIM_A) {
+        // si detecta el limite por la direccion A
+        if (noti & MASK_LIM_A) {
             ctx->modo = 0;
         }
-        // si detecta el limite por sc_2
-        else if (noti & BIT_LIM_B) {
+        // si detecta el limite por la direccion B
+        else if (noti & MASK_LIM_B) {
             ctx->modo = 1;
         }
     //se verifica si hay alguna memoria del sensor de color
@@ -3924,15 +3935,17 @@ FILE PATH: ./components/sensores/SensorTcrt.cpp
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include <cstdint>
-#include <sys/types.h>
+#include "esp_attr.h"
 
 extern EventGroupHandle_t eventos;
 
 static const char* TAG = "SensorTcrt";
 
-SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2) :
+SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2, gpio_num_t _p3, gpio_num_t _p4) :
 	pin1(_p1),
-	pin2(_p2)
+	pin2(_p2),
+	pin3(_p3),
+	pin4(_p4)
 {}
 
 void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
@@ -3950,6 +3963,12 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 	if(gpio_get_level(sensor->pin2)){
 		estado |= (1 << 1);
 	}
+	if(gpio_get_level(sensor->pin3)){
+		estado |= (1 << 2);
+	}
+	if(gpio_get_level(sensor->pin4)){
+		estado |= (1 << 3);
+	}
 	xTaskNotifyFromISR(sensor->tarea, estado, eSetValueWithOverwrite, &cambioC);
     if (cambioC) {
         portYIELD_FROM_ISR();
@@ -3960,12 +3979,12 @@ void SensorTcrt::begin() {
     gpio_config_t io_conf = {};
     io_conf.intr_type = GPIO_INTR_ANYEDGE;
     io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = (1ULL << pin1) | (1ULL << pin2);
+    io_conf.pin_bit_mask = (1ULL << pin1) | (1ULL << pin2) | (1ULL << pin3) | (1ULL << pin4);
     io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
     io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
     gpio_config(&io_conf);
 
-    ESP_LOGI(TAG, "Interrupciones configuradas para TCRT en pines %d y %d", pin1, pin2);
+    ESP_LOGI(TAG, "Interrupciones configuradas para 4 TCRT en pines %d, %d, %d y %d", pin1, pin2, pin3, pin4);
 
 	tarea = xTaskCreateStaticPinnedToCore(tareaTcrt, "tareaTcrt", sizeof(stackTcrt), (void*)this, 10, stackTcrt, &tcbTcrt, 1);
 }
@@ -3973,7 +3992,9 @@ void SensorTcrt::begin() {
 void SensorTcrt::colores(uint16_t* buffer) {
     buffer[0] = (uint16_t)gpio_get_level(pin1);
     buffer[1] = (uint16_t)gpio_get_level(pin2);
-    for(int i = 2; i < 16; i++) {
+    buffer[2] = (uint16_t)gpio_get_level(pin3);
+    buffer[3] = (uint16_t)gpio_get_level(pin4);
+    for(int i = 4; i < 16; i++) {
         buffer[i] = 0;
     }
 }
@@ -3989,6 +4010,8 @@ void SensorTcrt::tareaTcrt(void* pvParameters) {
 
     gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor);
     gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor);
+    gpio_isr_handler_add(sensor->pin3, &SensorTcrt::limite_isr, (void*)sensor);
+    gpio_isr_handler_add(sensor->pin4, &SensorTcrt::limite_isr, (void*)sensor);
 
 	uint32_t estado = 0;
 	while (true) {
@@ -3997,16 +4020,19 @@ void SensorTcrt::tareaTcrt(void* pvParameters) {
 				ESP_LOGE(TAG, "Error: puntero a SensorTcrt es nulo");
 				continue;
 			}
-			if(estado & (1 << 0)){
-				xEventGroupSetBits(eventos, BIT_LIM_A);
-			}else{
-				xEventGroupClearBits(eventos, BIT_LIM_A);
-			}
-			if(estado & (1 << 1)){
-				xEventGroupSetBits(eventos, BIT_LIM_B);
-			}else{
-				xEventGroupClearBits(eventos, BIT_LIM_B);
-			}
+			
+			// Procesar bits de sensores TCRT
+			if(estado & (1 << 0)) xEventGroupSetBits(eventos, BIT_LIM_AI);
+			else xEventGroupClearBits(eventos, BIT_LIM_AI);
+
+			if(estado & (1 << 1)) xEventGroupSetBits(eventos, BIT_LIM_AD);
+			else xEventGroupClearBits(eventos, BIT_LIM_AD);
+
+			if(estado & (1 << 2)) xEventGroupSetBits(eventos, BIT_LIM_BI);
+			else xEventGroupClearBits(eventos, BIT_LIM_BI);
+
+			if(estado & (1 << 3)) xEventGroupSetBits(eventos, BIT_LIM_BD);
+			else xEventGroupClearBits(eventos, BIT_LIM_BD);
 		}
 	}
 }
@@ -4036,6 +4062,8 @@ class SensorTcrt : public SensorLimite {
 	private:
 		gpio_num_t pin1;
 		gpio_num_t pin2;
+		gpio_num_t pin3;
+		gpio_num_t pin4;
 
 		//handle de la tarea
 		TaskHandle_t tarea = nullptr;
@@ -4053,7 +4081,7 @@ class SensorTcrt : public SensorLimite {
 		static void IRAM_ATTR limite_isr(void* arg);
 
 	public:
-		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2);
+		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2, gpio_num_t _p3, gpio_num_t _p4);
 		virtual ~SensorTcrt() {}
 		void begin() override;
 		void colores(uint16_t* buffer) override;
@@ -4303,19 +4331,19 @@ void SensorTcs::procesar(){
 	//se verifica si se detecta el limite en direccion A
 	if(sc_1Verify()){
 		//manda bit si sc_1 detecta el limite
-		xEventGroupSetBits(eventos, BIT_LIM_A);
+		xEventGroupSetBits(eventos, BIT_LIM_AI);
 	}else{
 		//limpia el bit si sc_1 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_LIM_A);
+		xEventGroupClearBits(eventos, BIT_LIM_AI);
 	}
 
 	//se verifica si se detecta el limite en direccion B
 	if(sc_2Verify()){
 		//manda bit si sc_2 detecta el limite
-		xEventGroupSetBits(eventos, BIT_LIM_B);
+		xEventGroupSetBits(eventos, BIT_LIM_BI);
 	}else{
 		//limpia el bit si sc_2 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_LIM_B);
+		xEventGroupClearBits(eventos, BIT_LIM_BI);
 	}
 }
 
@@ -5666,7 +5694,7 @@ void begin_hardware() {
 	//se le asigna al puntero los el objeto correspondiente
     #ifdef CONFIG_IDF_TARGET_ESP32S3
         final = true;
-        sl = new SensorTcrt(TCRT_1, TCRT_2);
+        sl = new SensorTcrt(TCRT_1, TCRT_2, TCRT_3, TCRT_4);
         sr = new SensorTof(i2c, dir, maxd);
     #else
         final = false;

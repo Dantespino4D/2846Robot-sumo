@@ -23,8 +23,9 @@
 	#define TCRT_3 GPIO_NUM_6
 	#define TCRT_4 GPIO_NUM_21
 
-    // Lectura de corriente
-    #define PIN_STALL GPIO_NUM_1
+    // Hardware Faults para MCPWM (Señales combinadas)
+    #define FAULT_A GPIO_NUM_1
+    #define FAULT_B GPIO_NUM_7
 
     // I2C
     #define SDA GPIO_NUM_8

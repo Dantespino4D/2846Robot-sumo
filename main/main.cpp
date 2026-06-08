@@ -325,7 +325,7 @@ void begin_hardware() {
 	//se le asigna al puntero los el objeto correspondiente
     #ifdef CONFIG_IDF_TARGET_ESP32S3
         final = true;
-        sl = new SensorTcrt(TCRT_1, TCRT_2);
+        sl = new SensorTcrt(TCRT_1, TCRT_2, TCRT_3, TCRT_4);
         sr = new SensorTof(i2c, dir, maxd);
     #else
         final = false;

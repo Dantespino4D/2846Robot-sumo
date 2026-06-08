@@ -408,7 +408,7 @@ void ControlMotores::begin() {
 	// Configuración de falla para el sensor TCRT
     mcpwm_gpio_fault_config_t fault_config = {};
     fault_config.group_id = 0;
-    fault_config.gpio_num = TCRT_1;
+    fault_config.gpio_num = FAULT_A;
     fault_config.intr_priority = 0;
     fault_config.flags.active_level = 1;
 
@@ -416,7 +416,7 @@ void ControlMotores::begin() {
     ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_a));
 
 	// Se crea el manejador de falla para el sensor TCRT de la direccion b
-	fault_config.gpio_num = TCRT_2;
+	fault_config.gpio_num = FAULT_B;
 	ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_b));
 
 	// Configuración de freno para la falla del sensor TCRT en direccion a

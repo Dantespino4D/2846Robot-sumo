@@ -16,6 +16,8 @@ class SensorTcrt : public SensorLimite {
 	private:
 		gpio_num_t pin1;
 		gpio_num_t pin2;
+		gpio_num_t pin3;
+		gpio_num_t pin4;
 
 		//handle de la tarea
 		TaskHandle_t tarea = nullptr;
@@ -33,7 +35,7 @@ class SensorTcrt : public SensorLimite {
 		static void IRAM_ATTR limite_isr(void* arg);
 
 	public:
-		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2);
+		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2, gpio_num_t _p3, gpio_num_t _p4);
 		virtual ~SensorTcrt() {}
 		void begin() override;
 		void colores(uint16_t* buffer) override;

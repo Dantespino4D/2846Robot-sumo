@@ -234,19 +234,19 @@ void SensorTcs::procesar(){
 	//se verifica si se detecta el limite en direccion A
 	if(sc_1Verify()){
 		//manda bit si sc_1 detecta el limite
-		xEventGroupSetBits(eventos, BIT_LIM_A);
+		xEventGroupSetBits(eventos, BIT_LIM_AI);
 	}else{
 		//limpia el bit si sc_1 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_LIM_A);
+		xEventGroupClearBits(eventos, BIT_LIM_AI);
 	}
 
 	//se verifica si se detecta el limite en direccion B
 	if(sc_2Verify()){
 		//manda bit si sc_2 detecta el limite
-		xEventGroupSetBits(eventos, BIT_LIM_B);
+		xEventGroupSetBits(eventos, BIT_LIM_BI);
 	}else{
 		//limpia el bit si sc_2 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_LIM_B);
+		xEventGroupClearBits(eventos, BIT_LIM_BI);
 	}
 }
 

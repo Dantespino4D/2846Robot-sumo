@@ -1,4 +1,4 @@
-# Robot Sumo Bidireccional - ESP32 / ESP32-S3 (ESP-IDF v6)
+# Robot Sumo Bidireccional - ESP32 / ESP32-S3
 
 Este proyecto implementa el firmware completo y la integración de hardware de un robot de sumo competitivo de categoría Mini Sumo (10 cm x 10 cm, sin límite de altura). El diseño del robot es **bidireccional**, permitiéndole atacar y defenderse de manera eficaz sin necesidad de girar sobre su propio eje ante ataques por la retaguardia.
 
@@ -127,7 +127,7 @@ El proyecto implementa un sofisticado sistema de detección basado en máscaras 
 
 ```cpp
 // Sensores de línea (borde del tatami)
-BIT_LIM_A, BIT_LIM_B           → MASK_COLOR
+MASK_LIM_A (AI, AD), MASK_LIM_B (BI, BD) → MASK_COLOR
 
 // Sensores ToF frontales (dirección A)
 BIT_TOF_AI, BIT_TOF_AC, BIT_TOF_AD → MASK_TOF_A
