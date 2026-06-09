@@ -4546,6 +4546,8 @@ SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
 	listo{0},
 	maxd(_maxd)
 {
+	tx = (uint8_t*)heap_caps_malloc(32, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+	rx = (uint8_t*)heap_caps_malloc(32, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 	for(int i = 0; i < NUM_TOF; i++){
 		dir[i] = _dir[i];
 		tof[i] = nullptr;
@@ -4554,8 +4556,6 @@ SensorTof::SensorTof(GestorI2C& _i2c, const uint8_t* _dir, int _maxd):
 		data[i].estado = 0;
 		data[i].señal = 0;
 		data[i].ambiente = 0;
-		tx = (uint8_t*)heap_caps_malloc(32, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
-		rx = (uint8_t*)heap_caps_malloc(32, MALLOC_CAP_DMA | MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
 	}
 }
 
@@ -4690,7 +4690,7 @@ SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
 
 	//iniciamos lectua
 	esp_err_t fallo = dev ? i2c_master_transmit_receive(dev, inicio, 2, datos, 15, pdMS_TO_TICKS(2)) : ESP_FAIL;
-	
+
     //guardamos los datos en el struct
 	TofData res;
 	res.distancia = (datos[13] << 8) | datos[14];
