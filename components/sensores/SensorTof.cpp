@@ -1,4 +1,5 @@
 #include "SensorTof.h"
+#include "driver/i2c_types.h"
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 
@@ -68,6 +69,11 @@ bool SensorTof::begin(){
 	}
 	gpio_config(&io_conf);
 
+	//declaracion del puntero del callack del DMA
+	i2c_master_event_callbacks_t callback = {
+		.on_trans_done = dmaCallback,
+	};
+
 	//configuracion de los pines de interrupcion
 	gpio_config_t io_conf_intp = {};
 	io_conf_intp.intr_type = GPIO_INTR_NEGEDGE;
@@ -89,7 +95,7 @@ bool SensorTof::begin(){
 		gpio_isr_handler_add(intp[i], &SensorTof::tofIntr, (void*)i);
 	}
 
-	//apagado general de los xsgut
+	//apagado general de los xshut
 	for(int i = 0; i < NUM_TOF; i++){
 		gpio_set_level(xshut[i], 0);
 	}
@@ -101,6 +107,12 @@ bool SensorTof::begin(){
 
 		espp::Vl53l::Config config;
 		config.device_address = 0x29;
+
+		//obtenemos el manejador del dispositivo para configurar el DMA
+		i2c_master_dev_handle_t dev = i2c.get_device(dir[i]);
+
+		//registramos el callback del DMA
+		i2c_master_register_event_callbacks(dev, &callback, NULL);
 
 		config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
             i2c_master_dev_handle_t dev = i2c.get_device(dev_addr);
@@ -264,6 +276,16 @@ void SensorTof::tareaTof(void* pvParameters){
 		}
 	}
 	vTaskDelete(NULL);
+}
+
+//callback del DMA, se llama al finalizar una transferencia
+bool IRAM_ATTR SensorTof::dmaCallback(i2c_master_dev_handle_t dev, const i2c_master_event_data_t* event, void* arg){
+	//se notifica a la tarea que se ha completado una transferencia
+	BaseType_t cambioC = pdFALSE;
+	if (instancia != nullptr && instancia->tarea != NULL) {
+		vTaskNotifyGiveFromISR(instancia->tarea, &cambioC);
+	}
+	return (cambioC == pdTRUE);
 }
 
 void SensorTof::nvsLeer(){

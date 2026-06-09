@@ -104,6 +104,8 @@ class SensorTof : public SensorRival {
 		static void IRAM_ATTR tofIntr(void* arg);
 		//tarea que procesara los datos
 		static void tareaTof(void* pvParameters);
+		//callback del DMA
+		static bool IRAM_ATTR dmaCallback(i2c_master_dev_handle_t dev, const i2c_master_event_data_t* event, void* arg);
 		//metodo que envia las medidas de cada sensor a la telemetria
 		void getDistancias(uint16_t* buffer) override;
 };
