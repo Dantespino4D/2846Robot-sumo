@@ -12,6 +12,7 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 | Framework | ESP-IDF 6.x + FreeRTOS |
 | Herramienta de build | idf.py (Nativo) |
 | Arquitectura | Modular basada en Componentes (ESP-IDF Components) |
+| Comunicación I2C | Arquitectura asíncrona basada en **DMA** y **Notificaciones Indexadas** de FreeRTOS para máxima eficiencia sin bloqueo de CPU. |
 | Control de motores | PWM (MCPWM de ESP-IDF) gestionando 4 motores mediante drivers independientes |
 | Conectividad | WiFi + MQTT + mDNS + SmartConfig + OTA |
 | Telemetría | Streaming de estado en tiempo real al broker MQTT |
@@ -40,7 +41,7 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 * **Optimización del Campo de Visión (ROI):** Implementación de **Región de Interés (ROI)** por hardware para estrechar el haz láser a una franja horizontal de 16x4 SPADs. Al desplazar electrónicamente el centro de detección a la parte superior de la matriz, se elimina por completo la detección accidental del suelo (ruido), manteniendo un rango de visión horizontal amplio de ~27° para no perder al rival.
 * **Gestión de Eventos:** Uso de los pines **INT** de los ToF. Gracias a la matriz IO_MUX del ESP32-S3, se dedica un pin físico independiente para la interrupción de cada uno de los 6 sensores, eliminando por completo la latencia de hacer "polling" vía I2C.
 * **Detección de Stall (Atasco):** Implementación de detección por hardware mediante la medición de caída de voltaje en una resistencia shunt leída por el ADC (**GPIO_NUM_1**). Esto permite identificar bloqueos mecánicos o empujes del rival de forma instantánea.
-* **Eficiencia I2C:** Eliminación del multiplexor TCA9548A en favor del bus compartido de los ToF, simplificando el cableado.
+* **Eficiencia I2C:** Eliminación del multiplexor TCA9548A en favor del bus compartido de los ToF, optimizado con **DMA** para transferencias en segundo plano.
 * **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
 * **Alimentación Optimizada:** Sustitución del regulador LM2596 por el módulo **Mini 360 (MP2307)**, logrando mayor eficiencia energética y un diseño más compacto.
 * **Monitor del Sistema:** Lectura en tiempo real del voltaje de la batería y monitorización de corriente utilizando la API ADC Oneshot de ESP-IDF.
@@ -67,12 +68,12 @@ Musica (Prio: 1)               Lógica / Combat (Prio: 2)
 - **`core`** — El corazón del robot. Contiene la `MaquinaEstados`, el `GestorI2C`, la abstracción `Nvs` y todas las **Estrategias** de combate. 
     - **Estrategias:** Implementa un **Patrón Strategy** con un puntero polimórfico (`estActual`) para ejecutar diferentes comportamientos (E1, E2, Prototipo) en tiempo real.
     - **Memoria Táctica:** Sistema de **memoria a corto plazo (Zero-Order Hold)** de 10 estados y un sistema de **memoria a largo plazo** para la persecución predictiva del rival.
-    - **GestorI2C:** Encargado de la robustez del hardware. Implementa un sistema de **auto-recuperación (self-healing)** que detecta bloqueos del bus y configura un **timeout de hardware (64000 ticks)**.
+    - **GestorI2C:** Encargado de la robustez del hardware. Implementa un sistema de **auto-recuperación (self-healing)** y una arquitectura de **bus con colas de transacciones DMA** para operaciones no bloqueantes.
 - **`actuadores`** — Gestión de potencia. 
     - **ControlMotores:** Control de los 4 motores DC mediante **MCPWM**. Incluye una tarea dedicada (`tareaRampa`) que gestiona la aceleración mediante una **Look-Up Table (LUT)** de 50 pasos.
     - **Multiplexor:** Driver para el TCA9548A usado en el prototipo.
 - **`sensores`** — Drivers autogestionados que actualizan el `EventGroup` global de forma autónoma.
-    - **SensorTof:** Gestión de los 6 VL53L1X con remapeo dinámico, configuración ROI y **lectura de ráfaga (burst read)** de bajo nivel al registro `0x0089`.
+    - **SensorTof:** Gestión de los 6 VL53L1X con remapeo dinámico, configuración ROI y **lectura asíncrona mediante DMA**. Utiliza **Notificaciones Indexadas de FreeRTOS** (Buzón 1) para despertar la tarea solo cuando los datos están listos en RAM interna, evitando colisiones con interrupciones físicas.
     - **Interfaces:** `SensorLimite` y `SensorRival` permiten el intercambio transparente de hardware.
 - **`comunicaciones`** — Stack de conectividad WiFi, MQTT (vía `espressif/mqtt`), mDNS y actualizaciones OTA. El JSON de telemetría se auto-adapta dinámicamente según el hardware detectado.
 - **`ui`** — Componente centralizado para el control del LED RGB, garantizando acceso seguro desde múltiples módulos y evitando conflictos de recursos.

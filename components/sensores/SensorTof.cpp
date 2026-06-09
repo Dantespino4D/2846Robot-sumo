@@ -1,5 +1,6 @@
 #include "SensorTof.h"
 #include "driver/i2c_types.h"
+#include <climits>
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 
@@ -188,7 +189,7 @@ SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
 	//iniciamos lectua
 	esp_err_t fallo = dev ? i2c_master_transmit_receive(dev, tx, 2, rx, 15, 0) : ESP_FAIL;
 
-	ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5));
+	xTaskNotifyWaitIndexed(1, 0, ULONG_MAX, NULL, pdMS_TO_TICKS(5));
 
     //guardamos los datos en el struct
 	TofData res;
@@ -203,7 +204,9 @@ SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
 	tx[2] = 0x01;
 	esp_err_t limpiar = dev ? i2c_master_transmit(dev, tx, 3, 0) : ESP_FAIL;
 
-	ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2));
+
+	xTaskNotifyWaitIndexed(1, 0, ULONG_MAX, NULL, pdMS_TO_TICKS(2));
+
 	//evaluaos errores
 	if(fallo != ESP_OK || limpiar != ESP_OK){
 		//manejamos el error
@@ -288,7 +291,7 @@ bool IRAM_ATTR SensorTof::dmaCallback(i2c_master_dev_handle_t dev, const i2c_mas
 	//se notifica a la tarea que se ha completado una transferencia
 	BaseType_t cambioC = pdFALSE;
 	if (instancia != nullptr && instancia->tarea != NULL) {
-		vTaskNotifyGiveFromISR(instancia->tarea, &cambioC);
+		xTaskNotifyIndexedFromISR(instancia->tarea, 1, 0, eNoAction, &cambioC);
 	}
 	return (cambioC == pdTRUE);
 }
