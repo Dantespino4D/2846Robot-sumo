@@ -2691,6 +2691,8 @@ void GestorI2C::begin() {
     bus_config.scl_io_num = (gpio_num_t)SCL;
     bus_config.clk_source = I2C_CLK_SRC_DEFAULT;
     bus_config.glitch_ignore_cnt = 7;
+	bus_config.intr_priority = 0;
+	bus_config.trans_queue_depth = 18;
     bus_config.flags.enable_internal_pullup = true;
 
     esp_err_t res = i2c_new_master_bus(&bus_config, &bus_handle);
@@ -2748,13 +2750,13 @@ bool GestorI2C::verify(){
 
 void GestorI2C::reinicio(){
 	ESP_LOGW(TAG, "Fallo critico, reiniciando el bus I2C para desbloquear");
-	
+
     // Limpiar dispositivos y bus
     for (auto const& [addr, handle] : devices) {
         i2c_master_bus_rm_device(handle);
     }
     devices.clear();
-    
+
     if (bus_handle) {
         i2c_del_master_bus(bus_handle);
         bus_handle = nullptr;
