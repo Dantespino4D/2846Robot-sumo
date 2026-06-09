@@ -3,10 +3,11 @@
 #ifndef CONFIG_IDF_TARGET_ESP32S3
 
 #include "Nvs.h"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "rgb.h"
 #include "eventos.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include <cstdint>
 
@@ -54,15 +55,11 @@ bool SensorTcs::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
 	uint8_t write_buf[1] = {TCS_CDATAL};
 	uint8_t read_buf[8];
 
-	//definir donde empezar a escribir los datos leidos
-	esp_err_t err = i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf, 1, pdMS_TO_TICKS(20));
-    if (err != ESP_OK) {
-		i2c->error();
-        return false;
-    }
+    i2c_master_dev_handle_t dev = i2c->get_device(TCSADDR);
+    if (!dev) return false;
 
-	//leer datos del color
-	err = i2c_master_read_from_device(i2c->port(), TCSADDR, read_buf, 8, pdMS_TO_TICKS(20));
+	//definir donde empezar a escribir los datos leidos
+	esp_err_t err = i2c_master_transmit_receive(dev, write_buf, 1, read_buf, 8, pdMS_TO_TICKS(20));
     if (err != ESP_OK) {
 		i2c->error();
         return false;
@@ -90,7 +87,7 @@ void SensorTcs::calCol(){
 	//primero sensor
   	for (int i = 0; i < NUMM; i++) {
   	  	// Leer sensor 1
-  	  	mu.sel(i2c->port(), 0);
+  	  	mu.sel(i2c, 0);
   	  	if(read(&r, &g, &b, &c)){
 			t_r += r;
   	  		t_g += g;
@@ -114,7 +111,7 @@ void SensorTcs::calCol(){
 	t_c = 0;
   	for (int i = 0; i < NUMM; i++) {
   		// Leer sensor 2
-  		mu.sel(i2c->port(), 3);
+  		mu.sel(i2c, 3);
   		if(read(&r, &g, &b, &c)){
 			t_r += r;
   			t_g += g;
@@ -134,6 +131,12 @@ void SensorTcs::calCol(){
 
 void SensorTcs::begin(){
 	nvsLeer();
+    i2c_master_dev_handle_t dev = i2c->get_device(TCSADDR);
+    if (!dev) {
+        ESP_LOGE(TAG, "No se pudo obtener el handle del TCS34725");
+        return;
+    }
+
 	uint8_t write_buf[2];
 
     write_buf[0] = TCS_ATIME;
@@ -142,11 +145,11 @@ void SensorTcs::begin(){
 	uint8_t write_buf_enable[2] = {TCS_ENABLE, 0x03};
 
 	// selecciona sc_1
-	mu.sel(i2c->port(), 0);
+	mu.sel(i2c, 0);
 	// verifica el funcionamiento de sc_1
-	if (i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+	if (i2c_master_transmit(dev, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_transmit(dev, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_transmit(dev, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
         estado = true;
     } else {
 	    estado = false;
@@ -154,12 +157,12 @@ void SensorTcs::begin(){
 		rgb(0, 1023);
 	}
 
-	mu.sel(i2c->port(), 3);
+	mu.sel(i2c, 3);
 
     // Intentamos escribir la configuración
-    if (i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_write_to_device(i2c->port(), TCSADDR, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
+    if (i2c_master_transmit(dev, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_transmit(dev, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
+        i2c_master_transmit(dev, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
 	    estado2 = true;
 	} else {
 	    estado2 = false;
@@ -183,7 +186,7 @@ bool SensorTcs::sc_1Verify(){
     // detecta si el sensor de color funciona bien
     if (estado) {
     	// selecciona sc_1
-    	mu.sel(i2c->port(), 0);
+    	mu.sel(i2c, 0);
       	// sc_1 lee el color
       	if(read(&rt, &gt, &bt, &ct)){
 			//se aplican
@@ -210,7 +213,7 @@ bool SensorTcs::sc_2Verify(){
 	uint16_t rt, gt, bt, ct;
 	if (estado2) {
       	// selecciona sc_2
-      	mu.sel(i2c->port(), 3);
+      	mu.sel(i2c, 3);
       	// sc_2 lee el color
       	if(read(&rt, &gt, &bt, &ct)){
 			r2 = rt;

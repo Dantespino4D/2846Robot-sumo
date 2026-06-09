@@ -5,7 +5,7 @@
 
 #ifndef CONFIG_IDF_TARGET_ESP32S3
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "freertos/task.h"
 #include "GestorI2C.h"
 #include "Multiplexor.h"

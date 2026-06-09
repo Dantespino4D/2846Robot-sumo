@@ -1,12 +1,12 @@
 #ifndef MULTIPLEXOR_H
 #define MULTIPLEXOR_H
 
-#include "driver/i2c.h"
+#include "GestorI2C.h"
 
 class Multiplexor {
     public:
         Multiplexor();
-        bool sel(i2c_port_t port, uint8_t canal);
+        bool sel(GestorI2C* i2c, uint8_t canal);
 };
 
 #endif

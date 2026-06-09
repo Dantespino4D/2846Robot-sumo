@@ -13,7 +13,7 @@
 #include "freertos/idf_additions.h"
 #include "freertos/projdefs.h"
 #include "freertos/task.h"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 #include "esp_heap_caps.h"
 #include "portmacro.h"
 #include <cstddef>
@@ -103,10 +103,14 @@ bool SensorTof::begin(){
 		config.device_address = 0x29;
 
 		config.write = [this](uint8_t dev_addr, const uint8_t *data, size_t len) -> bool {
-			return i2c_master_write_to_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10)) == ESP_OK;
+            i2c_master_dev_handle_t dev = i2c.get_device(dev_addr);
+            if (!dev) return false;
+			return i2c_master_transmit(dev, data, len, pdMS_TO_TICKS(10)) == ESP_OK;
 		};
 		config.read = [this](uint8_t dev_addr, uint8_t *data, size_t len) -> bool {
-			return i2c_master_read_from_device(i2c.port(), dev_addr, data, len, pdMS_TO_TICKS(10)) == ESP_OK;
+            i2c_master_dev_handle_t dev = i2c.get_device(dev_addr);
+            if (!dev) return false;
+			return i2c_master_receive(dev, data, len, pdMS_TO_TICKS(10)) == ESP_OK;
 		};
 
 		tof[i] = new MiVl53l(config);
@@ -114,7 +118,9 @@ bool SensorTof::begin(){
 		std::error_code ec;
 		uint8_t nueva_dir = dir[i];
 		uint8_t payload[3] = {0x00, 0x01, (uint8_t)(nueva_dir & 0x7F)};
-		if (i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10)) == ESP_OK) {
+
+        i2c_master_dev_handle_t dev29 = i2c.get_device(0x29);
+		if (dev29 && i2c_master_transmit(dev29, payload, 3, pdMS_TO_TICKS(10)) == ESP_OK) {
 			tof[i]->set_sensor_address(nueva_dir);
 			ESP_LOGI(TAG, "ToF #%d listo en 0x%02X", i, nueva_dir);
 		} else {
@@ -147,7 +153,10 @@ void SensorTof::reasignar(){
 		gpio_set_level(xshut[i], 1);
 		vTaskDelay(pdMS_TO_TICKS(5));
 		uint8_t payload[3] = {0x00, 0x01, (uint8_t)(dir[i] & 0x7F)};
-		i2c_master_write_to_device(i2c.port(), 0x29, payload, 3, pdMS_TO_TICKS(10));
+        i2c_master_dev_handle_t dev29 = i2c.get_device(0x29);
+		if (dev29) {
+            i2c_master_transmit(dev29, payload, 3, pdMS_TO_TICKS(10));
+        }
 		std::error_code error;
 
 		if(tof[i] != nullptr){
@@ -161,9 +170,13 @@ SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
 	//preparamos los buffers
 	uint8_t inicio[2] = {0x00, 0x89};
 	uint8_t datos[15];
+
+    i2c_master_dev_handle_t dev = i2c.get_device(i2c_dir);
+
 	//iniciamos lectua
-	esp_err_t fallo = i2c_master_write_read_device(i2c.port(), i2c_dir, inicio, 2, datos, 15, pdMS_TO_TICKS(2));
-	//guardamos los datos en el struct
+	esp_err_t fallo = dev ? i2c_master_transmit_receive(dev, inicio, 2, datos, 15, pdMS_TO_TICKS(2)) : ESP_FAIL;
+	
+    //guardamos los datos en el struct
 	TofData res;
 	res.distancia = (datos[13] << 8) | datos[14];
 	res.estado = datos[0] & 0x1F;
@@ -172,7 +185,7 @@ SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
 
 	//limpiamos el registro de interrupcion
 	uint8_t clear[3] = {0x00, 0x86, 0x01};
-	esp_err_t limpiar = i2c_master_write_to_device(i2c.port(), i2c_dir, clear, 3, pdMS_TO_TICKS(2));
+	esp_err_t limpiar = dev ? i2c_master_transmit(dev, clear, 3, pdMS_TO_TICKS(2)) : ESP_FAIL;
 
 	//evaluaos errores
 	if(fallo != ESP_OK || limpiar != ESP_OK){

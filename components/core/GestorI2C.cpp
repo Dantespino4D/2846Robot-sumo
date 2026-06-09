@@ -7,32 +7,51 @@
 
 #define I2C_MASTER_NUM I2C_NUM_0
 #define I2C_MASTER_FREQ_HZ 400000
-#define I2C_MASTER_TX_BUF_DISABLE 0
-#define I2C_MASTER_RX_BUF_DISABLE 0
 
 static const char* TAG = "GestorI2C";
 
 GestorI2C::GestorI2C() :
+    bus_handle(nullptr),
 	err(0)
 {}
 
 void GestorI2C::begin() {
-    conf = {};
-    conf.mode = I2C_MODE_MASTER;
-    conf.sda_io_num = SDA;
-    conf.scl_io_num = SCL;
-    conf.sda_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
-    conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
+    i2c_master_bus_config_t bus_config = {};
+    bus_config.i2c_port = I2C_MASTER_NUM;
+    bus_config.sda_io_num = (gpio_num_t)SDA;
+    bus_config.scl_io_num = (gpio_num_t)SCL;
+    bus_config.clk_source = I2C_CLK_SRC_DEFAULT;
+    bus_config.glitch_ignore_cnt = 7;
+    bus_config.flags.enable_internal_pullup = true;
 
-    i2c_param_config(I2C_MASTER_NUM, &conf);
-    esp_err_t res = i2c_driver_install(I2C_MASTER_NUM, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    esp_err_t res = i2c_new_master_bus(&bus_config, &bus_handle);
 
     if (res != ESP_OK) {
-        ESP_LOGE(TAG, "Fallo al instalar I2C: %s", esp_err_to_name(res));
+        ESP_LOGE(TAG, "Fallo al instalar I2C Bus: %s", esp_err_to_name(res));
         rgb(0, 1023);
-    }else {
-		ESP_LOGI(TAG, "I2C instalado correctamente");
+    } else {
+		ESP_LOGI(TAG, "I2C Bus instalado correctamente");
+    }
+}
+
+i2c_master_dev_handle_t GestorI2C::get_device(uint8_t addr) {
+    if (devices.find(addr) != devices.end()) {
+        return devices[addr];
+    }
+
+    i2c_device_config_t dev_config = {};
+    dev_config.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_config.device_address = addr;
+    dev_config.scl_speed_hz = I2C_MASTER_FREQ_HZ;
+
+    i2c_master_dev_handle_t dev_handle;
+    esp_err_t err = i2c_master_bus_add_device(bus_handle, &dev_config, &dev_handle);
+    if (err == ESP_OK) {
+        devices[addr] = dev_handle;
+        return dev_handle;
+    } else {
+        ESP_LOGE(TAG, "Error al añadir dispositivo 0x%02X: %s", addr, esp_err_to_name(err));
+        return nullptr;
     }
 }
 
@@ -44,13 +63,13 @@ void GestorI2C::reset() {
 	err = 0;
 }
 
-i2c_port_t GestorI2C::port() const {
-	return I2C_MASTER_NUM;
+i2c_master_bus_handle_t GestorI2C::get_bus() const {
+	return bus_handle;
 }
 
 bool GestorI2C::verify(){
 	if(err >= ERR_MAX){
-		ESP_LOGE(TAG, "Multiplexor I2C ha tenido varios errores seguidos");
+		ESP_LOGE(TAG, "Gestor I2C ha tenido varios errores seguidos");
 		rgb(0, 1023);
 		reinicio();
 		return false;
@@ -58,13 +77,19 @@ bool GestorI2C::verify(){
 	return true;
 }
 
-//metodo que reinicia el i2c
 void GestorI2C::reinicio(){
-	//log
 	ESP_LOGW(TAG, "Fallo critico, reiniciando el bus I2C para desbloquear");
-	//elimina el driver
-	i2c_driver_delete(I2C_MASTER_NUM);
-	//vuelve a iniciar el i2c
+	
+    // Limpiar dispositivos y bus
+    for (auto const& [addr, handle] : devices) {
+        i2c_master_bus_rm_device(handle);
+    }
+    devices.clear();
+    
+    if (bus_handle) {
+        i2c_del_master_bus(bus_handle);
+        bus_handle = nullptr;
+    }
 
 	//configurar pin del scl
 	gpio_config_t conf_scl;
@@ -83,7 +108,6 @@ void GestorI2C::reinicio(){
 	conf_sda.intr_type = GPIO_INTR_DISABLE;
 	gpio_config(&conf_sda);
 
-
 	//secuencia de desbloqueo
 	gpio_set_level((gpio_num_t)SDA, 1);
     gpio_set_level((gpio_num_t)SCL, 1);
@@ -95,18 +119,18 @@ void GestorI2C::reinicio(){
 			desbloqueado = true;
 			break;
 		}
-		gpio_set_level(SCL, 0);
+		gpio_set_level((gpio_num_t)SCL, 0);
 		esp_rom_delay_us(10);
-		gpio_set_level(SCL, 1);
+		gpio_set_level((gpio_num_t)SCL, 1);
 		esp_rom_delay_us(10);
 	}
 
-	gpio_set_level(SCL, 0);
-	gpio_set_level(SDA, 0);
+	gpio_set_level((gpio_num_t)SCL, 0);
+	gpio_set_level((gpio_num_t)SDA, 0);
 	esp_rom_delay_us(10);
-	gpio_set_level(SCL, 1);
+	gpio_set_level((gpio_num_t)SCL, 1);
 	esp_rom_delay_us(10);
-	gpio_set_level(SDA, 1);
+	gpio_set_level((gpio_num_t)SDA, 1);
 	esp_rom_delay_us(10);
 
 	if(!desbloqueado &&  gpio_get_level((gpio_num_t)SDA) == 0){
