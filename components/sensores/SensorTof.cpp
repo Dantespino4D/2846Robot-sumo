@@ -180,25 +180,30 @@ void SensorTof::reasignar(){
 
 SensorTof::TofData SensorTof::dist(uint8_t i2c_dir){
 	//preparamos los buffers
-	uint8_t inicio[2] = {0x00, 0x89};
-	uint8_t datos[15];
+	tx[0] = 0x00;
+	tx[1] = 0x89;
 
     i2c_master_dev_handle_t dev = i2c.get_device(i2c_dir);
 
 	//iniciamos lectua
-	esp_err_t fallo = dev ? i2c_master_transmit_receive(dev, inicio, 2, datos, 15, pdMS_TO_TICKS(2)) : ESP_FAIL;
+	esp_err_t fallo = dev ? i2c_master_transmit_receive(dev, tx, 2, rx, 15, 0) : ESP_FAIL;
+
+	ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5));
 
     //guardamos los datos en el struct
 	TofData res;
-	res.distancia = (datos[13] << 8) | datos[14];
-	res.estado = datos[0] & 0x1F;
-	res.señal = (datos[5] << 8) | datos[6];
-	res.ambiente = (datos[7] << 8) | datos[8];
+	res.distancia = (rx[13] << 8) | rx[14];
+	res.estado = rx[0] & 0x1F;
+	res.señal = (rx[5] << 8) | rx[6];
+	res.ambiente = (rx[7] << 8) | rx[8];
 
 	//limpiamos el registro de interrupcion
-	uint8_t clear[3] = {0x00, 0x86, 0x01};
-	esp_err_t limpiar = dev ? i2c_master_transmit(dev, clear, 3, pdMS_TO_TICKS(2)) : ESP_FAIL;
+	tx[0] = 0x00;
+	tx[1] = 0x86;
+	tx[2] = 0x01;
+	esp_err_t limpiar = dev ? i2c_master_transmit(dev, tx, 3, 0) : ESP_FAIL;
 
+	ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(2));
 	//evaluaos errores
 	if(fallo != ESP_OK || limpiar != ESP_OK){
 		//manejamos el error
@@ -243,7 +248,7 @@ void SensorTof::tareaTof(void* pvParameters){
 	SensorTof* sensor = (SensorTof*)pvParameters;
 	while(true){
 		esp_task_wdt_reset();
-		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(50));
+		ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(10));
 		//verificamos que el i2c este funcionando
 		if(!sensor->i2c.verify()){
 			vTaskDelay(pdMS_TO_TICKS(5));
