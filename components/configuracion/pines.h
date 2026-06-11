@@ -5,7 +5,7 @@
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
     // Pines para ESP32-S3
-    #define MUS GPIO_NUM_47
+    #define MUS GPIO_NUM_3
     #define INI GPIO_NUM_35
 
     // Lectura de ADC
@@ -45,7 +45,7 @@
     #define INT_3 GPIO_NUM_38
     #define INT_4 GPIO_NUM_48
     #define INT_5 GPIO_NUM_18
-    #define INT_6 GPIO_NUM_3
+    #define INT_6 GPIO_NUM_47
 
     // LED RGB
     #define RGB_PIN_A GPIO_NUM_43
