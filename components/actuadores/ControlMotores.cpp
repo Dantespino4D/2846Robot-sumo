@@ -56,9 +56,6 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 //estblecer velocidad
 void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
-	//entramos al mutex
-	portENTER_CRITICAL(&mux);
-
 	//variable de las velocidades actuales
 	vel1_obj = vel_1;
 	vel2_obj = vel_2;
@@ -70,9 +67,6 @@ void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 
 	//indice de la rampa
 	indiceRampa = 0;
-
-	//salimos del mutex
-	portEXIT_CRITICAL(&mux);
 }
 
 //tarea que aplica la rampa
@@ -91,8 +85,6 @@ void ControlMotores::tareaRampa(void* arg){
 		tiempoRampa = 1;
 	}
 	while(true){
-		//entramos al mutex
-		portENTER_CRITICAL(&self->mux);
 		//se obtiene las variables necesarias para la rampa
 		bool rampa = self->rampa;
 		uint8_t indice = self->indiceRampa;
@@ -101,20 +93,11 @@ void ControlMotores::tareaRampa(void* arg){
 		int32_t dif1 = self->vel1_obj - self->vel1_ini;
 		int32_t dif2 = self->vel2_obj - self->vel2_ini;
 
-		//se sale del mutex
-		portEXIT_CRITICAL(&self->mux);
-
 		//se verifica si se ha alcanzado el objetivo de velocidad del lado izquierdo
 		if(rampa){
 			if(indice < 50){
-				//se entra al mutex para actualizar las variables de la rampa
-				portENTER_CRITICAL(&self->mux);
-
 				//se incrementa el indice de la rampa
 				self->indiceRampa++;
-
-				//se sale del mutex
-				portEXIT_CRITICAL(&self->mux);
 
 				//se calcula la nueva velocidad aplicando la rampa
 				self->vel1 = self->vel1_ini + ((LUT_RAMPA[indice] * dif1) >> 10);
@@ -124,14 +107,8 @@ void ControlMotores::tareaRampa(void* arg){
 				self->vel1 = self->vel1_obj;
 				self->vel2 = self->vel2_obj;
 
-				//se entra al mutex para actualizar las variables de la rampa
-				portENTER_CRITICAL(&self->mux);
-
 				//se desactiva la rampa
 				self->rampa = false;
-
-				//se sale del mutex
-				portEXIT_CRITICAL(&self->mux);
 			}
 		}else{
 			//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea

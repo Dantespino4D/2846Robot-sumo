@@ -10,7 +10,7 @@
 void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	//se reciben los bits de los sensores
 	uint32_t noti = 0;
-	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(10));
+	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(1));
 
 	//se verifica si se detecto algun sensor de color el que sea
 	if(noti & MASK_COLOR){
