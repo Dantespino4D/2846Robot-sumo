@@ -1,29 +1,64 @@
-.cache/
-.clangd
-compile_commands.json
-.git/
+# =======================
+# Auto-generated files & Scripts
+# =======================
+full_codebase.txt
+clean_code.txt
+reporte_cppcheck.txt
+Robot.zip
+strip_comments.py
+
+# =======================
+# ESP32 / PlatformIO
+# =======================
 .pio/
-sdkconfig.esp32dev
-.gitignore
 managed_components/
 sdkconfig.esp32dev
 sdkconfig.test_motores
+sdkconfig.old
+
+# =======================
+# STM32 / C / C++ Build
+# =======================
+build/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+.ninja_deps
+.bin_timestamp
+Preprocessing/
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+compile_commands.json
+
+# =======================
+# IDE & Environment
+# =======================
+.cache/
+.clangd/
 .idea/
-telemetria_S.db-journal
-telemetria_S.db
-reporte_cppcheck.txt
-clean_code.txt
-strip_comments.py
+.vscode/
 _codeql_detected_source_root
+.clangd
+
+# =======================
+# Databases
+# =======================
+telemetria_S.db
+telemetria_S.db-journal
+
+# =======================
+# Gemini / Graphify
+# =======================
 .gemini/
 GEMINI.md
 graphify-out/
 .graphifyignore
 .rgignore
-Preprocessing
-.bin_timestamp
-.ninja_deps
-CMakeCache.txt
-CMakeFiles/
-build/
 
+# =======================
+# Git
+# =======================
+# .gitignore NO debe estar aquí para que git lo rastree
