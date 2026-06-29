@@ -12,6 +12,7 @@
 #include "esp_attr.h"
 
 extern EventGroupHandle_t eventos;
+extern TaskHandle_t th_robot;
 
 static const char* TAG = "SensorTcrt";
 
@@ -44,6 +45,12 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 		estado |= (1 << 3);
 	}
 	xTaskNotifyFromISR(sensor->tarea, estado, eSetValueWithOverwrite, &cambioC);
+	
+	// Notificar a la máquina de estados para romper su latencia instantáneamente
+	if(th_robot != NULL){
+		vTaskNotifyGiveFromISR(th_robot, &cambioC);
+	}
+
     if (cambioC) {
         portYIELD_FROM_ISR();
     }

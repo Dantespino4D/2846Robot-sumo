@@ -49,8 +49,7 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 	rampa(false),
 
-	vel1_obj(0),
-	vel2_obj(0)
+	control_vector(0)
 {
 	//pines pwm
 	mot2[0] = motA2;
@@ -63,8 +62,7 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 //estblecer velocidad
 void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	//variable de las velocidades actuales
-	vel1_obj = vel_1;
-	vel2_obj = vel_2;
+	control_vector.store((static_cast<uint32_t>(static_cast<uint16_t>(vel_1)) << 16) | static_cast<uint16_t>(vel_2), std::memory_order_relaxed);
 	vel1_ini = vel1;
 	vel2_ini = vel2;
 
@@ -95,9 +93,13 @@ void ControlMotores::tareaRampa(void* arg){
 		bool rampa = self->rampa;
 		uint8_t indice = self->indiceRampa;
 
+		uint32_t cv = self->control_vector.load(std::memory_order_relaxed);
+		int16_t v1_obj = static_cast<int16_t>(cv >> 16);
+		int16_t v2_obj = static_cast<int16_t>(cv & 0xFFFF);
+
 		//se calcula la diferencia de la velociad objetivo y la actual
-		int32_t dif1 = self->vel1_obj - self->vel1_ini;
-		int32_t dif2 = self->vel2_obj - self->vel2_ini;
+		int32_t dif1 = v1_obj - self->vel1_ini;
+		int32_t dif2 = v2_obj - self->vel2_ini;
 
 		//se verifica si se ha alcanzado el objetivo de velocidad del lado izquierdo
 		if(rampa){
@@ -110,16 +112,16 @@ void ControlMotores::tareaRampa(void* arg){
 				self->vel2 = self->vel2_ini + ((LUT_RAMPA[indice] * dif2) >> 10);
 			}else{
 				//aplica las velocidades objetivo
-				self->vel1 = self->vel1_obj;
-				self->vel2 = self->vel2_obj;
+				self->vel1 = v1_obj;
+				self->vel2 = v2_obj;
 
 				//se desactiva la rampa
 				self->rampa = false;
 			}
 		}else{
 			//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea
-			self->vel1 = self->vel1_obj;
-			self->vel2 = self->vel2_obj;
+			self->vel1 = v1_obj;
+			self->vel2 = v2_obj;
 		}
 
 		//se aplican las velocidades
@@ -525,10 +527,11 @@ void ControlMotores::nvsLeer(){
 
 //envia los datos a la telemetria
 void ControlMotores::velocidades(int16_t* v1, int16_t* v2, int16_t* vo1, int16_t* vo2){
+	uint32_t cv = control_vector.load(std::memory_order_relaxed);
 	*v1 = vel1;
 	*v2 = vel2;
-	*vo1 = vel1_obj;
-	*vo2 = vel2_obj;
+	*vo1 = static_cast<int16_t>(cv >> 16);
+	*vo2 = static_cast<int16_t>(cv & 0xFFFF);
 }
 
 
@@ -544,6 +547,7 @@ FILE PATH: ./components/actuadores/ControlMotores.h
 #include "freertos/FreeRTOS.h"
 #include "portmacro.h"
 #include <cstdint>
+#include <atomic>
 
 class ControlMotores{
 	private:
@@ -581,9 +585,6 @@ class ControlMotores{
 		int tRam;
 		uint8_t indiceRampa;
 
-		//mutex
-		portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-
 		//funcion velocidad
 		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
 
@@ -614,9 +615,8 @@ class ControlMotores{
 		//booleano de la rampa
 		volatile bool rampa;
 
-		//variables de la velocidad objetivo
-		volatile int16_t vel1_obj;
-		volatile int16_t vel2_obj;
+		// Vector de control atomico (Bits 16-31: vel_izq, Bits 0-15: vel_der)
+		std::atomic<uint32_t> control_vector;
 
 		//variables de la tarea estatica
 		StaticTask_t tcbMotores;
@@ -3950,6 +3950,7 @@ FILE PATH: ./components/sensores/SensorTcrt.cpp
 #include "esp_attr.h"
 
 extern EventGroupHandle_t eventos;
+extern TaskHandle_t th_robot;
 
 static const char* TAG = "SensorTcrt";
 
@@ -3982,6 +3983,12 @@ void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
 		estado |= (1 << 3);
 	}
 	xTaskNotifyFromISR(sensor->tarea, estado, eSetValueWithOverwrite, &cambioC);
+	
+	// Notificar a la máquina de estados para romper su latencia instantáneamente
+	if(th_robot != NULL){
+		vTaskNotifyGiveFromISR(th_robot, &cambioC);
+	}
+
     if (cambioC) {
         portYIELD_FROM_ISR();
     }
@@ -5504,6 +5511,9 @@ Telemetria* tm = nullptr;
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
 
+//handle de la tarea del robot
+TaskHandle_t th_robot = NULL;
+
 //buffer para el TCB
 StaticTask_t tcbRobot;
 StaticTask_t tcbMotores;
@@ -5539,7 +5549,7 @@ extern "C" void app_main(void){
     comunicaciones();
 
   	// se crean las tareas
-  	xTaskCreateStaticPinnedToCore(robot, "robot", sizeof(stackRobot), NULL, 2, stackRobot, &tcbRobot, 1);
+  	th_robot = xTaskCreateStaticPinnedToCore(robot, "robot", sizeof(stackRobot), NULL, 2, stackRobot, &tcbRobot, 1);
   	motr = xTaskCreateStaticPinnedToCore(motores, "motores", sizeof(stackMotores), NULL, 5, stackMotores, &tcbMotores, 1);
 	xTaskCreateStaticPinnedToCore(musica, "musica", sizeof(stackMusica), NULL, 1, stackMusica, &tcbMusica, 0);
 
@@ -5604,7 +5614,10 @@ void robot(void *pvParameters) {
 		uint64_t Tfin = esp_timer_get_time();
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
-		vTaskDelay(pdMS_TO_TICKS(1));
+		
+		// Espera event-driven: duerme hasta 1ms (dejando respirar a telemetria e IDLE)
+		// pero despierta instantaneamente si la ISR del TCRT5000 avisa.
+		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
 }
 
@@ -5811,3 +5824,35 @@ void limpiar_memoria() {
     if (sl != nullptr) { delete sl; sl = nullptr; }
     ESP_LOGI(TAG, "Memoria de objetos liberada.");
 }
+
+
+==========================================
+FILE PATH: ./shared_protocol/sumo_protocol.h
+==========================================
+
+#ifndef SUMO_PROTOCOL_H
+#define SUMO_PROTOCOL_H
+
+#include <stdint.h>
+
+#pragma pack(push, 1)
+
+typedef struct {
+    uint8_t estado_maquina;
+    int16_t setpoint_izq;
+    int16_t setpoint_der;
+    uint8_t flag_linea;
+    uint8_t checksum;
+} MasterToSlave_Msg_t;
+
+typedef struct {
+    uint8_t estado_maquina;
+    int16_t setpoint_izq;
+    int16_t setpoint_der;
+    uint8_t flag_linea;
+    uint8_t checksum;
+} SlaveToMaster_Msg_t;
+
+#pragma pack(pop)
+
+#endif // SUMO_PROTOCOL_H

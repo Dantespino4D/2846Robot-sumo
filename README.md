@@ -49,6 +49,16 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 
 ---
 
+## Optimización Real-Time (Safety Rollback)
+
+El sistema integra optimizaciones de bajo nivel para garantizar un rendimiento Hard Real-Time en combate:
+
+1. **Reacción de Latencia Cero (Bypass por Hardware e Interrupciones):** La detección de la línea blanca (TCRT5000) no depende de bucles de software (polling). Utiliza el módulo MCPWM Fault del ESP32 para clavar los frenos a nivel de silicio puros (0 µs de carga de CPU). Simultáneamente, una interrupción externa (EXTI) despierta a la Máquina de Estados asíncronamente mediante `xTaskNotifyWait`, asegurando una maniobra de evasión instantánea sin causar inanición (*starvation*) a tareas de baja prioridad como la telemetría.
+2. **Concurrencia Lock-Free (Control de Motores):** La transferencia de setpoints de velocidad desde la estrategia hacia los generadores PWM se realiza mediante **Bit-Packing atómico** (`std::atomic<uint32_t>`). Esto evita el uso de bloqueos (Mutex/Spinlocks) en FreeRTOS, garantizando que las comunicaciones críticas de altísima velocidad (como la lectura I2C a 400kHz de los láseres ToF) nunca sean interrumpidas o cegadas por las actualizaciones de los motores.
+3. **Empaquetado Estricto de Memoria:** El sistema de telemetría y comunicación inter-procesos utiliza estructuras con empaquetado forzado a 1 byte (`#pragma pack(push, 1)`). Esto previene corrupción de memoria por desalineación (*padding*) introducida por el compilador cruzado Xtensa, asegurando transferencias seguras y predecibles en la red de sensores.
+
+---
+
 ## Arquitectura del Software
 
 El firmware utiliza al máximo las capacidades del microcontrolador mediante múltiples tareas FreeRTOS supervisadas por un **Task Watchdog (WDT)**, asignando procesos críticos y periféricos a núcleos específicos para evitar bloqueos. El sistema implementa una **lógica de reinicio inteligente**: si el Watchdog provoca un reinicio, el robot detecta el estado y omite la espera de seguridad de 5 segundos para reincorporarse al combate instantáneamente.

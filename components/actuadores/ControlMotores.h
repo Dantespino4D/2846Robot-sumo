@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "portmacro.h"
 #include <cstdint>
+#include <atomic>
 
 class ControlMotores{
 	private:
@@ -43,9 +44,6 @@ class ControlMotores{
 		int tRam;
 		uint8_t indiceRampa;
 
-		//mutex
-		portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
-
 		//funcion velocidad
 		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
 
@@ -76,9 +74,8 @@ class ControlMotores{
 		//booleano de la rampa
 		volatile bool rampa;
 
-		//variables de la velocidad objetivo
-		volatile int16_t vel1_obj;
-		volatile int16_t vel2_obj;
+		// Vector de control atomico (Bits 16-31: vel_izq, Bits 0-15: vel_der)
+		std::atomic<uint32_t> control_vector;
 
 		//variables de la tarea estatica
 		StaticTask_t tcbMotores;

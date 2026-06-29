@@ -75,6 +75,9 @@ Telemetria* tm = nullptr;
 //handle de la tarea de los motores
 TaskHandle_t motr = NULL;
 
+//handle de la tarea del robot
+TaskHandle_t th_robot = NULL;
+
 //buffer para el TCB
 StaticTask_t tcbRobot;
 StaticTask_t tcbMotores;
@@ -110,7 +113,7 @@ extern "C" void app_main(void){
     comunicaciones();
 
   	// se crean las tareas
-  	xTaskCreateStaticPinnedToCore(robot, "robot", sizeof(stackRobot), NULL, 2, stackRobot, &tcbRobot, 1);
+  	th_robot = xTaskCreateStaticPinnedToCore(robot, "robot", sizeof(stackRobot), NULL, 2, stackRobot, &tcbRobot, 1);
   	motr = xTaskCreateStaticPinnedToCore(motores, "motores", sizeof(stackMotores), NULL, 5, stackMotores, &tcbMotores, 1);
 	xTaskCreateStaticPinnedToCore(musica, "musica", sizeof(stackMusica), NULL, 1, stackMusica, &tcbMusica, 0);
 
@@ -175,7 +178,10 @@ void robot(void *pvParameters) {
 		uint64_t Tfin = esp_timer_get_time();
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
-		vTaskDelay(pdMS_TO_TICKS(1));
+		
+		// Espera event-driven: duerme hasta 1ms (dejando respirar a telemetria e IDLE)
+		// pero despierta instantaneamente si la ISR del TCRT5000 avisa.
+		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
 }
 

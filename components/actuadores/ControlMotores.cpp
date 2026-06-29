@@ -43,8 +43,7 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 
 	rampa(false),
 
-	vel1_obj(0),
-	vel2_obj(0)
+	control_vector(0)
 {
 	//pines pwm
 	mot2[0] = motA2;
@@ -57,8 +56,7 @@ ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t mo
 //estblecer velocidad
 void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	//variable de las velocidades actuales
-	vel1_obj = vel_1;
-	vel2_obj = vel_2;
+	control_vector.store((static_cast<uint32_t>(static_cast<uint16_t>(vel_1)) << 16) | static_cast<uint16_t>(vel_2), std::memory_order_relaxed);
 	vel1_ini = vel1;
 	vel2_ini = vel2;
 
@@ -89,9 +87,13 @@ void ControlMotores::tareaRampa(void* arg){
 		bool rampa = self->rampa;
 		uint8_t indice = self->indiceRampa;
 
+		uint32_t cv = self->control_vector.load(std::memory_order_relaxed);
+		int16_t v1_obj = static_cast<int16_t>(cv >> 16);
+		int16_t v2_obj = static_cast<int16_t>(cv & 0xFFFF);
+
 		//se calcula la diferencia de la velociad objetivo y la actual
-		int32_t dif1 = self->vel1_obj - self->vel1_ini;
-		int32_t dif2 = self->vel2_obj - self->vel2_ini;
+		int32_t dif1 = v1_obj - self->vel1_ini;
+		int32_t dif2 = v2_obj - self->vel2_ini;
 
 		//se verifica si se ha alcanzado el objetivo de velocidad del lado izquierdo
 		if(rampa){
@@ -104,16 +106,16 @@ void ControlMotores::tareaRampa(void* arg){
 				self->vel2 = self->vel2_ini + ((LUT_RAMPA[indice] * dif2) >> 10);
 			}else{
 				//aplica las velocidades objetivo
-				self->vel1 = self->vel1_obj;
-				self->vel2 = self->vel2_obj;
+				self->vel1 = v1_obj;
+				self->vel2 = v2_obj;
 
 				//se desactiva la rampa
 				self->rampa = false;
 			}
 		}else{
 			//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea
-			self->vel1 = self->vel1_obj;
-			self->vel2 = self->vel2_obj;
+			self->vel1 = v1_obj;
+			self->vel2 = v2_obj;
 		}
 
 		//se aplican las velocidades
@@ -519,8 +521,9 @@ void ControlMotores::nvsLeer(){
 
 //envia los datos a la telemetria
 void ControlMotores::velocidades(int16_t* v1, int16_t* v2, int16_t* vo1, int16_t* vo2){
+	uint32_t cv = control_vector.load(std::memory_order_relaxed);
 	*v1 = vel1;
 	*v2 = vel2;
-	*vo1 = vel1_obj;
-	*vo2 = vel2_obj;
+	*vo1 = static_cast<int16_t>(cv >> 16);
+	*vo2 = static_cast<int16_t>(cv & 0xFFFF);
 }
