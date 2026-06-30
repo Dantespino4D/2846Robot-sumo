@@ -30,6 +30,7 @@ class Motores {
 		int16_t vel_hD;
 
 		//metodos de acciones
+		void alto();
 		void dir_a();
 		void dir_b();
 		void ataque_ai();
@@ -43,10 +44,13 @@ class Motores {
 		void pronunciado_ad();
 		void pronunciado_bd();
 		void giro();
-		void evasion_a();
-		void evasion_b();
+		void evacion_a();
+		void evacion_b();
 		void huir_a();
 		void huir_b();
+
+		//metodo de eleccion de movimiento
+		void controlador(int accion);
 };
 
 #endif // MOTORES_H

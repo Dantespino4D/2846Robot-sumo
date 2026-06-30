@@ -65,3 +65,155 @@ void Motores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_4, 1023);
 	}
 }
+
+//para el robot
+void Motores::alto(){
+	velocidad(0, 0, false);
+}
+
+//avanzar en direccion a
+void Motores::dir_a(){
+	velocidad(vel_nI, vel_nD, true);
+}
+
+//avanzar en direccion b
+void Motores::dir_b(){
+	velocidad(-vel_nI, -vel_nD, true);
+}
+
+//atacar en direccion a izquierda
+void Motores::ataque_ai(){
+	velocidad(vel_aI, vel_aD, true);
+}
+
+//atacar en direccion b izquierda
+void Motores::ataque_bi(){
+	velocidad(-vel_aI, -vel_aD, true);
+}
+
+//atacar en direccion a derecha
+void Motores::ataque_ad(){
+	velocidad(vel_aD, vel_aI, true);
+}
+
+//atacar en direccion b derecha
+void Motores::ataque_bd(){
+	velocidad(-vel_aD, -vel_aI, true);
+}
+
+//maxima velocidad en direccion a
+void Motores::max_a(){
+	velocidad(vel_mI, vel_mD, true);
+}
+
+//maxima velocidad en direccion b
+void Motores::max_b(){
+	velocidad(-vel_mI, -vel_mD, true);
+}
+
+//ataca de forma pronunciada en direccion a izquierda
+void Motores::pronunciado_ai(){
+	velocidad(vel_pI, vel_pD, true);
+}
+
+//ataca de forma pronunciada en direccion b izquierda
+void Motores::pronunciado_bi(){
+	velocidad(-vel_pI, -vel_pD, true);
+}
+
+//ataca de forma pronunciada en direccion a derecha
+void Motores::pronunciado_ad(){
+	velocidad(vel_pD, vel_pI, true);
+}
+
+//ataca de forma pronunciada en direccion b derecha
+void Motores::pronunciado_bd(){
+	velocidad(-vel_pD, -vel_pI, true);
+}
+
+//giro de busqueda
+void Motores::giro(){
+	velocidad(vel_gI, vel_gD, false);
+}
+
+//maniobra de evacion en direccion a
+void Motores::evacion_a(){
+	velocidad(vel_eI, vel_eD, false);
+}
+
+//maniobra de evacion en direccion b
+void Motores::evacion_b(){
+	velocidad(-vel_eI, -vel_eD, false);
+}
+
+//maniobra de huida del borde en direccion a
+void Motores::huir_a(){
+	velocidad(vel_hI, vel_hD, false);
+}
+
+//maniobra de huida del borde en direccion b
+void Motores::huir_b(){
+	velocidad(-vel_hI, -vel_hD, false);
+}
+
+//eleccion de movimieno
+void Motores::controlador(int accion){
+	switch(accion){
+		case 0:
+			alto();
+			break;
+		case 1:
+			dir_a();
+			break;
+		case 2:
+			dir_b();
+			break;
+		case 3:
+			ataque_ai();
+			break;
+		case 4:
+			ataque_bi();
+			break;
+		case 5:
+			ataque_ad();
+			break;
+		case 6:
+			ataque_bd();
+			break;
+		case 7:
+			max_a();
+			break;
+		case 8:
+			max_b();
+			break;
+		case 9:
+			pronunciado_ai();
+			break;
+		case 10:
+			pronunciado_bi();
+			break;
+		case 11:
+			pronunciado_ad();
+			break;
+		case 12:
+			pronunciado_bd();
+			break;
+		case 13:
+			giro();
+			break;
+		case 14:
+			evacion_a();
+			break;
+		case 15:
+			evacion_b();
+			break;
+		case 16:
+			huir_a();
+			break;
+		case 17:
+			huir_b();
+			break;
+		default:
+			alto();
+	}
+}
