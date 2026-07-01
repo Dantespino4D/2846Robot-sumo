@@ -6,9 +6,17 @@
 
 class Motores {
 	public:
+		//constructor
 		Motores(TIM_HandleTypeDef* htim1);
+
+		//metodo de inicializacion
 		void begin();
+
+		//metodo que controla la velocidad
 		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
+
+		//metodo de eleccion de movimiento
+		void controlador(int accion);
 
 	private:
 		TIM_HandleTypeDef* htim1;
@@ -49,8 +57,6 @@ class Motores {
 		void huir_a();
 		void huir_b();
 
-		//metodo de eleccion de movimiento
-		void controlador(int accion);
 };
 
 #endif // MOTORES_H

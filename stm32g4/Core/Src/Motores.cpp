@@ -1,4 +1,5 @@
 #include "Motores.h"
+#include <cstdlib>
 
 Motores::Motores(TIM_HandleTypeDef *htim):
 	htim1(htim),
@@ -37,9 +38,8 @@ void Motores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	//se establecen las velocidades de los motores de la izquierda
 	if(vel_1 < 0){
 		//si es negativa
-		vel_1 = -vel_1;
 		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_1, 0);
-		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_2, vel_1);
+		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_2, abs(vel_1));
 	}else if(vel_1 > 0){
 		//si es positiva
 		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_1, vel_1);
@@ -53,9 +53,8 @@ void Motores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
 	//se establecen las velocidades de los motores de la derecha
 	if(vel_2 < 0){
 		//si es negativa
-		vel_2 = -vel_2;
 		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_3, 0);
-		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_4, vel_2);
+		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_4, abs(vel_2));
 	}else if(vel_2 > 0){
 		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_3, vel_2);
 		__HAL_TIM_SET_COMPARE(htim1, TIM_CHANNEL_4, 0);
