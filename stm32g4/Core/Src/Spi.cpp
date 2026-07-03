@@ -1,15 +1,47 @@
-#include "spi.h"
 #include "stm32g474xx.h"
-#include "stm32g4xx_hal.h"
 #include "Spi.h"
 #include "protocolo/sumo_protocol.h"
-#include "stm32g4xx_hal_def.h"
-#include "stm32g4xx_hal_spi.h"
 #include "stm32g4xx_ll_dma.h"
 #include "stm32g4xx_ll_spi.h"
 #include "stm32g4xx_ll_crc.h"
 #include <cstddef>
 #include <cstdint>
+
+Spi::Spi() :
+	bufferDma(bufferA),
+	bufferCpu(bufferB),
+	paquete_N(false)
+{}
+
+void Spi::begin() {
+	recibir((uint8_t*)bufferDma, MAX_PACKET_SIZE);
+}
+
+void Spi::cambioBuffers() {
+	if (bufferDma == bufferA) {
+		bufferDma = bufferB;
+		bufferCpu = bufferA;
+	} else {
+		bufferDma = bufferA;
+		bufferCpu = bufferB;
+	}
+
+	paquete_N = true;
+
+	recibir((uint8_t*)bufferDma, MAX_PACKET_SIZE);
+}
+
+bool Spi::nuevoPaquete() {
+	return paquete_N;
+}
+
+uint8_t* Spi::obtenerlPaquete() {
+	return (uint8_t*)bufferCpu;
+}
+
+void Spi::marcarProcesado() {
+	paquete_N = false;
+}
 
 //se calcula el checksum
 uint8_t Spi::checksum(uint8_t* paquete, size_t tamaño){
@@ -85,4 +117,16 @@ void Spi::recibir(uint8_t *data, uint16_t size) {
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
 	LL_SPI_EnableDMAReq_RX(SPI1);
 	LL_SPI_Enable(SPI1);
+}
+
+extern Spi spi;
+
+extern "C" void SPI_DMA_RX_Callback(void) {
+	if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
+		LL_DMA_ClearFlag_TC1(DMA1);
+		spi.cambioBuffers();
+	}
+	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
+		LL_DMA_ClearFlag_TE1(DMA1);
+	}
 }

@@ -98,5 +98,4 @@ typedef struct {
 } Ok_t;
 #pragma pack(pop)
 
-#include <cstdlib>
 #endif // SUMO_PROTOCOL_H
