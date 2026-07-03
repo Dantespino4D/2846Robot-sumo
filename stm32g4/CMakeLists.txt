@@ -50,11 +50,13 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
 	Core/Src/Motores.cpp
 	Core/Src/app_main.cpp
+	Core/Src/Spi.cpp
 )
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+	../
 )
 
 # Add project symbols (macros)

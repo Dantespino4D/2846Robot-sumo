@@ -55,8 +55,6 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern DMA_HandleTypeDef hdma_spi1_rx;
-extern DMA_HandleTypeDef hdma_spi1_tx;
 extern TIM_HandleTypeDef htim1;
 /* USER CODE BEGIN EV */
 
@@ -206,11 +204,14 @@ void SysTick_Handler(void)
 void DMA1_Channel1_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
-
+	if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
+		LL_DMA_ClearFlag_TC1(DMA1);
+	}
   /* USER CODE END DMA1_Channel1_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_spi1_rx);
   /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
-
+	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
+		LL_DMA_ClearFlag_TE1(DMA1);
+	}
   /* USER CODE END DMA1_Channel1_IRQn 1 */
 }
 
@@ -220,11 +221,14 @@ void DMA1_Channel1_IRQHandler(void)
 void DMA1_Channel2_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel2_IRQn 0 */
-
+	if (LL_DMA_IsActiveFlag_TC2(DMA1)) {
+		LL_DMA_ClearFlag_TC2(DMA1);
+	}
   /* USER CODE END DMA1_Channel2_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_spi1_tx);
   /* USER CODE BEGIN DMA1_Channel2_IRQn 1 */
-
+	if (LL_DMA_IsActiveFlag_TE2(DMA1)) {
+		LL_DMA_ClearFlag_TE2(DMA1);
+	}
   /* USER CODE END DMA1_Channel2_IRQn 1 */
 }
 
