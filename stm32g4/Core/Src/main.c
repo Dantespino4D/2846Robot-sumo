@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "comp.h"
+#include "crc.h"
 #include "dac.h"
 #include "dma.h"
 #include "spi.h"
@@ -99,6 +100,7 @@ int main(void)
   MX_COMP4_Init();
   MX_DAC1_Init();
   MX_SPI1_Init();
+  MX_CRC_Init();
   /* USER CODE BEGIN 2 */
   app_main();
   /* USER CODE END 2 */

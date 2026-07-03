@@ -7,16 +7,17 @@
 #include "stm32g4xx_hal_spi.h"
 #include "stm32g4xx_ll_dma.h"
 #include "stm32g4xx_ll_spi.h"
+#include "stm32g4xx_ll_crc.h"
 #include <cstddef>
 #include <cstdint>
 
 //se calcula el checksum
 uint8_t Spi::checksum(uint8_t* paquete, size_t tamaño){
-	uint8_t suma = 0;
+	LL_CRC_ResetCRCCalculationUnit(CRC);
 	for (size_t i = 0; i < tamaño - 1; i++){
-		suma ^= paquete[i];
+		LL_CRC_FeedData8(CRC, paquete[i]);
 	}
-	return suma;
+	return LL_CRC_ReadData8(CRC);
 }
 
 //recibir reporte
