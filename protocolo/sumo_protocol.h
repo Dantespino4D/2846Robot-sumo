@@ -20,28 +20,6 @@ typedef struct {
 	//identificador del mensaje
 	uint8_t id;
 
-	//umbral de la deteccion del stall
-	uint16_t u_stall;
-
-	//tiempo de la rampa
-	uint16_t t_ram;
-
-	//velocidadees
-	int16_t normal_i;
-	int16_t normal_d;
-	int16_t ataque_i;
-	int16_t ataque_d;
-	int16_t pronunciado_i;
-	int16_t pronunciado_d;
-	int16_t maximo_i;
-	int16_t maximo_d;
-	int16_t giro_i;
-	int16_t giro_d;
-	int16_t evasion_i;
-	int16_t evasion_d;
-	int16_t huida_i;
-	int16_t huida_d;
-
 	//umbral de los TCRT
 	int16_t u_limite;
 
@@ -57,7 +35,15 @@ typedef struct {
 	uint8_t id;
 
 	//accion de los motores
-    uint8_t accion;
+    uint8_t pwm_1;
+	uint8_t pwm_2;
+	uint8_t pwm_3;
+	uint8_t pwm_4;
+
+	//confirmador de rampa
+	bool ram;
+
+	uint16_t looktable[50];
 
 	//contador
 	uint8_t cont;
@@ -78,6 +64,15 @@ typedef struct {
 	uint8_t tcrt_2;
 	uint8_t tcrt_3;
 	uint8_t tcrt_4;
+
+	//corriente de cada DRV8874
+	uint8_t drv_1;
+	uint8_t drv_2;
+	uint8_t drv_3;
+	uint8_t drv_4;
+
+	//bateria
+	float bateria;
 
 	//contador
 	uint8_t cont;

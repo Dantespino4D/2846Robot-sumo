@@ -8,17 +8,17 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 
 | Característica | Detalle |
 |---|---|
-| Microcontrolador | ESP32 / ESP32-S3 (Unificado por hardware map) |
-| Framework | ESP-IDF 6.x + FreeRTOS |
-| Herramienta de build | idf.py (Nativo) |
-| Arquitectura | Modular basada en Componentes (ESP-IDF Components) |
+| Microcontrolador | Híbrido Asimétrico: ESP32-S3 (Cerebro Táctico) + STM32G474RET6 (Músculo y Reflejos) |
+| Framework | ESP-IDF 6.x + FreeRTOS (ESP32) / Bare-Metal LL (STM32) |
+| Herramienta de build | idf.py (ESP32) / CMake + Ninja (STM32) |
+| Arquitectura | Modular distribuida vía SPI DMA ("Bus de la Verdad") |
 | Comunicación I2C | Arquitectura asíncrona basada en **DMA** y **Notificaciones Indexadas** de FreeRTOS para máxima eficiencia sin bloqueo de CPU. |
 | Control de motores | PWM (MCPWM de ESP-IDF) gestionando 4 motores mediante drivers independientes |
 | Conectividad | WiFi + MQTT + mDNS + SmartConfig + OTA |
 | Telemetría | Streaming de estado en tiempo real al broker MQTT |
 | Configuración | NVS (Non-Volatile Storage) en partición dedicada para parámetros ajustables en caliente |
-| Robustez | Watchdog de tareas (WDT) y auto-recuperación de bus I2C con timeout de hardware |
-| Gestión de Memoria | **Asignación Estática de FreeRTOS** para todas las tareas críticas, eliminando riesgos de fragmentación del heap y garantizando estabilidad a largo plazo. |
+| Robustez | Watchdog de tareas (WDT), Timeout I2C por hardware y validación CRC-8 por silicio. |
+| Gestión de Memoria | Asignación Estática (FreeRTOS) y Ping-Pong Buffering (DMA STM32) para cero *data tearing*. |
 
 ---
 
@@ -39,13 +39,24 @@ El proyecto está diseñado en dos fases de desarrollo integradas en el mismo re
 * **Tracción de Alta Velocidad:** Actualización a 4 Motores Pololu de 1000 RPM (reducción 50:1) para maximizar la velocidad de embestida.
 * **Precisión Láser:** Sustitución de los sensores ultrasónicos por 6 sensores ToF **VL53L1X** (Láser) con direccionamiento dinámico mediante pines **XSHUT** dedicados.
 * **Optimización del Campo de Visión (ROI):** Implementación de **Región de Interés (ROI)** por hardware para estrechar el haz láser a una franja horizontal de 16x4 SPADs. Al desplazar electrónicamente el centro de detección a la parte superior de la matriz, se elimina por completo la detección accidental del suelo (ruido), manteniendo un rango de visión horizontal amplio de ~27° para no perder al rival.
+* **Coprocesador de Reflejos (STM32G474RET6):** Delega todo el control de los motores, rampas PWM y lectura de línea blanca (TCRT5000) a un microcontrolador secundario operando en Bare-Metal (Low Layer).
+* **Bus de la Verdad (SPI + DMA):** Comunicación inter-procesos a alta velocidad donde el ESP32 (Maestro) transmite comandos y el STM32 (Esclavo) los recibe vía DMA, sin intervención de la CPU, validando la integridad mediante **CRC-8 por hardware**.
 * **Gestión de Eventos:** Uso de los pines **INT** de los ToF. Gracias a la matriz IO_MUX del ESP32-S3, se dedica un pin físico independiente para la interrupción de cada uno de los 6 sensores, eliminando por completo la latencia de hacer "polling" vía I2C.
-* **Detección de Stall (Atasco):** Implementación de detección por hardware mediante la medición de caída de voltaje en una resistencia shunt leída por el ADC (**GPIO_NUM_1**). Esto permite identificar bloqueos mecánicos o empujes del rival de forma instantánea.
-* **Eficiencia I2C:** Eliminación del multiplexor TCA9548A en favor del bus compartido de los ToF, optimizado con **DMA** para transferencias en segundo plano.
-* **Detección Infrarroja:** Implementación de sensores **TCRT5000** mediante interrupciones de hardware para una respuesta instantánea al borde del tatami.
-* **Alimentación Optimizada:** Sustitución del regulador LM2596 por el módulo **Mini 360 (MP2307)**, logrando mayor eficiencia energética y un diseño más compacto.
-* **Monitor del Sistema:** Lectura en tiempo real del voltaje de la batería y monitorización de corriente utilizando la API ADC Oneshot de ESP-IDF.
+* **Evasión Pura en Silicio:** El STM32 enruta los sensores de línea y el "Kill Switch" a comparadores análogos vinculados directamente al `TIM1_BRK`, cortando la tracción en ~22 nanosegundos (0 µs de CPU).
+* **Monitor del Sistema:** Lectura en tiempo real del voltaje de la batería y monitorización de corriente utilizando el ADC.
 * **Almacenamiento Expandido:** Configuración de mapa de particiones de **4MB** por aplicación para soportar el framework v6, logs extensos y futuras expansiones de firmware.
+
+---
+
+## Arquitectura Híbrida Asimétrica (El Bus de la Verdad)
+
+Para operar con estabilidad a 1000 RPM (donde 1 ms de latencia equivale a 2 mm de avance a ciegas), la arquitectura se divide en dos dominios cognitivos:
+
+1. **Cerebro Táctico (ESP32-S3):** Se encarga exclusivamente de la visión espacial (leer 6 ToFs por I2C a 400kHz), inteligencia artificial (TinyML), rutinas de persecución, telemetría MQTT y control de la máquina de estados maestro.
+2. **Sistema Nervioso (STM32G474):** Se encarga de la fuerza bruta y los reflejos instintivos. Modula el PWM de los motores y vigila la línea blanca.
+
+**Integridad del Bus (SPI DMA Ping-Pong):**
+El STM32 utiliza *Double Buffering* (Ping-Pong) a nivel de interrupción DMA. Esto aísla los espacios de memoria y evita el *Data Tearing* cuando el ESP32 inyecta un nuevo paquete asíncrono mientras el STM32 procesa el anterior. Todos los paquetes en tránsito se verifican mediante la unidad de hardware **CRC** del STM32 (polinomio 0x07, sin latencia de CPU).
 
 ---
 

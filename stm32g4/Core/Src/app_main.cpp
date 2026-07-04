@@ -21,13 +21,10 @@ void app_main(void)
 			uint8_t tipo = spi.recibirReporte(spi.obtenerlPaquete());
 			if(tipo == ID_ESP){
 			Esp_t* accionRecibida = (Esp_t*)paquete;
-			accion = accionRecibida->accion;
 			} else if(tipo == ID_CONF){
 
 			}
 			spi.marcarProcesado();
 		}
-		//se manda la nueva accion
-		mot.controlador(accion);
 	}
 }
