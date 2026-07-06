@@ -1,27 +1,26 @@
 #ifndef MOTORES_H
 #define MOTORES_H
 
-#include "stm32g4xx_hal.h"
+#include "protocolo/sumo_protocol.h"
 #include <cstdint>
 
 class Motores {
 	public:
 		//constructor
-		Motores(TIM_HandleTypeDef* htim1);
+		Motores();
 
 		//metodo de inicializacion
 		void begin();
 
 		//metodo que controla la velocidad
-		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
-
-		//metodo de eleccion de movimiento
-		void controlador(int accion);
+		void ejecutarAccion(void);
 
 	private:
-		TIM_HandleTypeDef* htim1;
+		uint16_t rampaAcleracion[PASOS_RAM][4];
 
 		//variables que definien las velocidades
+
+
 		int16_t vel_nI;
 		int16_t vel_nD;
 		int16_t vel_aI;

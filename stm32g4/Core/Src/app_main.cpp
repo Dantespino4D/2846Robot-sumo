@@ -11,7 +11,6 @@ void app_main(void)
 	//se establece la accioninicial como en alto
 	uint8_t accion = 0;
 	//se crea el objetp de los motores
-	Motores mot(&htim1);
 
 	spi.begin();
 	while (1)

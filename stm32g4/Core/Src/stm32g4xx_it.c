@@ -47,6 +47,7 @@
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 extern void SPI_DMA_RX_Callback(void);
+extern void gatillo(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -55,7 +56,7 @@ extern void SPI_DMA_RX_Callback(void);
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern DMA_HandleTypeDef hdma_tim6_up;
+
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -207,6 +208,7 @@ void DMA1_Channel1_IRQHandler(void)
 	if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
 		LL_DMA_ClearFlag_TC1(DMA1);
 		SPI_DMA_RX_Callback();
+		gatillo();
 	}
 	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
 		LL_DMA_ClearFlag_TE1(DMA1);
@@ -241,7 +243,6 @@ void DMA1_Channel3_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
 
   /* USER CODE END DMA1_Channel3_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_tim6_up);
   /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
 
   /* USER CODE END DMA1_Channel3_IRQn 1 */

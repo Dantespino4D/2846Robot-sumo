@@ -8,10 +8,10 @@
 
 class Spi {
 	private:
-		uint8_t bufferA[MAX_PACKET_SIZE];
-		uint8_t bufferB[MAX_PACKET_SIZE];
-		volatile uint8_t *bufferDma;
-		volatile uint8_t *bufferCpu;
+		uint16_t bufferA[MAX_PACKET_SIZE];
+		uint16_t bufferB[MAX_PACKET_SIZE];
+		volatile uint16_t *bufferDma;
+		volatile uint16_t *bufferCpu;
 		volatile bool paquete_N;
 		uint16_t cont = 0;
 		uint8_t checksum(uint8_t* paquete, size_t tamaño);

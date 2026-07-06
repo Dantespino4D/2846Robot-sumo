@@ -1,6 +1,7 @@
 #ifndef SUMO_PROTOCOL_H
 #define SUMO_PROTOCOL_H
 
+#include <cstdint>
 #include <stdint.h>
 
 #define HEADER_1 0xAA
@@ -9,6 +10,7 @@
 #define ID_ESP 0x02
 #define ID_STM 0x03
 #define ID_OK 0x04
+#define PASOS_RAM 50
 
 
 #pragma pack(push, 1)
@@ -34,16 +36,10 @@ typedef struct {
 	//identificador del mensaje
 	uint8_t id;
 
-	//accion de los motores
-    uint8_t pwm_1;
-	uint8_t pwm_2;
-	uint8_t pwm_3;
-	uint8_t pwm_4;
-
 	//confirmador de rampa
-	bool ram;
+	uint8_t ram;
 
-	uint16_t looktable[50];
+	uint16_t pwm[PASOS_RAM*4];
 
 	//contador
 	uint8_t cont;
