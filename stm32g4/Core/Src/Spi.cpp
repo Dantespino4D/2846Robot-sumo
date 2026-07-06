@@ -61,6 +61,7 @@ uint8_t Spi::checksum(uint8_t* paquete, size_t tamaño){
 void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcrt3, uint8_t tcrt4){
 	reporte->inicio[0] = HEADER_1;
 	reporte->inicio[1] = HEADER_2;
+	reporte->inicio[2] = HEADER_3;
 	reporte->id = ID_STM;
 	reporte->tcrt_1 = tcrt1;
 	reporte->tcrt_2 = tcrt2;
@@ -72,11 +73,11 @@ void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcr
 }
 
 uint8_t Spi::recibirReporte(uint8_t *reporte){
-	if(reporte[0] != HEADER_1 || reporte[1] != HEADER_2){
+	if(reporte[0] != HEADER_1 || reporte[1] != HEADER_2 || reporte[2] != HEADER_3){
 		//reporte invalido
 		return 0;
 	}
-	if(reporte[2] == ID_CONF){
+	if(reporte[3] == ID_CONF){
 		Conf_t* conf = (Conf_t*)reporte;
 		if(checksum(reporte, sizeof(Conf_t)) != conf->final){
 			return 0;
@@ -84,11 +85,12 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 		static Ok_t ok{};
 		ok.inicio[0] = HEADER_1;
 		ok.inicio[1] = HEADER_2;
+		ok.inicio[2] = HEADER_3;
 		ok.id = ID_OK;
 		ok.final = checksum((uint8_t*)&ok, sizeof(Ok_t));
 		enviar((uint8_t*)&ok, sizeof(Ok_t));
 		return ID_CONF;
-	}else if(reporte[2] == ID_ESP){
+	}else if(reporte[3] == ID_ESP){
 		Esp_t* accion = (Esp_t*)reporte;
 		if(checksum(reporte, sizeof(Esp_t)) != accion->final){
 			return 0;
@@ -130,7 +132,7 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 	if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
 		LL_DMA_ClearFlag_TC1(DMA1);
 		uint8_t* paquete = (uint8_t*)spi.bufferDma;
-		if (paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == ID_ESP) {
+		if (paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3 && paquete[3] == ID_ESP) {
 			Esp_t* accion = (Esp_t*)paquete;
 			if (spi.checksum(paquete, sizeof(Esp_t)) == accion->final) {
 				gatillo(accion->pwm);

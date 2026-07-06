@@ -6,6 +6,7 @@
 
 #define HEADER_1 0xAA
 #define HEADER_2 0x55
+#define HEADER_3 0xA5
 #define ID_CONF 0x01
 #define ID_ESP 0x02
 #define ID_STM 0x03
@@ -17,7 +18,7 @@
 
 typedef struct {
 	//verificador del inicio de la configuracion
-	uint8_t inicio[2];
+	uint8_t inicio[3];
 
 	//identificador del mensaje
 	uint8_t id;
@@ -31,15 +32,13 @@ typedef struct {
 
 typedef struct {
 	//verificador del inicio de la accion
-	uint8_t inicio[2];
+	uint8_t inicio[3];
 
 	//identificador del mensaje
 	uint8_t id;
 
-	//confirmador de rampa
-	uint8_t ram;
-
-	uint16_t pwm[PASOS_RAM*4];
+	//velocidades de la rampa de cada motor
+	uint16_t pwm[PASOS_RAM];
 
 	//contador
 	uint8_t cont;
@@ -50,7 +49,7 @@ typedef struct {
 
 typedef struct {
 	//verificador del inicio de la transmision
-	uint8_t inicio[2];
+	uint8_t inicio[3];
 
 	//identificador del mensaje
 	uint8_t id;
@@ -79,7 +78,7 @@ typedef struct {
 
 typedef struct {
 	//verificador del inicio de la transmision
-	uint8_t inicio[2];
+	uint8_t inicio[3];
 
 	//identificador del mensaje
 	uint8_t id;
