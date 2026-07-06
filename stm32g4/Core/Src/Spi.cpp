@@ -7,10 +7,15 @@
 #include <cstddef>
 #include <cstdint>
 
+extern "C" void gatillo(uint16_t* rampa);
+
 Spi::Spi() :
-	bufferDma(bufferA),
+	bufferA{},
+	bufferB{},
 	bufferCpu(bufferB),
-	paquete_N(false)
+	paquete_N(false),
+	cont(0),
+	bufferDma(bufferA)
 {}
 
 void Spi::begin() {
@@ -124,6 +129,13 @@ extern Spi spi;
 extern "C" void SPI_DMA_RX_Callback(void) {
 	if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
 		LL_DMA_ClearFlag_TC1(DMA1);
+		uint8_t* paquete = (uint8_t*)spi.bufferDma;
+		if (paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == ID_ESP) {
+			Esp_t* accion = (Esp_t*)paquete;
+			if (spi.checksum(paquete, sizeof(Esp_t)) == accion->final) {
+				gatillo(accion->pwm);
+			}
+		}
 		spi.cambioBuffers();
 	}
 	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {

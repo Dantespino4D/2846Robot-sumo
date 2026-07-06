@@ -47,7 +47,6 @@
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN PFP */
 extern void SPI_DMA_RX_Callback(void);
-extern void gatillo(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -205,17 +204,10 @@ void SysTick_Handler(void)
 void DMA1_Channel1_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel1_IRQn 0 */
-	if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
-		LL_DMA_ClearFlag_TC1(DMA1);
-		SPI_DMA_RX_Callback();
-		gatillo();
-	}
-	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
-		LL_DMA_ClearFlag_TE1(DMA1);
-	}
+	SPI_DMA_RX_Callback();
   /* USER CODE END DMA1_Channel1_IRQn 0 */
   /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
-  /* USER CODE END DMA1_Channel1_IRQn 1 */
+  /* US3ER CODE END DMA1_Channel1_IRQn 1 */
 }
 
 /**

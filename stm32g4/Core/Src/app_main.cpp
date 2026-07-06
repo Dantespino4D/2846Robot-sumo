@@ -5,6 +5,7 @@
 #include "tim.h"
 
 Spi spi;
+extern "C" void gatillo(uint16_t* rampa);
 
 void app_main(void)
 {
@@ -15,15 +16,6 @@ void app_main(void)
 	spi.begin();
 	while (1)
 	{
-		if(spi.nuevoPaquete()){
-			uint8_t* paquete = spi.obtenerlPaquete();
-			uint8_t tipo = spi.recibirReporte(spi.obtenerlPaquete());
-			if(tipo == ID_ESP){
-			Esp_t* accionRecibida = (Esp_t*)paquete;
-			} else if(tipo == ID_CONF){
 
-			}
-			spi.marcarProcesado();
-		}
 	}
 }
