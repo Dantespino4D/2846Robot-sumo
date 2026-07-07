@@ -125,12 +125,6 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 	if (LL_DMA_IsActiveFlag_HT1(DMA1)) {
 		LL_DMA_ClearFlag_HT1(DMA1);
 		paquete = (uint8_t*)&spi.bufferDma[0];
-	}else if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
-		LL_DMA_ClearFlag_TC1(DMA1);
-		paquete = (uint8_t*)&spi.bufferDma[MAX_PACKET_SIZE];
-	}
-	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
-		LL_DMA_ClearFlag_TE1(DMA1);
 		if(paquete != nullptr){
 			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
 				Esp_t* accion = (Esp_t*)paquete;
@@ -141,5 +135,24 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 			spi.bufferCpu = paquete;
 			spi.paquete_N = true;
 		}
+
+
+	}else if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
+		LL_DMA_ClearFlag_TC1(DMA1);
+		paquete = (uint8_t*)&spi.bufferDma[MAX_PACKET_SIZE];
+		if(paquete != nullptr){
+			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
+				Esp_t* accion = (Esp_t*)paquete;
+				if(spi.checksum(paquete, sizeof(Esp_t)) == accion->final){
+					gatillo(accion->pwm);
+				}
+			}
+			spi.bufferCpu = paquete;
+			spi.paquete_N = true;
+		}
+
 	}
+	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
+			LL_DMA_ClearFlag_TE1(DMA1);
+		}
 }

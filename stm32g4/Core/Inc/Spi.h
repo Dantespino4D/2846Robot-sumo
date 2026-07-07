@@ -4,8 +4,6 @@
 #include "protocolo/sumo_protocol.h"
 #include <stdint.h>
 
-#define MAX_PACKET_SIZE sizeof(Conf_t)
-
 class Spi {
 	private:
 		uint8_t bufferA[2*MAX_PACKET_SIZE];

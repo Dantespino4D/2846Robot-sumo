@@ -5844,6 +5844,7 @@ FILE PATH: ./protocolo/sumo_protocol.h
 #define ID_STM 0x03
 #define ID_OK 0x04
 #define PASOS_RAM 50
+#define MAX_PACKET_SIZE sizeof(Esp_t)
 
 
 #pragma pack(push, 1)
@@ -6416,8 +6417,6 @@ FILE PATH: ./stm32g4/Core/Inc/Spi.h
 #include "protocolo/sumo_protocol.h"
 #include <stdint.h>
 
-#define MAX_PACKET_SIZE sizeof(Conf_t)
-
 class Spi {
 	private:
 		uint8_t bufferA[2*MAX_PACKET_SIZE];
@@ -6564,11 +6563,18 @@ FILE PATH: ./stm32g4/Core/Src/app_main.cpp
 ==========================================
 
 #include "app_main.h"
-#include "stm32g4xx.h"
+#include "comp.h"
+#include "dac.h"
 
 void app_main(void)
 {
-	while (1)
+	HAL_COMP_Start(&hcomp1);
+	HAL_COMP_Start(&hcomp2);
+	HAL_COMP_Start(&hcomp3);
+	HAL_COMP_Start(&hcomp4);
+	HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+	HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
+ while (1)
 	{
 		__WFI();
 	}
@@ -7416,8 +7422,6 @@ void Motores::begin(){
 	LL_TIM_ConfigDMABurst(TIM1, LL_TIM_DMABURST_BASEADDR_CCR1, LL_TIM_DMABURST_LENGTH_4TRANSFERS);
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_3, (uint32_t)&TIM1->DMAR);
 
-	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_3);
-
 	//inicia el timer
 	LL_TIM_EnableCounter(TIM1);
 
@@ -7728,12 +7732,6 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 	if (LL_DMA_IsActiveFlag_HT1(DMA1)) {
 		LL_DMA_ClearFlag_HT1(DMA1);
 		paquete = (uint8_t*)&spi.bufferDma[0];
-	}else if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
-		LL_DMA_ClearFlag_TC1(DMA1);
-		paquete = (uint8_t*)&spi.bufferDma[MAX_PACKET_SIZE];
-	}
-	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
-		LL_DMA_ClearFlag_TE1(DMA1);
 		if(paquete != nullptr){
 			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
 				Esp_t* accion = (Esp_t*)paquete;
@@ -7744,7 +7742,26 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 			spi.bufferCpu = paquete;
 			spi.paquete_N = true;
 		}
+
+
+	}else if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
+		LL_DMA_ClearFlag_TC1(DMA1);
+		paquete = (uint8_t*)&spi.bufferDma[MAX_PACKET_SIZE];
+		if(paquete != nullptr){
+			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
+				Esp_t* accion = (Esp_t*)paquete;
+				if(spi.checksum(paquete, sizeof(Esp_t)) == accion->final){
+					gatillo(accion->pwm);
+				}
+			}
+			spi.bufferCpu = paquete;
+			spi.paquete_N = true;
+		}
+
 	}
+	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
+			LL_DMA_ClearFlag_TE1(DMA1);
+		}
 }
 
 
