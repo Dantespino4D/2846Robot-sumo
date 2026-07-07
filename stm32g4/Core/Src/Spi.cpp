@@ -4,6 +4,7 @@
 #include "stm32g4xx_ll_dma.h"
 #include "stm32g4xx_ll_spi.h"
 #include "stm32g4xx_ll_crc.h"
+#include "stm32g4xx_ll_dac.h"
 #include <cstddef>
 #include <cstdint>
 
@@ -82,6 +83,10 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 		if(checksum(reporte, sizeof(Conf_t)) != conf->final){
 			return 0;
 		}
+
+		//aplicacion del umbral del limite
+		LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, conf->u_limite);
+		LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_2, conf->u_limite);
 		static Ok_t ok{};
 		ok.inicio[0] = HEADER_1;
 		ok.inicio[1] = HEADER_2;
