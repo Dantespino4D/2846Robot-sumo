@@ -118,7 +118,7 @@ void Spi::recibir() {
 	LL_SPI_Enable(SPI1);
 }
 
-extern Spi spi;
+Spi spi;
 
 extern "C" void SPI_DMA_RX_Callback(void) {
 	uint8_t* paquete = nullptr;

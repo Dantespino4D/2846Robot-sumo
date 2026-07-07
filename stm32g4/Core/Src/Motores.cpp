@@ -15,6 +15,11 @@ void Motores::begin(){
 	LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH3);
 	LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH4);
 
+	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_3);
+
+	LL_TIM_ConfigDMABurst(TIM1, LL_TIM_DMABURST_BASEADDR_CCR1, LL_TIM_DMABURST_LENGTH_4TRANSFERS);
+	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_3, (uint32_t)&TIM1->DMAR);
+
 	//inicia el timer
 	LL_TIM_EnableCounter(TIM1);
 
@@ -25,10 +30,8 @@ void Motores::ejecutarAccion(uint16_t* rampa){
 	LL_TIM_DisableCounter(TIM6);
 	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_3);
 
-	LL_TIM_ConfigDMABurst(TIM1, LL_TIM_DMABURST_BASEADDR_CCR1, LL_TIM_DMABURST_LENGTH_4TRANSFERS);
 
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_3, (uint32_t)rampa);
-	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_3, (uint32_t)&TIM1->DMAR);
 	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_3, PASOS_RAM*4);
 
 	LL_TIM_EnableDMAReq_UPDATE(TIM6);
