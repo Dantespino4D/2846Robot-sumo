@@ -38,7 +38,7 @@ typedef struct {
 	uint8_t id;
 
 	//velocidades de la rampa de cada motor
-	uint16_t pwm[PASOS_RAM];
+	uint16_t pwm[PASOS_RAM * 4];
 
 	//contador
 	uint8_t cont;

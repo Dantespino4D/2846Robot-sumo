@@ -13,35 +13,22 @@ extern "C" void gatillo(uint16_t* rampa);
 Spi::Spi() :
 	bufferA{},
 	bufferB{},
-	bufferCpu(bufferB),
-	paquete_N(false),
 	cont(0),
-	bufferDma(bufferA)
+	bufferCpu(bufferB),
+	bufferDma(bufferA),
+	paquete_N(false)
 {}
 
 void Spi::begin() {
-	recibir((uint8_t*)bufferDma, MAX_PACKET_SIZE);
-}
-
-void Spi::cambioBuffers() {
-	if (bufferDma == bufferA) {
-		bufferDma = bufferB;
-		bufferCpu = bufferA;
-	} else {
-		bufferDma = bufferA;
-		bufferCpu = bufferB;
-	}
-
-	paquete_N = true;
-
-	recibir((uint8_t*)bufferDma, MAX_PACKET_SIZE);
+	recibir();
 }
 
 bool Spi::nuevoPaquete() {
 	return paquete_N;
 }
 
-uint8_t* Spi::obtenerlPaquete() {
+
+uint8_t* Spi::obtenerlPaquete(){
 	return (uint8_t*)bufferCpu;
 }
 
@@ -119,13 +106,13 @@ void Spi::enviar(uint8_t *data, uint16_t size) {
 }
 
 //recibe mensjes
-void Spi::recibir(uint8_t *data, uint16_t size) {
+void Spi::recibir() {
 	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_1);
 	while(LL_DMA_IsEnabledChannel(DMA1, LL_DMA_CHANNEL_1)){
 
 	}
-	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_1, (uint32_t)data);
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, size);
+	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_1, (uint32_t)bufferDma);
+	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, (MAX_PACKET_SIZE*2));
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
 	LL_SPI_EnableDMAReq_RX(SPI1);
 	LL_SPI_Enable(SPI1);
@@ -134,18 +121,25 @@ void Spi::recibir(uint8_t *data, uint16_t size) {
 extern Spi spi;
 
 extern "C" void SPI_DMA_RX_Callback(void) {
-	if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
+	uint8_t* paquete = nullptr;
+	if (LL_DMA_IsActiveFlag_HT1(DMA1)) {
+		LL_DMA_ClearFlag_HT1(DMA1);
+		paquete = (uint8_t*)&spi.bufferDma[0];
+	}else if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
 		LL_DMA_ClearFlag_TC1(DMA1);
-		uint8_t* paquete = (uint8_t*)spi.bufferDma;
-		if (paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3 && paquete[3] == ID_ESP) {
-			Esp_t* accion = (Esp_t*)paquete;
-			if (spi.checksum(paquete, sizeof(Esp_t)) == accion->final) {
-				gatillo(accion->pwm);
-			}
-		}
-		spi.cambioBuffers();
+		paquete = (uint8_t*)&spi.bufferDma[MAX_PACKET_SIZE];
 	}
 	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
 		LL_DMA_ClearFlag_TE1(DMA1);
+		if(paquete != nullptr){
+			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
+				Esp_t* accion = (Esp_t*)paquete;
+				if(spi.checksum(paquete, sizeof(Esp_t)) == accion->final){
+					gatillo(accion->pwm);
+				}
+			}
+			spi.bufferCpu = paquete;
+			spi.paquete_N = true;
+		}
 	}
 }
