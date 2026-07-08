@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32g4xx_it.h"
+#include "stdlib.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -36,12 +37,15 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define ALPHA 2
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+int16_t velActual_1 = 0;
+int16_t velActual_2 = 0;
+extern int16_t velObjetivo_1;
+extern int16_t velObjetivo_2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -253,6 +257,66 @@ void TIM1_BRK_TIM15_IRQHandler(void)
   /* USER CODE BEGIN TIM1_BRK_TIM15_IRQn 1 */
 
   /* USER CODE END TIM1_BRK_TIM15_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM3 global interrupt.
+  */
+void TIM3_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM3_IRQn 0 */
+	//se limpia la bandera de interrupcion
+	TIM3->SR = ~TIM_SR_UIF;
+
+	//se calcula la nueva velocidad acorde a la rampa
+	int16_t error_1 = velObjetivo_1 - velActual_1;
+	if(abs(error_1) < (1 << ALPHA)){
+		velActual_1 = velObjetivo_1;
+	}else{
+		velActual_1 += (error_1 >> ALPHA);
+	}
+
+	//se aplica la velocidad a los registros
+	if(velActual_1 > 0) {
+		//velocidad positiva
+		TIM1->CCR1 = velActual_1;
+		TIM1->CCR2 = 0;
+	}else if(velActual_1 < 0) {
+		//velocidad negativa
+		TIM1->CCR1 = 0;
+		TIM1->CCR2 = abs(velActual_1);
+	}else{
+		//freno
+		TIM1->CCR1 = 1023;
+		TIM1->CCR2 = 1023;
+	}
+
+  /* USER CODE END TIM3_IRQn 0 */
+  /* USER CODE BEGIN TIM3_IRQn 1 */
+
+	//se calcula la nueva velocidad acorde a la rampa
+	int16_t error_2 = velObjetivo_2 - velActual_2;
+	if(abs(error_2) < (1 << ALPHA)){
+		velActual_2 = velObjetivo_2;
+	}else{
+		velActual_2 += (error_2 >> ALPHA);
+	}
+
+	//se aplica la velocidad a los registros
+	if(velActual_2 > 0) {
+		//velocidad positiva
+		TIM1->CCR3 = velActual_2;
+		TIM1->CCR4 = 0;
+	}else if(velActual_2 < 0) {
+		//velocidad negativa
+		TIM1->CCR3 = 0;
+		TIM1->CCR4 = abs(velActual_2);
+	}else{
+		//freno
+		TIM1->CCR3 = 1023;
+		TIM1->CCR4 = 1023;
+	}
+  /* USER CODE END TIM3_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
