@@ -87,6 +87,9 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 		if(checksum(reporte, sizeof(Esp_t)) != accion->final){
 			return 0;
 		}
+		if(accion->banderas & UNLOCK_M){
+			TIM1->BDTR |= TIM_BDTR_MOE;
+		}
 		return ID_ESP;
 	}
 	return 0;

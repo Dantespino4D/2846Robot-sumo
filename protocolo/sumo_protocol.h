@@ -11,6 +11,7 @@
 #define ID_ESP 0x02
 #define ID_STM 0x03
 #define ID_OK 0x04
+#define UNLOCK_M (1 << 0)
 #define PASOS_RAM 50
 #define MAX_PACKET_SIZE sizeof(Esp_t)
 
@@ -40,6 +41,9 @@ typedef struct {
 
 	//velocidades de la rampa de cada motor
 	uint16_t pwm[PASOS_RAM * 4];
+
+	//banderas
+	uint8_t banderas;
 
 	//contador
 	uint8_t cont;
