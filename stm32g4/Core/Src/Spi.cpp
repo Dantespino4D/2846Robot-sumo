@@ -9,6 +9,8 @@
 #include <cstdint>
 
 extern "C" void gatillo(uint16_t* rampa);
+int16_t velObjetivo_1 = 0;
+int16_t velObjetivo_2 = 0;
 
 Spi::Spi() :
 	bufferA{},
@@ -132,7 +134,8 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
 				Esp_t* accion = (Esp_t*)paquete;
 				if(spi.checksum(paquete, sizeof(Esp_t)) == accion->final){
-					gatillo(accion->pwm);
+					velObjetivo_1 = accion->obj_1;
+					velObjetivo_2 = accion->obj_2;
 				}
 			}
 			spi.bufferCpu = paquete;
@@ -147,7 +150,8 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
 				Esp_t* accion = (Esp_t*)paquete;
 				if(spi.checksum(paquete, sizeof(Esp_t)) == accion->final){
-					gatillo(accion->pwm);
+					velObjetivo_1 = accion->obj_1;
+					velObjetivo_2 = accion->obj_2;
 				}
 			}
 			spi.bufferCpu = paquete;

@@ -39,8 +39,9 @@ typedef struct {
 	//identificador del mensaje
 	uint8_t id;
 
-	//velocidades de la rampa de cada motor
-	uint16_t pwm[PASOS_RAM * 4];
+	//velocidades objetio
+	int16_t obj_1;
+	int16_t obj_2;
 
 	//banderas
 	uint8_t banderas;

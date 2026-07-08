@@ -25,28 +25,3 @@ void Motores::begin(){
 
 	LL_TIM_EnableAllOutputs(TIM1);
 }
-
-void Motores::ejecutarAccion(uint16_t* rampa){
-	LL_TIM_DisableCounter(TIM3);
-	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_3);
-
-
-	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_3, (uint32_t)rampa);
-	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_3, PASOS_RAM*4);
-
-	LL_TIM_EnableDMAReq_TRIG(TIM1);
-	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_3);
-
-	LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH1 | LL_TIM_CHANNEL_CH2 | LL_TIM_CHANNEL_CH3 | LL_TIM_CHANNEL_CH4);
-	LL_TIM_EnableCounter(TIM1);
-	LL_TIM_EnableAllOutputs(TIM1);
-
-	LL_TIM_SetCounter(TIM3, 0);
-	LL_TIM_EnableCounter(TIM3);
-}
-
-Motores mot;
-
-extern "C" void gatillo(uint16_t* rampa){
-	mot.ejecutarAccion(rampa);
-}
