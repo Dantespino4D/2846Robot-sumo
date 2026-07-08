@@ -251,8 +251,22 @@ void DMA1_Channel3_IRQHandler(void)
 void TIM1_BRK_TIM15_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_BRK_TIM15_IRQn 0 */
+	//se limpia la bandera de interrupcion
 	TIM1->SR = ~TIM_SR_BIF;
+
+	//se envia una señal al esp32
 	GPIOC->BSRR = GPIO_PIN_9;
+
+	//se para la rampa de velocidad
+	velObjetivo_1 = 0;
+	velObjetivo_2 = 0;
+	velActual_1 = 0;
+	velActual_2 = 0;
+	TIM1->CCR1 = 1023;
+	TIM1->CCR2 = 1023;
+	TIM1->CCR3 = 1023;
+	TIM1->CCR4 = 1023;
+
   /* USER CODE END TIM1_BRK_TIM15_IRQn 0 */
   /* USER CODE BEGIN TIM1_BRK_TIM15_IRQn 1 */
 
