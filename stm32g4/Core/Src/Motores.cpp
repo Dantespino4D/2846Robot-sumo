@@ -17,7 +17,6 @@ void Motores::begin(){
 
 	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_3);
 
-	LL_TIM_ConfigDMABurst(TIM1, LL_TIM_DMABURST_BASEADDR_CCR1, LL_TIM_DMABURST_LENGTH_4TRANSFERS);
 	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_3, (uint32_t)&TIM1->DMAR);
 
 	//inicia el timer

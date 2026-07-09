@@ -13,13 +13,8 @@ class Spi {
 		Spi();
 		volatile uint8_t *bufferCpu;
 		volatile uint8_t *bufferDma;
-		volatile bool paquete_N;
 		void begin();
-		bool nuevoPaquete();
-		uint8_t* obtenerlPaquete();
-		void marcarProcesado();
 		void armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcrt3, uint8_t tcrt4);
-		void enviarOk(Ok_t *reporte, Conf_t *configuracion);
 		uint8_t recibirReporte(uint8_t *reporte);
 		uint8_t checksum(uint8_t* paquete, size_t tamaño);
 		void enviar(uint8_t *data, uint16_t size);

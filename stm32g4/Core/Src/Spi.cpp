@@ -17,25 +17,11 @@ Spi::Spi() :
 	bufferB{},
 	cont(0),
 	bufferCpu(bufferB),
-	bufferDma(bufferA),
-	paquete_N(false)
+	bufferDma(bufferA)
 {}
 
 void Spi::begin() {
 	recibir();
-}
-
-bool Spi::nuevoPaquete() {
-	return paquete_N;
-}
-
-
-uint8_t* Spi::obtenerlPaquete(){
-	return (uint8_t*)bufferCpu;
-}
-
-void Spi::marcarProcesado() {
-	paquete_N = false;
 }
 
 //se calcula el checksum
@@ -63,6 +49,9 @@ void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcr
 }
 
 uint8_t Spi::recibirReporte(uint8_t *reporte){
+	if(reporte == nullptr){
+		return 0;
+	}
 	if(reporte[0] != HEADER_1 || reporte[1] != HEADER_2 || reporte[2] != HEADER_3){
 		//reporte invalido
 		return 0;
@@ -92,6 +81,8 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 		if(accion->banderas & UNLOCK_M){
 			TIM1->BDTR |= TIM_BDTR_MOE;
 		}
+		velObjetivo_1 = accion->obj_1;
+		velObjetivo_2 = accion->obj_2;
 		return ID_ESP;
 	}
 	return 0;
@@ -130,36 +121,13 @@ extern "C" void SPI_DMA_RX_Callback(void) {
 	if (LL_DMA_IsActiveFlag_HT1(DMA1)) {
 		LL_DMA_ClearFlag_HT1(DMA1);
 		paquete = (uint8_t*)&spi.bufferDma[0];
-		if(paquete != nullptr){
-			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
-				Esp_t* accion = (Esp_t*)paquete;
-				if(spi.checksum(paquete, sizeof(Esp_t)) == accion->final){
-					velObjetivo_1 = accion->obj_1;
-					velObjetivo_2 = accion->obj_2;
-				}
-			}
-			spi.bufferCpu = paquete;
-			spi.paquete_N = true;
-		}
-
-
+		spi.recibirReporte(paquete);
 	}else if (LL_DMA_IsActiveFlag_TC1(DMA1)) {
 		LL_DMA_ClearFlag_TC1(DMA1);
 		paquete = (uint8_t*)&spi.bufferDma[MAX_PACKET_SIZE];
-		if(paquete != nullptr){
-			if(paquete[0] == HEADER_1 && paquete[1] == HEADER_2 && paquete[2] == HEADER_3){
-				Esp_t* accion = (Esp_t*)paquete;
-				if(spi.checksum(paquete, sizeof(Esp_t)) == accion->final){
-					velObjetivo_1 = accion->obj_1;
-					velObjetivo_2 = accion->obj_2;
-				}
-			}
-			spi.bufferCpu = paquete;
-			spi.paquete_N = true;
-		}
-
+		spi.recibirReporte(paquete);
 	}
 	if (LL_DMA_IsActiveFlag_TE1(DMA1)) {
 			LL_DMA_ClearFlag_TE1(DMA1);
-		}
+	}
 }

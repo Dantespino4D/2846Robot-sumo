@@ -12,8 +12,7 @@
 #define ID_STM 0x03
 #define ID_OK 0x04
 #define UNLOCK_M (1 << 0)
-#define PASOS_RAM 50
-#define MAX_PACKET_SIZE sizeof(Esp_t)
+#define MAX_PACKET_SIZE sizeof(Stm_t)
 
 
 #pragma pack(push, 1)
