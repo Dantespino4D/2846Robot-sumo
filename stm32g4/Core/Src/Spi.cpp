@@ -8,9 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 
-extern "C" void gatillo(uint16_t* rampa);
-int16_t velObjetivo_1 = 0;
-int16_t velObjetivo_2 = 0;
+volatile int16_t velObjetivo_1 = 0;
+volatile int16_t velObjetivo_2 = 0;
 
 Spi::Spi() :
 	bufferA{},
@@ -44,7 +43,9 @@ void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcr
 	reporte->tcrt_3 = tcrt3;
 	reporte->tcrt_4 = tcrt4;
 	reporte->cont = cont;
+	__disable_irq();
 	reporte->final = checksum((uint8_t*)reporte, sizeof(Stm_t));
+	__enable_irq();
 	cont++;
 }
 

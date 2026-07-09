@@ -42,10 +42,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-int16_t velActual_1 = 0;
-int16_t velActual_2 = 0;
-extern int16_t velObjetivo_1;
-extern int16_t velObjetivo_2;
+volatile int16_t velActual_1 = 0;
+volatile int16_t velActual_2 = 0;
+extern volatile int16_t velObjetivo_1;
+extern volatile int16_t velObjetivo_2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -287,7 +287,7 @@ void TIM3_IRQHandler(void)
 	if(abs(error_1) < (1 << ALPHA)){
 		velActual_1 = velObjetivo_1;
 	}else{
-		velActual_1 += (error_1 >> ALPHA);
+		velActual_1 += (error_1 / (1 << ALPHA));
 	}
 
 	//se aplica la velocidad a los registros
@@ -313,7 +313,7 @@ void TIM3_IRQHandler(void)
 	if(abs(error_2) < (1 << ALPHA)){
 		velActual_2 = velObjetivo_2;
 	}else{
-		velActual_2 += (error_2 >> ALPHA);
+		velActual_2 += (error_2 / (1 << ALPHA));
 	}
 
 	//se aplica la velocidad a los registros

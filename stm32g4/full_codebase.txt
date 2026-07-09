@@ -1753,9 +1753,8 @@ FILE PATH: ./Core/Src/Spi.cpp
 #include <cstddef>
 #include <cstdint>
 
-extern "C" void gatillo(uint16_t* rampa);
-int16_t velObjetivo_1 = 0;
-int16_t velObjetivo_2 = 0;
+volatile int16_t velObjetivo_1 = 0;
+volatile int16_t velObjetivo_2 = 0;
 
 Spi::Spi() :
 	bufferA{},
@@ -1789,7 +1788,9 @@ void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcr
 	reporte->tcrt_3 = tcrt3;
 	reporte->tcrt_4 = tcrt4;
 	reporte->cont = cont;
+	__disable_irq();
 	reporte->final = checksum((uint8_t*)reporte, sizeof(Stm_t));
+	__enable_irq();
 	cont++;
 }
 
@@ -1926,10 +1927,10 @@ FILE PATH: ./Core/Src/stm32g4xx_it.c
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-int16_t velActual_1 = 0;
-int16_t velActual_2 = 0;
-extern int16_t velObjetivo_1;
-extern int16_t velObjetivo_2;
+volatile int16_t velActual_1 = 0;
+volatile int16_t velActual_2 = 0;
+extern volatile int16_t velObjetivo_1;
+extern volatile int16_t velObjetivo_2;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -2171,7 +2172,7 @@ void TIM3_IRQHandler(void)
 	if(abs(error_1) < (1 << ALPHA)){
 		velActual_1 = velObjetivo_1;
 	}else{
-		velActual_1 += (error_1 >> ALPHA);
+		velActual_1 += (error_1 / (1 << ALPHA));
 	}
 
 	//se aplica la velocidad a los registros
@@ -2197,7 +2198,7 @@ void TIM3_IRQHandler(void)
 	if(abs(error_2) < (1 << ALPHA)){
 		velActual_2 = velObjetivo_2;
 	}else{
-		velActual_2 += (error_2 >> ALPHA);
+		velActual_2 += (error_2 / (1 << ALPHA));
 	}
 
 	//se aplica la velocidad a los registros
