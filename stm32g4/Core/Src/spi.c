@@ -53,7 +53,6 @@ void MX_SPI1_Init(void)
   GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
   GPIO_InitStruct.Alternate = LL_GPIO_AF_5;
   LL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
   GPIO_InitStruct.Pin = LL_GPIO_PIN_5;
   GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
   GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_LOW;
@@ -130,7 +129,17 @@ void MX_SPI1_Init(void)
   LL_SPI_SetStandard(SPI1, LL_SPI_PROTOCOL_MOTOROLA);
   LL_SPI_DisableNSSPulseMgt(SPI1);
   /* USER CODE BEGIN SPI1_Init 2 */
+  /* Espionaje por Hardware: Ruteo de PA4 a EXTI4 */
+  LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_SYSCFG);
+  LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTA, LL_SYSCFG_EXTI_LINE4);
 
+  /* Disparo EXTI en flanco de SUBIDA */
+  LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_4);
+  LL_EXTI_EnableRisingTrig_0_31(LL_EXTI_LINE_4);
+
+  /* Habilitación en NVIC (Prioridad Nivel 1) */
+  NVIC_SetPriority(EXTI4_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 1, 0));
+  NVIC_EnableIRQ(EXTI4_IRQn);
   /* USER CODE END SPI1_Init 2 */
 
 }

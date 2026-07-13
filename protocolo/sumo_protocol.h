@@ -1,7 +1,6 @@
 #ifndef SUMO_PROTOCOL_H
 #define SUMO_PROTOCOL_H
 
-#include <cstdint>
 #include <stdint.h>
 
 #define HEADER_1 0xAA

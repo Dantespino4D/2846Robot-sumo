@@ -22,6 +22,7 @@
 #include "stm32g4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "protocolo/sumo_protocol.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -200,6 +201,8 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32g4xx.s).                    */
 /******************************************************************************/
 
+
+
 /**
   * @brief This function handles DMA1 channel1 global interrupt.
   */
@@ -326,5 +329,30 @@ void TIM3_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+/**
+  * @brief This function handles EXTI line4 interrupt.
+  */
+void EXTI4_IRQHandler(void)
+{
+	//accion de evasion de glitches
+	if(LL_EXTI_IsActiveFlag_0_31(LL_EXTI_LINE_4) != RESET)
+	{
+		//lismpiamos la bandera
+		LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_4);
 
+		//desactivamos los canales DMA
+		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_1);
+		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_2);
+
+		//limpiamos la bandera de error del spi
+		LL_DMA_ClearFlag_HT1(DMA1);
+		LL_DMA_ClearFlag_TC1(DMA1);
+
+		//forazamos que inicie donde debe el canal 1
+		LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, (MAX_PACKET_SIZE*2));
+
+		//reactivamos el canal
+		LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
+	}
+}
 /* USER CODE END 1 */
