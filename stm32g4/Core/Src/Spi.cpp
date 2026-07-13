@@ -88,8 +88,11 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
 			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
 
-			//limiamos la interrupcion de freno
-			TIM1->BDTR |= TIM_BDTR_MOE;
+			//limpiar la bandera de freno
+			LL_TIM_ClearFlag_BRK(TIM1);
+
+			//hailitamos las salidas
+			LL_TIM_EnableAllOutputs(TIM1);
 		}else{
 			//reactivamos el freno para que no se salga de la linea
 			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1);
