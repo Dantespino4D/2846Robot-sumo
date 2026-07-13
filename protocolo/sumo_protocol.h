@@ -25,7 +25,7 @@ typedef struct {
 	uint8_t id;
 
 	//umbral de los TCRT
-	int16_t u_limite;
+	uint16_t u_limite;
 
 	//relleno
 	uint8_t relleno[11];

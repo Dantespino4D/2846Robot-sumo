@@ -37,15 +37,14 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define ALPHA 2
+#define ALPHA 1
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
 volatile int16_t velActual_1 = 0;
 volatile int16_t velActual_2 = 0;
-extern volatile int16_t velObjetivo_1;
-extern volatile int16_t velObjetivo_2;
+extern volatile uint32_t velObjetivos;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -258,8 +257,7 @@ void TIM1_BRK_TIM15_IRQHandler(void)
 	GPIOC->BSRR = GPIO_PIN_9;
 
 	//se para la rampa de velocidad
-	velObjetivo_1 = 0;
-	velObjetivo_2 = 0;
+	velObjetivos = 0;
 	velActual_1 = 0;
 	velActual_2 = 0;
 	TIM1->CCR1 = 1023;
@@ -282,10 +280,18 @@ void TIM3_IRQHandler(void)
 	//se limpia la bandera de interrupcion
 	TIM3->SR = ~TIM_SR_UIF;
 
+	//variable local de las velocidades objetivo
+	uint32_t objetivosLocal = velObjetivos;
+
+	//variables individuales
+	int16_t vel_1 = (int16_t)(objetivosLocal & 0xFFFF);
+	int16_t vel_2 = (int16_t)(objetivosLocal >> 16);
+
+
 	//se calcula la nueva velocidad acorde a la rampa
-	int16_t error_1 = velObjetivo_1 - velActual_1;
-	if(abs(error_1) < (1 << ALPHA)){
-		velActual_1 = velObjetivo_1;
+	int16_t error_1 = vel_1 - velActual_1;
+	if((error_1 < 0 ? -error_1 : error_1) < (1 << ALPHA)){
+		velActual_1 = vel_1;
 	}else{
 		velActual_1 += (error_1 / (1 << ALPHA));
 	}
@@ -309,9 +315,9 @@ void TIM3_IRQHandler(void)
   /* USER CODE BEGIN TIM3_IRQn 1 */
 
 	//se calcula la nueva velocidad acorde a la rampa
-	int16_t error_2 = velObjetivo_2 - velActual_2;
-	if(abs(error_2) < (1 << ALPHA)){
-		velActual_2 = velObjetivo_2;
+	int16_t error_2 = vel_2 - velActual_2;
+	if((error_2 < 0 ? -error_2 : error_2) < (1 << ALPHA)){
+		velActual_2 = vel_2;
 	}else{
 		velActual_2 += (error_2 / (1 << ALPHA));
 	}

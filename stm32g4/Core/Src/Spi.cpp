@@ -9,8 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 
-volatile int16_t velObjetivo_1 = 0;
-volatile int16_t velObjetivo_2 = 0;
+volatile uint32_t velObjetivos = 0;
 
 Spi::Spi() :
 	bufferA{},
@@ -99,8 +98,7 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
 			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
 		}
-		velObjetivo_1 = accion->obj_1;
-		velObjetivo_2 = accion->obj_2;
+		velObjetivos = ((uint32_t)(uint16_t)accion->obj_2 << 16) | (uint32_t)(uint16_t)accion->obj_1;
 		return ID_ESP;
 	}
 	return 0;

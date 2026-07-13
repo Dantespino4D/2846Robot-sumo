@@ -15,10 +15,6 @@ void Motores::begin(){
 	LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH3);
 	LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH4);
 
-	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_3);
-
-	LL_DMA_SetPeriphAddress(DMA1, LL_DMA_CHANNEL_3, (uint32_t)&TIM1->DMAR);
-
 	//inicia el timer
 	LL_TIM_EnableCounter(TIM1);
 
