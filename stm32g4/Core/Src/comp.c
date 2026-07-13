@@ -43,7 +43,7 @@ void MX_COMP1_Init(void)
   hcomp1.Instance = COMP1;
   hcomp1.Init.InputPlus = COMP_INPUT_PLUS_IO1;
   hcomp1.Init.InputMinus = COMP_INPUT_MINUS_DAC1_CH1;
-  hcomp1.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
+  hcomp1.Init.OutputPol = COMP_OUTPUTPOL_INVERTED;
   hcomp1.Init.Hysteresis = COMP_HYSTERESIS_MEDIUM;
   hcomp1.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
   hcomp1.Init.TriggerMode = COMP_TRIGGERMODE_NONE;
@@ -70,7 +70,7 @@ void MX_COMP2_Init(void)
   hcomp2.Instance = COMP2;
   hcomp2.Init.InputPlus = COMP_INPUT_PLUS_IO2;
   hcomp2.Init.InputMinus = COMP_INPUT_MINUS_DAC1_CH2;
-  hcomp2.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
+  hcomp2.Init.OutputPol = COMP_OUTPUTPOL_INVERTED;
   hcomp2.Init.Hysteresis = COMP_HYSTERESIS_MEDIUM;
   hcomp2.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
   hcomp2.Init.TriggerMode = COMP_TRIGGERMODE_NONE;
@@ -97,7 +97,7 @@ void MX_COMP3_Init(void)
   hcomp3.Instance = COMP3;
   hcomp3.Init.InputPlus = COMP_INPUT_PLUS_IO1;
   hcomp3.Init.InputMinus = COMP_INPUT_MINUS_DAC1_CH1;
-  hcomp3.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
+  hcomp3.Init.OutputPol = COMP_OUTPUTPOL_INVERTED;
   hcomp3.Init.Hysteresis = COMP_HYSTERESIS_MEDIUM;
   hcomp3.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
   hcomp3.Init.TriggerMode = COMP_TRIGGERMODE_NONE;
@@ -124,7 +124,7 @@ void MX_COMP4_Init(void)
   hcomp4.Instance = COMP4;
   hcomp4.Init.InputPlus = COMP_INPUT_PLUS_IO1;
   hcomp4.Init.InputMinus = COMP_INPUT_MINUS_DAC1_CH1;
-  hcomp4.Init.OutputPol = COMP_OUTPUTPOL_NONINVERTED;
+  hcomp4.Init.OutputPol = COMP_OUTPUTPOL_INVERTED;
   hcomp4.Init.Hysteresis = COMP_HYSTERESIS_MEDIUM;
   hcomp4.Init.BlankingSrce = COMP_BLANKINGSRC_NONE;
   hcomp4.Init.TriggerMode = COMP_TRIGGERMODE_NONE;

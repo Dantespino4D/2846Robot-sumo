@@ -27,6 +27,9 @@ typedef struct {
 	//umbral de los TCRT
 	int16_t u_limite;
 
+	//relleno
+	uint8_t relleno[11];
+
 	//verificador del final de la configuracion
 	uint8_t final;
 } Conf_t;
@@ -47,6 +50,9 @@ typedef struct {
 
 	//contador
 	uint8_t cont;
+
+	//relleno
+	uint8_t relleno[7];
 
 	//verificador del final de la accion
 	uint8_t final;
@@ -87,6 +93,9 @@ typedef struct {
 
 	//identificador del mensaje
 	uint8_t id;
+
+	//relleno
+	uint8_t relleno[12];
 
 	//verificador del final de la transmision
 	uint8_t final;

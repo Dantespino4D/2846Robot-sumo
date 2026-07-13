@@ -298,7 +298,7 @@ void TIM3_IRQHandler(void)
 	}else if(velActual_1 < 0) {
 		//velocidad negativa
 		TIM1->CCR1 = 0;
-		TIM1->CCR2 = abs(velActual_1);
+		TIM1->CCR2 = -velActual_1;
 	}else{
 		//freno
 		TIM1->CCR1 = 1023;
@@ -324,7 +324,7 @@ void TIM3_IRQHandler(void)
 	}else if(velActual_2 < 0) {
 		//velocidad negativa
 		TIM1->CCR3 = 0;
-		TIM1->CCR4 = abs(velActual_2);
+		TIM1->CCR4 = -velActual_2;
 	}else{
 		//freno
 		TIM1->CCR3 = 1023;

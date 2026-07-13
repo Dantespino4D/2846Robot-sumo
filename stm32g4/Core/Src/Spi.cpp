@@ -5,6 +5,7 @@
 #include "stm32g4xx_ll_spi.h"
 #include "stm32g4xx_ll_crc.h"
 #include "stm32g4xx_ll_dac.h"
+#include "stm32g4xx_ll_tim.h"
 #include <cstddef>
 #include <cstdint>
 
@@ -80,7 +81,23 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 			return 0;
 		}
 		if(accion->banderas & UNLOCK_M){
+			//apagamos el pin de interrupcion
+			GPIOC->BSRR = GPIO_PIN_9 << 16;
+
+			//apagamos el freno para poder salir de la linea
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1);
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP2);
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
+
+			//limiamos la interrupcion de freno
 			TIM1->BDTR |= TIM_BDTR_MOE;
+		}else{
+			//reactivamos el freno para que no se salga de la linea
+			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1);
+			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP2);
+			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
+			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
 		}
 		velObjetivo_1 = accion->obj_1;
 		velObjetivo_2 = accion->obj_2;
@@ -91,10 +108,10 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 
 //envia mensajea
 void Spi::enviar(uint8_t *data, uint16_t size) {
-	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_2);
-	while(LL_DMA_IsEnabledChannel(DMA1, LL_DMA_CHANNEL_2)){
-
+	if(LL_DMA_IsEnabledChannel(DMA1, LL_DMA_CHANNEL_2)){
+		return;
 	}
+	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_2);
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_2, (uint32_t)data);
 	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_2, size);
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_2);
@@ -104,10 +121,10 @@ void Spi::enviar(uint8_t *data, uint16_t size) {
 
 //recibe mensjes
 void Spi::recibir() {
-	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_1);
-	while(LL_DMA_IsEnabledChannel(DMA1, LL_DMA_CHANNEL_1)){
-
+	if(LL_DMA_IsEnabledChannel(DMA1, LL_DMA_CHANNEL_1)){
+		return;
 	}
+	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_1);
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_1, (uint32_t)bufferDma);
 	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_1, (MAX_PACKET_SIZE*2));
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_1);
