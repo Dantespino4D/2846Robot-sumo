@@ -1,6 +1,7 @@
 #include "stm32g474xx.h"
 #include "Spi.h"
 #include "protocolo/sumo_protocol.h"
+#include "protocolo/Crc8Table.h"
 #include "stm32g4xx_ll_dma.h"
 #include "stm32g4xx_ll_spi.h"
 #include "stm32g4xx_ll_crc.h"
@@ -43,9 +44,7 @@ void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcr
 	reporte->tcrt_3 = tcrt3;
 	reporte->tcrt_4 = tcrt4;
 	reporte->cont = cont;
-	__disable_irq();
-	reporte->final = checksum((uint8_t*)reporte, sizeof(Stm_t));
-	__enable_irq();
+	reporte->final = crc8((uint8_t*)reporte, sizeof(Stm_t) - 1);
 	cont++;
 }
 
