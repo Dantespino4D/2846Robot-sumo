@@ -94,7 +94,7 @@ typedef struct {
 	uint8_t id;
 
 	//relleno
-	uint8_t relleno[12];
+	uint8_t relleno[13];
 
 	//verificador del final de la transmision
 	uint8_t final;

@@ -361,6 +361,13 @@ void EXTI4_IRQHandler(void)
 		//lismpiamos la bandera
 		LL_EXTI_ClearFlag_0_31(LL_EXTI_LINE_4);
 
+		//verificamos si termino la transferencia
+		uint32_t cndtr = LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_1);
+
+		if(cndtr == 0 || cndtr == MAX_PACKET_SIZE || cndtr == MAX_PACKET_SIZE*2){
+			return;
+		}
+
 		//desactivamos los canales DMA
 		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_1);
 		LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_2);
