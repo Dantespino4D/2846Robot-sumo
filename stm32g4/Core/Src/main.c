@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "comp.h"
 #include "crc.h"
 #include "dac.h"
@@ -102,6 +103,7 @@ int main(void)
   MX_SPI1_Init();
   MX_CRC_Init();
   MX_TIM6_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   app_main();
   /* USER CODE END 2 */
