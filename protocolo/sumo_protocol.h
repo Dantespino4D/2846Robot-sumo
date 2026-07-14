@@ -27,7 +27,7 @@ typedef struct {
 	uint16_t u_limite;
 
 	//relleno
-	uint8_t relleno[11];
+	uint8_t relleno[13];
 
 	//verificador del final de la configuracion
 	uint8_t final;
@@ -51,7 +51,7 @@ typedef struct {
 	uint8_t cont;
 
 	//relleno
-	uint8_t relleno[7];
+	uint8_t relleno[9];
 
 	//verificador del final de la accion
 	uint8_t final;
@@ -71,13 +71,13 @@ typedef struct {
 	uint8_t tcrt_4;
 
 	//corriente de cada DRV8874
-	uint8_t drv_1;
-	uint8_t drv_2;
-	uint8_t drv_3;
-	uint8_t drv_4;
+	uint16_t drv_1;
+	uint16_t drv_2;
+	uint16_t drv_3;
+	uint16_t drv_4;
 
 	//bateria
-	float bateria;
+	uint16_t bateria;
 
 	//contador
 	uint8_t cont;
@@ -94,7 +94,7 @@ typedef struct {
 	uint8_t id;
 
 	//relleno
-	uint8_t relleno[13];
+	uint8_t relleno[15];
 
 	//verificador del final de la transmision
 	uint8_t final;
