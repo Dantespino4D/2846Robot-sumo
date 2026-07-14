@@ -65,6 +65,7 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 		//aplicacion del umbral del limite
 		LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, conf->u_limite);
 		LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_2, conf->u_limite);
+
 		static Ok_t ok{};
 		ok.inicio[0] = HEADER_1;
 		ok.inicio[1] = HEADER_2;

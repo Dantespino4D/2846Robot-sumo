@@ -101,7 +101,7 @@ int main(void)
   MX_DAC1_Init();
   MX_SPI1_Init();
   MX_CRC_Init();
-  MX_TIM3_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   app_main();
   /* USER CODE END 2 */

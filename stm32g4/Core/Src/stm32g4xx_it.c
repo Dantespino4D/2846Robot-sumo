@@ -42,9 +42,25 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-volatile int16_t velActual_1 = 0;
-volatile int16_t velActual_2 = 0;
 extern volatile uint32_t velObjetivos;
+
+const uint16_t LUT_RAMPA[50] = {
+      0,    2,    5,    9,   14,   20,   28,   38,   50,   64,
+     81,  101,  124,  151,  181,  215,  253,  294,  338,  385,
+    434,  485,  511,  538,  589,  638,  685,  729,  770,  808,
+    842,  872,  899,  922,  942,  959,  973,  985,  995, 1003,
+   1009, 1014, 1018, 1021, 1023, 1023, 1023, 1023, 1023, 1023
+};
+
+// Variables persistentes de estado inercial
+static int16_t v1_obj = 0;
+static int16_t v2_obj = 0;
+static int16_t vel1_ini = 0;
+static int16_t vel2_ini = 0;
+static uint8_t indice_1 = 50;
+static uint8_t indice_2 = 50;
+static int16_t velActual_1 = 0;
+static int16_t velActual_2 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -201,8 +217,6 @@ void SysTick_Handler(void)
 /* please refer to the startup file (startup_stm32g4xx.s).                    */
 /******************************************************************************/
 
-
-
 /**
   * @brief This function handles DMA1 channel1 global interrupt.
   */
@@ -261,71 +275,78 @@ void TIM1_BRK_TIM15_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles TIM3 global interrupt.
+  * @brief This function handles TIM6 global interrupt, DAC1 and DAC3 channel underrun error interrupts.
   */
-void TIM3_IRQHandler(void)
+void TIM6_DAC_IRQHandler(void)
 {
-  /* USER CODE BEGIN TIM3_IRQn 0 */
-	//se limpia la bandera de interrupcion
-	TIM3->SR = ~TIM_SR_UIF;
+  /* USER CODE BEGIN TIM6_DAC_IRQn 0 */
+	if(LL_TIM_IsActiveFlag_UPDATE(TIM6)) {
+		LL_TIM_ClearFlag_UPDATE(TIM6);
 
-	//variable local de las velocidades objetivo
-	uint32_t objetivosLocal = velObjetivos;
+		//Extraer objetivos dados por el ESP32
+		uint32_t objs = velObjetivos;
+		int16_t target_1 = (int16_t)(objs & 0xFFFF);
+		int16_t target_2 = (int16_t)(objs >> 16);
 
-	//variables individuales
-	int16_t vel_1 = (int16_t)(objetivosLocal & 0xFFFF);
-	int16_t vel_2 = (int16_t)(objetivosLocal >> 16);
+		//Cambio de objetivo Motores Izquierdos
+		if (target_1 != v1_obj) {
+			v1_obj = target_1;
+			vel1_ini = velActual_1;
+			indice_1 = 0;
+		}
+		//Cambio de objetivo Motores Derechos
+		if (target_2 != v2_obj) {
+			v2_obj = target_2;
+			vel2_ini = velActual_2;
+			indice_2 = 0;
+		}
 
+		// 3. Modulación del Motores Izquierdos
+		if (indice_1 < 50) {
+			int32_t dif1 = (int32_t)v1_obj - (int32_t)vel1_ini;
+			velActual_1 = vel1_ini + (int16_t)((LUT_RAMPA[indice_1] * dif1) >> 10);
+			indice_1++;
+		} else {
+			velActual_1 = v1_obj;
+		}
 
-	//se calcula la nueva velocidad acorde a la rampa
-	int16_t error_1 = vel_1 - velActual_1;
-	if((error_1 < 0 ? -error_1 : error_1) < (1 << ALPHA)){
-		velActual_1 = vel_1;
-	}else{
-		velActual_1 += (error_1 / (1 << ALPHA));
+		// 3. Modulación del Motores Derechos
+		if (indice_2 < 50) {
+			int32_t dif2 = (int32_t)v2_obj - (int32_t)vel2_ini;
+			velActual_2 = vel2_ini + (int16_t)((LUT_RAMPA[indice_2] * dif2) >> 10);
+			indice_2++;
+		} else {
+			velActual_2 = v2_obj;
+		}
+
+		// aplicacion de velocidades de los motores izquierdos
+		if(velActual_1 > 0) {
+			TIM1->CCR1 = velActual_1;
+			TIM1->CCR2 = 0;
+		} else if(velActual_1 < 0) {
+			TIM1->CCR1 = 0;
+			TIM1->CCR2 = -velActual_1;
+		} else {
+			TIM1->CCR1 = 1023;
+			TIM1->CCR2 = 1023;
+		}
+
+		// aplicacion de velocidades de los motores derechos
+		if(velActual_2 > 0) {
+			TIM1->CCR3 = velActual_2;
+			TIM1->CCR4 = 0;
+		} else if(velActual_2 < 0) {
+			TIM1->CCR3 = 0;
+			TIM1->CCR4 = -velActual_2;
+		} else {
+			TIM1->CCR3 = 1023;
+			TIM1->CCR4 = 1023;
+		}
 	}
+  /* USER CODE END TIM6_DAC_IRQn 0 */
+  /* USER CODE BEGIN TIM6_DAC_IRQn 1 */
 
-	//se aplica la velocidad a los registros
-	if(velActual_1 > 0) {
-		//velocidad positiva
-		TIM1->CCR1 = velActual_1;
-		TIM1->CCR2 = 0;
-	}else if(velActual_1 < 0) {
-		//velocidad negativa
-		TIM1->CCR1 = 0;
-		TIM1->CCR2 = -velActual_1;
-	}else{
-		//freno
-		TIM1->CCR1 = 1023;
-		TIM1->CCR2 = 1023;
-	}
-
-  /* USER CODE END TIM3_IRQn 0 */
-  /* USER CODE BEGIN TIM3_IRQn 1 */
-
-	//se calcula la nueva velocidad acorde a la rampa
-	int16_t error_2 = vel_2 - velActual_2;
-	if((error_2 < 0 ? -error_2 : error_2) < (1 << ALPHA)){
-		velActual_2 = vel_2;
-	}else{
-		velActual_2 += (error_2 / (1 << ALPHA));
-	}
-
-	//se aplica la velocidad a los registros
-	if(velActual_2 > 0) {
-		//velocidad positiva
-		TIM1->CCR3 = velActual_2;
-		TIM1->CCR4 = 0;
-	}else if(velActual_2 < 0) {
-		//velocidad negativa
-		TIM1->CCR3 = 0;
-		TIM1->CCR4 = -velActual_2;
-	}else{
-		//freno
-		TIM1->CCR3 = 1023;
-		TIM1->CCR4 = 1023;
-	}
-  /* USER CODE END TIM3_IRQn 1 */
+  /* USER CODE END TIM6_DAC_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

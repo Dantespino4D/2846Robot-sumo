@@ -32,8 +32,6 @@ extern "C" {
 
 /* USER CODE END Includes */
 
-extern DAC_HandleTypeDef hdac1;
-
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
