@@ -20,7 +20,7 @@ void Motores::begin(){
 
 	LL_TIM_EnableAllOutputs(TIM1);
 
-	//se inicia el TIM3
+	//se inicia el TIM6
 	LL_TIM_EnableCounter(TIM6);
 	LL_TIM_EnableIT_UPDATE(TIM6);
 }

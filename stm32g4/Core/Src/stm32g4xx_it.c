@@ -42,8 +42,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
+//las velocidades objetivos
 extern volatile uint32_t velObjetivos;
 
+//loop up table
 const uint16_t LUT_RAMPA[50] = {
       0,    2,    5,    9,   14,   20,   28,   38,   50,   64,
      81,  101,  124,  151,  181,  215,  253,  294,  338,  385,
@@ -52,7 +54,7 @@ const uint16_t LUT_RAMPA[50] = {
    1009, 1014, 1018, 1021, 1023, 1023, 1023, 1023, 1023, 1023
 };
 
-// Variables persistentes de estado inercial
+// Variables de la rampa de acerelacion
 static int16_t v1_obj = 0;
 static int16_t v2_obj = 0;
 static int16_t vel1_ini = 0;
@@ -282,6 +284,26 @@ void TIM6_DAC_IRQHandler(void)
   /* USER CODE BEGIN TIM6_DAC_IRQn 0 */
 	if(LL_TIM_IsActiveFlag_UPDATE(TIM6)) {
 		LL_TIM_ClearFlag_UPDATE(TIM6);
+
+		//verificar si esta sobre el borde
+		if(!(TIM1->BDTR & TIM_BDTR_MOE)) {
+			//establecer las velocidades en 0
+			velActual_1 = 0;
+			velActual_2 = 0;
+
+			//estavlecer los objetivos en 0
+			v1_obj = 0;
+			v2_obj = 0;
+
+			//forzar frenado
+			TIM1->CCR1 = 1023;
+			TIM1->CCR2 = 1023;
+			TIM1->CCR3 = 1023;
+			TIM1->CCR4 = 1023;
+
+			//salir
+			return;
+		}
 
 		//Extraer objetivos dados por el ESP32
 		uint32_t objs = velObjetivos;
