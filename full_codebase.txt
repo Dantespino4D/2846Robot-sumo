@@ -5907,7 +5907,7 @@ typedef struct {
 	uint16_t u_limite;
 
 	//relleno
-	uint8_t relleno[11];
+	uint8_t relleno[13];
 
 	//verificador del final de la configuracion
 	uint8_t final;
@@ -5931,7 +5931,7 @@ typedef struct {
 	uint8_t cont;
 
 	//relleno
-	uint8_t relleno[7];
+	uint8_t relleno[9];
 
 	//verificador del final de la accion
 	uint8_t final;
@@ -5951,13 +5951,13 @@ typedef struct {
 	uint8_t tcrt_4;
 
 	//corriente de cada DRV8874
-	uint8_t drv_1;
-	uint8_t drv_2;
-	uint8_t drv_3;
-	uint8_t drv_4;
+	uint16_t drv_1;
+	uint16_t drv_2;
+	uint16_t drv_3;
+	uint16_t drv_4;
 
 	//bateria
-	float bateria;
+	uint16_t bateria;
 
 	//contador
 	uint8_t cont;
@@ -5974,7 +5974,7 @@ typedef struct {
 	uint8_t id;
 
 	//relleno
-	uint8_t relleno[13];
+	uint8_t relleno[15];
 
 	//verificador del final de la transmision
 	uint8_t final;
@@ -5982,6 +5982,64 @@ typedef struct {
 #pragma pack(pop)
 
 #endif // SUMO_PROTOCOL_H
+
+
+==========================================
+FILE PATH: ./stm32g4/Core/Inc/adc.h
+==========================================
+
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file    adc.h
+  * @brief   This file contains all the function prototypes for
+  *          the adc.c file
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Define to prevent recursive inclusion -------------------------------------*/
+#ifndef __ADC_H__
+#define __ADC_H__
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* USER CODE BEGIN Includes */
+
+/* USER CODE END Includes */
+
+extern ADC_HandleTypeDef hadc1;
+
+/* USER CODE BEGIN Private defines */
+
+/* USER CODE END Private defines */
+
+void MX_ADC1_Init(void);
+
+/* USER CODE BEGIN Prototypes */
+
+/* USER CODE END Prototypes */
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __ADC_H__ */
+
 
 
 ==========================================
@@ -6486,7 +6544,7 @@ class Spi {
 		volatile uint8_t *bufferCpu;
 		volatile uint8_t *bufferDma;
 		void begin();
-		void armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcrt3, uint8_t tcrt4);
+		void armarReporte();
 		uint8_t recibirReporte(uint8_t *reporte);
 		uint8_t checksum(uint8_t* paquete, size_t tamaño);
 		void enviar(uint8_t *data, uint16_t size);
@@ -6618,6 +6676,7 @@ void PendSV_Handler(void);
 void SysTick_Handler(void);
 void DMA1_Channel1_IRQHandler(void);
 void DMA1_Channel2_IRQHandler(void);
+void DMA1_Channel3_IRQHandler(void);
 void TIM1_BRK_TIM15_IRQHandler(void);
 void TIM6_DAC_IRQHandler(void);
 /* USER CODE BEGIN EFP */
@@ -6689,23 +6748,269 @@ void MX_TIM6_Init(void);
 
 
 ==========================================
+FILE PATH: ./stm32g4/Core/Src/adc.c
+==========================================
+
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file    adc.c
+  * @brief   This file provides code for the configuration
+  *          of the ADC instances.
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "adc.h"
+
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
+/* ADC1 init function */
+void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_MultiModeTypeDef multimode = {0};
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.GainCompensation = 0;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.LowPowerAutoWait = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.NbrOfConversion = 5;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T1_TRGO;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+  hadc1.Init.OversamplingMode = DISABLE;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure the ADC multi-mode
+  */
+  multimode.Mode = ADC_MODE_INDEPENDENT;
+  if (HAL_ADCEx_MultiModeConfigChannel(&hadc1, &multimode) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_12CYCLES_5;
+  sConfig.SingleDiff = ADC_SINGLE_ENDED;
+  sConfig.OffsetNumber = ADC_OFFSET_NONE;
+  sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_5;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_8;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
+}
+
+void HAL_ADC_MspInit(ADC_HandleTypeDef* adcHandle)
+{
+
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  if(adcHandle->Instance==ADC1)
+  {
+  /* USER CODE BEGIN ADC1_MspInit 0 */
+
+  /* USER CODE END ADC1_MspInit 0 */
+
+  /** Initializes the peripherals clocks
+  */
+    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC12;
+    PeriphClkInit.Adc12ClockSelection = RCC_ADC12CLKSOURCE_SYSCLK;
+    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* ADC1 clock enable */
+    __HAL_RCC_ADC12_CLK_ENABLE();
+
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    /**ADC1 GPIO Configuration
+    PC0     ------> ADC1_IN6
+    PC1     ------> ADC1_IN7
+    PC2     ------> ADC1_IN8
+    PA2     ------> ADC1_IN3
+    PB14     ------> ADC1_IN5
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_2;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_14;
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    /* ADC1 DMA Init */
+    /* ADC1 Init */
+    hdma_adc1.Instance = DMA1_Channel3;
+    hdma_adc1.Init.Request = DMA_REQUEST_ADC1;
+    hdma_adc1.Init.Direction = DMA_PERIPH_TO_MEMORY;
+    hdma_adc1.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_adc1.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_adc1.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_adc1.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+    hdma_adc1.Init.Mode = DMA_CIRCULAR;
+    hdma_adc1.Init.Priority = DMA_PRIORITY_LOW;
+    if (HAL_DMA_Init(&hdma_adc1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(adcHandle,DMA_Handle,hdma_adc1);
+
+  /* USER CODE BEGIN ADC1_MspInit 1 */
+
+  /* USER CODE END ADC1_MspInit 1 */
+  }
+}
+
+void HAL_ADC_MspDeInit(ADC_HandleTypeDef* adcHandle)
+{
+
+  if(adcHandle->Instance==ADC1)
+  {
+  /* USER CODE BEGIN ADC1_MspDeInit 0 */
+
+  /* USER CODE END ADC1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_ADC12_CLK_DISABLE();
+
+    /**ADC1 GPIO Configuration
+    PC0     ------> ADC1_IN6
+    PC1     ------> ADC1_IN7
+    PC2     ------> ADC1_IN8
+    PA2     ------> ADC1_IN3
+    PB14     ------> ADC1_IN5
+    */
+    HAL_GPIO_DeInit(GPIOC, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2);
+
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_2);
+
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_14);
+
+    /* ADC1 DMA DeInit */
+    HAL_DMA_DeInit(adcHandle->DMA_Handle);
+  /* USER CODE BEGIN ADC1_MspDeInit 1 */
+
+  /* USER CODE END ADC1_MspDeInit 1 */
+  }
+}
+
+/* USER CODE BEGIN 1 */
+
+/* USER CODE END 1 */
+
+
+
+==========================================
 FILE PATH: ./stm32g4/Core/Src/app_main.cpp
 ==========================================
 
 #include "app_main.h"
 #include "Motores.h"
 #include "Spi.h"
+#include "adc.h"
 #include "comp.h"
-#include "dac.h"
 
 extern Spi spi;
 Motores mot;
+
+extern volatile uint16_t adc_buffer[5];
 
 void app_main(void){
 	HAL_COMP_Start(&hcomp1);
 	HAL_COMP_Start(&hcomp2);
 	HAL_COMP_Start(&hcomp3);
 	HAL_COMP_Start(&hcomp4);
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 5);
 	LL_DAC_Enable(DAC1,LL_DAC_CHANNEL_1);
 	LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_2);
 	mot.begin();
@@ -7213,6 +7518,9 @@ void MX_DMA_Init(void)
   /* DMA1_Channel2_IRQn interrupt configuration */
   NVIC_SetPriority(DMA1_Channel2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),2, 0));
   NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+  /* DMA1_Channel3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel3_IRQn);
 
 }
 
@@ -7273,9 +7581,9 @@ void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);
@@ -7318,6 +7626,7 @@ FILE PATH: ./stm32g4/Core/Src/main.c
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
 #include "comp.h"
 #include "crc.h"
 #include "dac.h"
@@ -7402,6 +7711,7 @@ int main(void)
   MX_SPI1_Init();
   MX_CRC_Init();
   MX_TIM6_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   app_main();
   /* USER CODE END 2 */
@@ -7710,6 +8020,7 @@ FILE PATH: ./stm32g4/Core/Src/Spi.cpp
 #include <cstdint>
 
 volatile uint32_t velObjetivos = 0;
+volatile uint16_t adc_buffer[5] = {0};
 
 Spi::Spi() :
 	bufferA{},
@@ -7733,18 +8044,25 @@ uint8_t Spi::checksum(uint8_t* paquete, size_t tamaño){
 }
 
 //recibir reporte
-void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcrt3, uint8_t tcrt4){
-	reporte->inicio[0] = HEADER_1;
-	reporte->inicio[1] = HEADER_2;
-	reporte->inicio[2] = HEADER_3;
-	reporte->id = ID_STM;
-	reporte->tcrt_1 = tcrt1;
-	reporte->tcrt_2 = tcrt2;
-	reporte->tcrt_3 = tcrt3;
-	reporte->tcrt_4 = tcrt4;
-	reporte->cont = cont;
-	reporte->final = crc8((uint8_t*)reporte, sizeof(Stm_t) - 1);
+void Spi::armarReporte(){
+	static Stm_t reporte{};
+	reporte.inicio[0] = HEADER_1;
+	reporte.inicio[1] = HEADER_2;
+	reporte.inicio[2] = HEADER_3;
+	reporte.id = ID_STM;
+	reporte.tcrt_1 = (COMP1->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.tcrt_2 = (COMP2->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.tcrt_3 = (COMP3->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.tcrt_4 = (COMP4->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.drv_1 = adc_buffer[0];
+	reporte.drv_2 = adc_buffer[1];
+	reporte.drv_3 = adc_buffer[2];
+	reporte.drv_4 = adc_buffer[3];
+	reporte.bateria = adc_buffer[4];
+	reporte.cont = cont;
+	reporte.final = crc8((uint8_t*)&reporte, sizeof(Stm_t) - 1);
 	cont++;
+	enviar((uint8_t*)&reporte, sizeof(Stm_t));
 }
 
 uint8_t Spi::recibirReporte(uint8_t *reporte){
@@ -7801,6 +8119,9 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
 		}
 		velObjetivos = ((uint32_t)(uint16_t)accion->obj_2 << 16) | (uint32_t)(uint16_t)accion->obj_1;
+
+		//se envia la telemetria como respuesta
+		armarReporte();
 		return ID_ESP;
 	}
 	return 0;
@@ -7901,6 +8222,8 @@ FILE PATH: ./stm32g4/Core/Src/stm32g4xx_it.c
 /* USER CODE BEGIN PV */
 //las velocidades objetivos
 extern volatile uint32_t velObjetivos;
+extern volatile uint16_t adc_buffer[5];
+static uint32_t batFiltrada = 0;
 
 //loop up table
 const uint16_t LUT_RAMPA[50] = {
@@ -7933,7 +8256,7 @@ extern void SPI_DMA_RX_Callback(void);
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-
+extern DMA_HandleTypeDef hdma_adc1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -8107,6 +8430,20 @@ void DMA1_Channel2_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles DMA1 channel3 global interrupt.
+  */
+void DMA1_Channel3_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
+
+  /* USER CODE END DMA1_Channel3_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_adc1);
+  /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel3_IRQn 1 */
+}
+
+/**
   * @brief This function handles TIM1 break interrupt and TIM15 global interrupt.
   */
 void TIM1_BRK_TIM15_IRQHandler(void)
@@ -8198,25 +8535,59 @@ void TIM6_DAC_IRQHandler(void)
 			velActual_2 = v2_obj;
 		}
 
+		//filtrado del votaje de la bateria
+
+		//se verifica si es la primera vez que se lee el voltaje de la bateria
+		if(batFiltrada == 0){
+			batFiltrada = adc_buffer[4];
+		}
+
+		//filtro
+		batFiltrada = batFiltrada - (batFiltrada >> 4) + (adc_buffer[4] >> 4);
+
+		//valor adc de la bateria(falta tomar la lectura real)
+		const uint16_t BAT_NOMINAL = 2500;
+
+		//establecer limite para evitar division por 0
+		uint32_t batSegura = (batFiltrada < 100) ? 100 : batFiltrada;
+
+		//calculo del pwm compensado
+		int32_t pwm1 = (int32_t)((velActual_1 * BAT_NOMINAL) / batSegura);
+		int32_t pwm2 = (int32_t)((velActual_2 * BAT_NOMINAL) / batSegura);
+
+		//evaluacion de limites
+		if(pwm1 > 1023) {
+			pwm1 = 1023;
+		}
+		if(pwm1 < -1023) {
+			pwm1 = -1023;
+		}
+		if(pwm2 > 1023) {
+			pwm2 = 1023;
+		}
+		if(pwm2 < -1023) {
+			pwm2 = -1023;
+		}
+
 		// aplicacion de velocidades de los motores izquierdos
-		if(velActual_1 > 0) {
-			TIM1->CCR1 = velActual_1;
+		if(pwm1 > 0) {
+			TIM1->CCR1 = pwm1;
 			TIM1->CCR2 = 0;
-		} else if(velActual_1 < 0) {
+		} else if(pwm1 < 0) {
 			TIM1->CCR1 = 0;
-			TIM1->CCR2 = -velActual_1;
+			TIM1->CCR2 = -pwm1;
 		} else {
 			TIM1->CCR1 = 1023;
 			TIM1->CCR2 = 1023;
 		}
 
 		// aplicacion de velocidades de los motores derechos
-		if(velActual_2 > 0) {
-			TIM1->CCR3 = velActual_2;
+		if(pwm2 > 0) {
+			TIM1->CCR3 = pwm2;
 			TIM1->CCR4 = 0;
-		} else if(velActual_2 < 0) {
+		} else if(pwm2 < 0) {
 			TIM1->CCR3 = 0;
-			TIM1->CCR4 = -velActual_2;
+			TIM1->CCR4 = -pwm2;
 		} else {
 			TIM1->CCR3 = 1023;
 			TIM1->CCR4 = 1023;
@@ -8345,7 +8716,7 @@ void MX_TIM1_Init(void)
   LL_TIM_OC_EnablePreload(TIM1, LL_TIM_CHANNEL_CH4);
   LL_TIM_OC_Init(TIM1, LL_TIM_CHANNEL_CH4, &TIM_OC_InitStruct);
   LL_TIM_OC_DisableFast(TIM1, LL_TIM_CHANNEL_CH4);
-  LL_TIM_SetTriggerOutput(TIM1, LL_TIM_TRGO_RESET);
+  LL_TIM_SetTriggerOutput(TIM1, LL_TIM_TRGO_UPDATE);
   LL_TIM_SetTriggerOutput2(TIM1, LL_TIM_TRGO2_RESET);
   LL_TIM_DisableMasterSlaveMode(TIM1);
   LL_TIM_SetBreakInputSourcePolarity(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1, LL_TIM_BKIN_POLARITY_HIGH);

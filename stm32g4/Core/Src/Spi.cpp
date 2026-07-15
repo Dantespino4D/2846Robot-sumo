@@ -35,23 +35,25 @@ uint8_t Spi::checksum(uint8_t* paquete, size_t tamaño){
 }
 
 //recibir reporte
-void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcrt3, uint8_t tcrt4){
-	reporte->inicio[0] = HEADER_1;
-	reporte->inicio[1] = HEADER_2;
-	reporte->inicio[2] = HEADER_3;
-	reporte->id = ID_STM;
-	reporte->tcrt_1 = tcrt1;
-	reporte->tcrt_2 = tcrt2;
-	reporte->tcrt_3 = tcrt3;
-	reporte->tcrt_4 = tcrt4;
-	reporte->drv_1 = adc_buffer[0];
-	reporte->drv_2 = adc_buffer[1];
-	reporte->drv_3 = adc_buffer[2];
-	reporte->drv_4 = adc_buffer[3];
-	reporte->bateria = adc_buffer[4];
-	reporte->cont = cont;
-	reporte->final = crc8((uint8_t*)reporte, sizeof(Stm_t) - 1);
+void Spi::armarReporte(){
+	static Stm_t reporte{};
+	reporte.inicio[0] = HEADER_1;
+	reporte.inicio[1] = HEADER_2;
+	reporte.inicio[2] = HEADER_3;
+	reporte.id = ID_STM;
+	reporte.tcrt_1 = (COMP1->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.tcrt_2 = (COMP2->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.tcrt_3 = (COMP3->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.tcrt_4 = (COMP4->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	reporte.drv_1 = adc_buffer[0];
+	reporte.drv_2 = adc_buffer[1];
+	reporte.drv_3 = adc_buffer[2];
+	reporte.drv_4 = adc_buffer[3];
+	reporte.bateria = adc_buffer[4];
+	reporte.cont = cont;
+	reporte.final = crc8((uint8_t*)&reporte, sizeof(Stm_t) - 1);
 	cont++;
+	enviar((uint8_t*)&reporte, sizeof(Stm_t));
 }
 
 uint8_t Spi::recibirReporte(uint8_t *reporte){
@@ -108,6 +110,9 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
 		}
 		velObjetivos = ((uint32_t)(uint16_t)accion->obj_2 << 16) | (uint32_t)(uint16_t)accion->obj_1;
+
+		//se envia la telemetria como respuesta
+		armarReporte();
 		return ID_ESP;
 	}
 	return 0;
