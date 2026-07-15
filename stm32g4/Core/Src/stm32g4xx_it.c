@@ -23,6 +23,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "protocolo/sumo_protocol.h"
+#include "stm32g474xx.h"
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,6 +48,16 @@
 extern volatile uint32_t velObjetivos;
 extern volatile uint16_t adc_buffer[5];
 static uint32_t batFiltrada = 0;
+uint64_t ms = 0;
+uint64_t tiempo = 0;
+uint16_t TRetroceso = 1000;
+
+uint8_t evasion = 0;
+
+uint8_t tcrt1 = 0;
+uint8_t tcrt2 = 0;
+uint8_t tcrt3 = 0;
+uint8_t tcrt4 = 0;
 
 //loop up table
 const uint16_t LUT_RAMPA[50] = {
@@ -277,6 +289,23 @@ void TIM1_BRK_TIM15_IRQHandler(void)
 	//se envia una señal al esp32
 	GPIOC->BSRR = GPIO_PIN_9;
 
+	//verifica si estamos en evacion
+	if(evasion == 1){
+		return;
+	}
+
+	//actuvar evasion
+	evasion = 1;
+
+	//se guarga el estado de los comparadores
+	tcrt1 = (COMP1->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	tcrt2 = (COMP2->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	tcrt3 = (COMP3->CSR & COMP_CSR_VALUE) ? 1 : 0;
+	tcrt4 = (COMP4->CSR & COMP_CSR_VALUE) ? 1 : 0;
+
+	//detonante de la secuencia de frenado
+	tiempo = ms;
+
 	//se para la rampa de velocidad
 	velObjetivos = 0;
 	velActual_1 = 0;
@@ -300,6 +329,60 @@ void TIM6_DAC_IRQHandler(void)
   /* USER CODE BEGIN TIM6_DAC_IRQn 0 */
 	if(LL_TIM_IsActiveFlag_UPDATE(TIM6)) {
 		LL_TIM_ClearFlag_UPDATE(TIM6);
+
+		//aumento del contador de tiempo
+		ms++;
+
+		//se evalua si efectuar la evacion
+		if(evasion == 1) {
+			//apagamos el freno para poder salir de la linea
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1);
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP2);
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
+			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
+
+			//limpiar la bandera de freno
+			LL_TIM_ClearFlag_BRK(TIM1);
+
+
+			//secuencia de retroceso direccion a
+			if(((ms - tiempo) <= TRetroceso) && (tcrt1 == 1 || tcrt2 == 1)) {
+				//accion de retroceso direccion a
+				TIM1->CCR1 = 1023;
+				TIM1->CCR2 = 0;
+				TIM1->CCR3 = 1023;
+				TIM1->CCR4 = 0;
+			}else if(((ms - tiempo) <= TRetroceso) && (tcrt3 == 1 || tcrt4 == 1)) {
+				//accion de retroceso direcionb
+				TIM1->CCR1 = 0;
+				TIM1->CCR2 = 1023;
+				TIM1->CCR3 = 0;
+				TIM1->CCR4 = 1023;
+			}else{
+				//termino la evacion
+				evasion = 0;
+				tcrt1 = 0;
+				tcrt2 = 0;
+				tcrt3 = 0;
+				tcrt4 = 0;
+
+				//reactivamos el freno para que no se salga de la linea
+				LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1);
+				LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP2);
+				LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
+				LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
+				TIM1->CCR1 = 1023;
+				TIM1->CCR2 = 1023;
+				TIM1->CCR3 = 1023;
+				TIM1->CCR4 = 1023;
+			}
+
+			//hailitamos las salidas
+			LL_TIM_EnableAllOutputs(TIM1);
+
+			//retornamos
+			return;
+		}
 
 		//verificar si esta sobre el borde
 		if(!(TIM1->BDTR & TIM_BDTR_MOE)) {

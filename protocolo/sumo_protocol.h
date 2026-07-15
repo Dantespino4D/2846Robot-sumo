@@ -26,8 +26,11 @@ typedef struct {
 	//umbral de los TCRT
 	uint16_t u_limite;
 
+	//tiempo de retroceso
+	uint16_t t_ret;
+
 	//relleno
-	uint8_t relleno[13];
+	uint8_t relleno[11];
 
 	//verificador del final de la configuracion
 	uint8_t final;

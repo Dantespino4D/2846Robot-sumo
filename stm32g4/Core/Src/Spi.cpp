@@ -12,6 +12,7 @@
 
 volatile uint32_t velObjetivos = 0;
 volatile uint16_t adc_buffer[5] = {0};
+extern uint16_t TRetroceso;
 
 Spi::Spi() :
 	bufferA{},
@@ -74,6 +75,9 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 		LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, conf->u_limite);
 		LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_2, conf->u_limite);
 
+		//tiempo de retroceso
+		TRetroceso = conf->t_ret;
+
 		static Ok_t ok{};
 		ok.inicio[0] = HEADER_1;
 		ok.inicio[1] = HEADER_2;
@@ -90,24 +94,6 @@ uint8_t Spi::recibirReporte(uint8_t *reporte){
 		if(accion->banderas & UNLOCK_M){
 			//apagamos el pin de interrupcion
 			GPIOC->BSRR = GPIO_PIN_9 << 16;
-
-			//apagamos el freno para poder salir de la linea
-			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1);
-			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP2);
-			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
-			LL_TIM_DisableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
-
-			//limpiar la bandera de freno
-			LL_TIM_ClearFlag_BRK(TIM1);
-
-			//hailitamos las salidas
-			LL_TIM_EnableAllOutputs(TIM1);
-		}else{
-			//reactivamos el freno para que no se salga de la linea
-			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP1);
-			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP2);
-			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
-			LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
 		}
 		velObjetivos = ((uint32_t)(uint16_t)accion->obj_2 << 16) | (uint32_t)(uint16_t)accion->obj_1;
 

@@ -7,7 +7,10 @@
 extern Spi spi;
 Motores mot;
 
+extern DMA_HandleTypeDef hdma_dac1;
+
 extern volatile uint16_t adc_buffer[5];
+extern DMA_HandleTypeDef hdma_adc1;
 
 void app_main(void){
 	HAL_COMP_Start(&hcomp1);
