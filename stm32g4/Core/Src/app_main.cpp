@@ -1,16 +1,20 @@
 #include "app_main.h"
 #include "Motores.h"
 #include "Spi.h"
+#include "adc.h"
 #include "comp.h"
 
 extern Spi spi;
 Motores mot;
+
+extern volatile uint16_t adc_buffer[5];
 
 void app_main(void){
 	HAL_COMP_Start(&hcomp1);
 	HAL_COMP_Start(&hcomp2);
 	HAL_COMP_Start(&hcomp3);
 	HAL_COMP_Start(&hcomp4);
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 5);
 	LL_DAC_Enable(DAC1,LL_DAC_CHANNEL_1);
 	LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_2);
 	mot.begin();

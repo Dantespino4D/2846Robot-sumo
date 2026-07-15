@@ -11,6 +11,7 @@
 #include <cstdint>
 
 volatile uint32_t velObjetivos = 0;
+volatile uint16_t adc_buffer[5] = {0};
 
 Spi::Spi() :
 	bufferA{},
@@ -43,6 +44,11 @@ void Spi::armarReporte(Stm_t *reporte, uint8_t tcrt1, uint8_t tcrt2, uint8_t tcr
 	reporte->tcrt_2 = tcrt2;
 	reporte->tcrt_3 = tcrt3;
 	reporte->tcrt_4 = tcrt4;
+	reporte->drv_1 = adc_buffer[0];
+	reporte->drv_2 = adc_buffer[1];
+	reporte->drv_3 = adc_buffer[2];
+	reporte->drv_4 = adc_buffer[3];
+	reporte->bateria = adc_buffer[4];
 	reporte->cont = cont;
 	reporte->final = crc8((uint8_t*)reporte, sizeof(Stm_t) - 1);
 	cont++;

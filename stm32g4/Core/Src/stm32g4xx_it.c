@@ -44,6 +44,8 @@
 /* USER CODE BEGIN PV */
 //las velocidades objetivos
 extern volatile uint32_t velObjetivos;
+extern volatile uint16_t adc_buffer[5];
+static uint32_t batFiltrada = 0;
 
 //loop up table
 const uint16_t LUT_RAMPA[50] = {
@@ -355,25 +357,59 @@ void TIM6_DAC_IRQHandler(void)
 			velActual_2 = v2_obj;
 		}
 
+		//filtrado del votaje de la bateria
+
+		//se verifica si es la primera vez que se lee el voltaje de la bateria
+		if(batFiltrada == 0){
+			batFiltrada = adc_buffer[4];
+		}
+
+		//filtro
+		batFiltrada = batFiltrada - (batFiltrada >> 4) + (adc_buffer[4] >> 4);
+
+		//valor adc de la bateria(falta tomar la lectura real)
+		const uint16_t BAT_NOMINAL = 2500;
+
+		//establecer limite para evitar division por 0
+		uint32_t batSegura = (batFiltrada < 100) ? 100 : batFiltrada;
+
+		//calculo del pwm compensado
+		int32_t pwm1 = (int32_t)((velActual_1 * BAT_NOMINAL) / batSegura);
+		int32_t pwm2 = (int32_t)((velActual_2 * BAT_NOMINAL) / batSegura);
+
+		//evaluacion de limites
+		if(pwm1 > 1023) {
+			pwm1 = 1023;
+		}
+		if(pwm1 < -1023) {
+			pwm1 = -1023;
+		}
+		if(pwm2 > 1023) {
+			pwm2 = 1023;
+		}
+		if(pwm2 < -1023) {
+			pwm2 = -1023;
+		}
+
 		// aplicacion de velocidades de los motores izquierdos
-		if(velActual_1 > 0) {
-			TIM1->CCR1 = velActual_1;
+		if(pwm1 > 0) {
+			TIM1->CCR1 = pwm1;
 			TIM1->CCR2 = 0;
-		} else if(velActual_1 < 0) {
+		} else if(pwm1 < 0) {
 			TIM1->CCR1 = 0;
-			TIM1->CCR2 = -velActual_1;
+			TIM1->CCR2 = -pwm1;
 		} else {
 			TIM1->CCR1 = 1023;
 			TIM1->CCR2 = 1023;
 		}
 
 		// aplicacion de velocidades de los motores derechos
-		if(velActual_2 > 0) {
-			TIM1->CCR3 = velActual_2;
+		if(pwm2 > 0) {
+			TIM1->CCR3 = pwm2;
 			TIM1->CCR4 = 0;
-		} else if(velActual_2 < 0) {
+		} else if(pwm2 < 0) {
 			TIM1->CCR3 = 0;
-			TIM1->CCR4 = -velActual_2;
+			TIM1->CCR4 = -pwm2;
 		} else {
 			TIM1->CCR3 = 1023;
 			TIM1->CCR4 = 1023;
