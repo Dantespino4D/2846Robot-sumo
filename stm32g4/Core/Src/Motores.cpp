@@ -22,6 +22,9 @@ void Motores::begin(){
 	LL_TIM_EnableCounter(TIM1);
 	LL_TIM_EnableAllOutputs(TIM1);
 
+	//activacion del freno BRK
+	LL_TIM_EnableIT_BRK(TIM1);
+
 	//limpiar las banderas de interrupcion
 	LL_TIM_ClearFlag_UPDATE(TIM6);
 

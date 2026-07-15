@@ -1857,6 +1857,9 @@ void Motores::begin(){
 	LL_TIM_EnableCounter(TIM1);
 	LL_TIM_EnableAllOutputs(TIM1);
 
+	//activacion del freno BRK
+	LL_TIM_EnableIT_BRK(TIM1);
+
 	//limpiar las banderas de interrupcion
 	LL_TIM_ClearFlag_UPDATE(TIM6);
 
@@ -2208,6 +2211,7 @@ FILE PATH: ./Core/Src/stm32g4xx_it.c
 /* USER CODE BEGIN Includes */
 #include "protocolo/sumo_protocol.h"
 #include "stm32g474xx.h"
+#include "stm32g4xx_ll_tim.h"
 #include <stdint.h>
 /* USER CODE END Includes */
 
@@ -2499,6 +2503,9 @@ void TIM1_BRK_TIM15_IRQHandler(void)
 	TIM1->CCR3 = 1023;
 	TIM1->CCR4 = 1023;
 
+	//desactivamos temporalmente esta interrupcion
+	LL_TIM_DisableIT_BRK(TIM1);
+
   /* USER CODE END TIM1_BRK_TIM15_IRQn 0 */
   /* USER CODE BEGIN TIM1_BRK_TIM15_IRQn 1 */
 
@@ -2555,6 +2562,14 @@ void TIM6_DAC_IRQHandler(void)
 				LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP2);
 				LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP3);
 				LL_TIM_EnableBreakInputSource(TIM1, LL_TIM_BREAK_INPUT_BKIN, LL_TIM_BKIN_SOURCE_BKCOMP4);
+
+				//limpiamos bandera
+				LL_TIM_ClearFlag_BRK(TIM1);
+
+				//reactivamos la interrupcion
+				LL_TIM_EnableIT_BRK(TIM1);
+
+				//frenamos el robot esperando ordenes del esp32
 				TIM1->CCR1 = 1023;
 				TIM1->CCR2 = 1023;
 				TIM1->CCR3 = 1023;
