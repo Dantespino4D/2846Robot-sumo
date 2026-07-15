@@ -1027,6 +1027,7 @@ void app_main(void){
 	HAL_COMP_Start(&hcomp3);
 	HAL_COMP_Start(&hcomp4);
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 5);
+	__HAL_DMA_DISABLE_IT(&hdma_adc1, DMA_IT_HT | DMA_IT_TC);
 	LL_DAC_Enable(DAC1,LL_DAC_CHANNEL_1);
 	LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_2);
 	mot.begin();
@@ -2555,21 +2556,23 @@ void TIM6_DAC_IRQHandler(void)
 
 		//se verifica si es la primera vez que se lee el voltaje de la bateria
 		if(batFiltrada == 0){
-			batFiltrada = adc_buffer[4];
+			batFiltrada = adc_buffer[4] << 4;
 		}
 
 		//filtro
-		batFiltrada = batFiltrada - (batFiltrada >> 4) + (adc_buffer[4] >> 4);
+		batFiltrada = batFiltrada - (batFiltrada >> 4) + (adc_buffer[4]);
+
+		uint32_t batReal = batFiltrada >> 4;
 
 		//valor adc de la bateria(falta tomar la lectura real)
 		const uint16_t BAT_NOMINAL = 2500;
 
 		//establecer limite para evitar division por 0
-		uint32_t batSegura = (batFiltrada < 100) ? 100 : batFiltrada;
+		uint32_t batSegura = (batReal < 100) ? 100 : batReal;
 
 		//calculo del pwm compensado
-		int32_t pwm1 = (int32_t)((velActual_1 * BAT_NOMINAL) / batSegura);
-		int32_t pwm2 = (int32_t)((velActual_2 * BAT_NOMINAL) / batSegura);
+		int32_t pwm1 = ((int32_t)((velActual_1 * (int32_t)BAT_NOMINAL) / (int32_t)batSegura));
+		int32_t pwm2 = ((int32_t)((velActual_2 * (int32_t)BAT_NOMINAL) / (int32_t)batSegura));
 
 		//evaluacion de limites
 		if(pwm1 > 1023) {
