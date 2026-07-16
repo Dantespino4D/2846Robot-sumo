@@ -7,24 +7,11 @@
     #define MUS GPIO_NUM_3
     #define INI GPIO_NUM_35
 
-    // Lectura de ADC
-    #define BAT GPIO_NUM_2
-
-    // Motores
-    #define MOT_A1 GPIO_NUM_39
-    #define MOT_A2 GPIO_NUM_40
-    #define MOT_B1 GPIO_NUM_41
-    #define MOT_B2 GPIO_NUM_42
-
-	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_5
-	#define TCRT_2 GPIO_NUM_10
-	#define TCRT_3 GPIO_NUM_6
-	#define TCRT_4 GPIO_NUM_21
-
-    // Hardware Faults para MCPWM (Señales combinadas)
-    #define FAULT_A GPIO_NUM_1
-    #define FAULT_B GPIO_NUM_7
+	//spi
+	#define SPI_MOSI GPIO_NUM_42
+	#define SPI_MISO GPIO_NUM_41
+	#define SPI_CLK GPIO_NUM_40
+	#define SPI_CS GPIO_NUM_39
 
     // I2C
     #define SDA GPIO_NUM_8
