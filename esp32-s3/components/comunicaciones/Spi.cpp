@@ -1,12 +1,25 @@
 #include "Spi.h"
 #include "pines.h"
 #include "driver/spi_master.h"
+#include "esp_heap_caps.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <cstdint>
 #include <string.h>
 #include "protocolo/sumo_protocol.h"
+#include "protocolo/Crc8Table.h"
 
 #define TAG "spi"
 
-Spi::Spi(){}
+uint8_t* tx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+uint8_t* rx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+
+Spi::Spi():
+	transaccionEnCurso(false),
+	cont(0)
+{
+	memset(&transmision, 0, sizeof(spi_transaction_t));
+}
 
 void Spi::begin() {
     spi_bus_config_t spibus = {};
@@ -32,4 +45,39 @@ void Spi::begin() {
     if(ret != ESP_OK){
         ESP_LOGE(TAG, "error al configurar el dispositivo SPI");
     }
+}
+
+void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
+	if(transaccionEnCurso){
+		spi_transaction_t* tran;
+		esp_err_t err = spi_device_get_trans_result(stm32_handle, &tran, portMAX_DELAY);
+		if(err != ESP_OK){
+
+		}
+		transaccionEnCurso = false;
+	}
+	Esp_t* orden = (Esp_t*)tx;
+	orden->inicio[0] = HEADER_1;
+	orden->inicio[1] = HEADER_2;
+	orden->inicio[2] = HEADER_3;
+	orden->id = ID_ESP;
+	orden->obj_1 = obj_1;
+	orden->obj_2 = obj_2;
+	orden->banderas = ban;
+	orden->cont = cont;
+	orden->final = crc8((uint8_t*)orden, sizeof(Esp_t) - 1);
+	enviarRecibir((uint8_t*)orden, rx, sizeof(Esp_t));
+	cont++;
+}
+
+void Spi::enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size){
+	transmision.length = size * 8;
+	transmision.tx_buffer = mensaje;
+	transmision.rx_buffer = respuesta;
+	esp_err_t err = spi_device_queue_trans(stm32_handle, &transmision, portMAX_DELAY);
+	if(err == ESP_OK){
+		transaccionEnCurso = true;
+	}else{
+
+	}
 }
