@@ -1,6 +1,12 @@
 #ifndef MAQUINAESTADOS_H
 #define MAQUINAESTADOS_H
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "freertos/queue.h"
+#include "EstrategiaBase.h"
+
 // comandos de movimiento
 #include <cstdint>
 #define ALTO 0
@@ -22,18 +28,11 @@
 #define HUIR_A 16
 #define HUIR_B 17
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
-#include "EstrategiaBase.h"
 
-class EstrategiaPrototipo;
 class Estrategia1;
 class Estrategia2;
 
 class MaquinaEstados{
-	friend class EstrategiaPrototipo;
 	friend class EstrategiaEstandar;
 	friend class Estrategia1;
 	friend class Estrategia2;
@@ -85,15 +84,11 @@ class MaquinaEstados{
 		bool memo_E;//contol estrella
 
 		// Instancias de estrategias
-		EstrategiaPrototipo* estPrototipo;
 		Estrategia1* estE1;
 		Estrategia2* estE2;
 
 		//puntero de la estrategia actual
 		EstrategiaBase* estActual;
-
-		// version del hardware
-		bool final;
 
 		//metodo de validacion del tiempo
 		void tiempo();
@@ -105,7 +100,7 @@ class MaquinaEstados{
 		bool detectarStall(float corrienteA);
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
 
 		//destructor
 		~MaquinaEstados();

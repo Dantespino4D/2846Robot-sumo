@@ -1,719 +1,6 @@
 
 
 ==========================================
-FILE PATH: ./components/actuadores/ControlMotores.cpp
-==========================================
-
-#include "driver/gpio.h"
-#include "driver/mcpwm_gen.h"
-#include "driver/mcpwm_oper.h"
-#include "driver/mcpwm_prelude.h"
-#include "ControlMotores.h"
-#include "Nvs.h"
-#include "pines.h"
-#include "LookupTable.h"
-#include "hal/mcpwm_types.h"
-#include "portmacro.h"
-#include <cstdint>
-#include <cstdlib>
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-//    #define MODO_PWM LEDC_LOW_SPEED_MODE
-#else
-    #define MODO_PWM LEDC_HIGH_SPEED_MODE
-#endif
-
-ControlMotores::ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1):
-// Valores de configuracion pwm
-    freq(20000000),
-    period(1023),
-	//valor del tiempo de la rampa
-	tRam(200),
-
-	//velocidades por defecto
-	vel_nI(700),
-	vel_nD(700),
-	vel_aI(950),
-	vel_aD(800),
-	vel_mI(1023),
-	vel_mD(1023),
-	vel_pI(950),
-	vel_pD(600),
-	vel_gI(950),
-	vel_gD(-800),
-	vel_hI(950),
-	vel_hD(950),
-
-	vel1(0),
-	vel2(0),
-
-	rampa(false),
-
-	control_vector(0)
-{
-	//pines pwm
-	mot2[0] = motA2;
-    mot2[1] = motB2;
-	//pines de los motores
-    mot[0]  = motA1;
-    mot[1]  = motB1;
-}
-
-//estblecer velocidad
-void ControlMotores::velocidad(int16_t vel_1, int16_t vel_2, bool ram){
-	//variable de las velocidades actuales
-	control_vector.store((static_cast<uint32_t>(static_cast<uint16_t>(vel_1)) << 16) | static_cast<uint16_t>(vel_2), std::memory_order_relaxed);
-	vel1_ini = vel1;
-	vel2_ini = vel2;
-
-	//variable de la rampa
-	rampa = ram;
-
-	//indice de la rampa
-	indiceRampa = 0;
-}
-
-//tarea que aplica la rampa
-void ControlMotores::tareaRampa(void* arg){
-	//se obtiene el puntero a la instancia de ControlMotores
-	ControlMotores* self = static_cast<ControlMotores*>(arg);
-	TickType_t ultimoTiempo = xTaskGetTickCount();
-
-	//velocidades anteriores
-	int16_t vel1_ant = 0;
-	int16_t vel2_ant = 0;
-
-	//se calcula el tiempo de la rampa
-	TickType_t tiempoRampa = pdMS_TO_TICKS(self->tRam / 50);
-	if(tiempoRampa == 0){
-		tiempoRampa = 1;
-	}
-	while(true){
-		//se obtiene las variables necesarias para la rampa
-		bool rampa = self->rampa;
-		uint8_t indice = self->indiceRampa;
-
-		uint32_t cv = self->control_vector.load(std::memory_order_relaxed);
-		int16_t v1_obj = static_cast<int16_t>(cv >> 16);
-		int16_t v2_obj = static_cast<int16_t>(cv & 0xFFFF);
-
-		//se calcula la diferencia de la velociad objetivo y la actual
-		int32_t dif1 = v1_obj - self->vel1_ini;
-		int32_t dif2 = v2_obj - self->vel2_ini;
-
-		//se verifica si se ha alcanzado el objetivo de velocidad del lado izquierdo
-		if(rampa){
-			if(indice < 50){
-				//se incrementa el indice de la rampa
-				self->indiceRampa++;
-
-				//se calcula la nueva velocidad aplicando la rampa
-				self->vel1 = self->vel1_ini + ((LUT_RAMPA[indice] * dif1) >> 10);
-				self->vel2 = self->vel2_ini + ((LUT_RAMPA[indice] * dif2) >> 10);
-			}else{
-				//aplica las velocidades objetivo
-				self->vel1 = v1_obj;
-				self->vel2 = v2_obj;
-
-				//se desactiva la rampa
-				self->rampa = false;
-			}
-		}else{
-			//si se ha alcanzado el objetivo, se asegura que la velocidad actual sea
-			self->vel1 = v1_obj;
-			self->vel2 = v2_obj;
-		}
-
-		//se aplican las velocidades
-
-		//calcula y aplica la velocidad del lado izquierdo
-		if(self->vel1 != vel1_ant){
-			if(self->vel1 < 0){
-				//si es en reversa
-				mcpwm_generator_set_force_level(self->gen_izq_a, 0, true);
-				mcpwm_generator_set_force_level(self->gen_izq_b, -1, true);
-				mcpwm_comparator_set_compare_value(self->cmpr_izq, abs(self->vel1));
-			}else if(self->vel1 > 0){
-				//si es hacia adelante
-				mcpwm_generator_set_force_level(self->gen_izq_a, -1, true);
-				mcpwm_generator_set_force_level(self->gen_izq_b, 0, true);
-				mcpwm_comparator_set_compare_value(self->cmpr_izq, self->vel1);
-			}else{
-				//si debe frenar
-				mcpwm_generator_set_force_level(self->gen_izq_a, 1, true);
-				mcpwm_generator_set_force_level(self->gen_izq_b, 1, true);
-			}
-			//actualizamos la velocidad anterior
-			vel1_ant = self->vel1;
-		}
-
-		//calcula y aplica la velocidad del lado derecho
-		if(self->vel2 != vel2_ant){
-			if(self->vel2 < 0){
-				//si es en reversa
-				mcpwm_generator_set_force_level(self->gen_der_a, 0, true);
-				mcpwm_generator_set_force_level(self->gen_der_b, -1, true);
-				mcpwm_comparator_set_compare_value(self->cmpr_der, abs(self->vel2));
-			}else if(self->vel2 > 0){
-				//si es hacia adelante
-				mcpwm_generator_set_force_level(self->gen_der_a, -1, true);
-				mcpwm_generator_set_force_level(self->gen_der_b, 0, true);
-				mcpwm_comparator_set_compare_value(self->cmpr_der, self->vel2);
-			}else{
-				//si debe frenar
-				mcpwm_generator_set_force_level(self->gen_der_a, 1, true);
-				mcpwm_generator_set_force_level(self->gen_der_b, 1, true);
-			}
-			//actualizamos la velocidad anterior
-			vel2_ant = self->vel2;
-		}
-		vTaskDelayUntil(&ultimoTiempo, tiempoRampa);
-	}
-}
-
-//metodo que desbloquea los motores despues de los fallos
-void ControlMotores::desbloqueo(){
-	//se saltar el freno
-	saltarFreno(true);
-
-	//se desblouquean los operadores de ambos lados para ambos fallos
-	mcpwm_operator_recover_from_fault(oper_izq, fallo_a);
-	mcpwm_operator_recover_from_fault(oper_der, fallo_a);
-	mcpwm_operator_recover_from_fault(oper_izq, fallo_b);
-	mcpwm_operator_recover_from_fault(oper_der, fallo_b);
-}
-
-void ControlMotores::saltarFreno(bool estado){
-	//se crea una variable de configuración de la accion
-	mcpwm_gen_brake_event_action_t accion = {};
-	accion.direction = MCPWM_TIMER_DIRECTION_UP;
-	accion.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
-
-	//se evalua si se deb saltar el freno
-	if(estado){
-		//si se desea saltar el freno, se configura la acción para que no afecte a los generadores
-		accion.action = MCPWM_GEN_ACTION_KEEP;
-	}else{
-		//si no se desea saltar el freno, se configura la acción para que active el freno
-		accion.action = MCPWM_GEN_ACTION_HIGH;
-	}
-
-	//aplicamos la accion
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_a, accion));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_b, accion));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_a, accion));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_b, accion));
-}
-
-//metodo que para el robot
-void ControlMotores::alto(){
-	velocidad(0, 0, false);
-}
-
-//metodo que avanza en direccion a
-void ControlMotores::dir_a(){
-	desbloqueo();
-	velocidad(vel_nI, vel_nD, true);
-}
-
-//metodo que avanza en direccion b
-void ControlMotores::dir_b(){
-	desbloqueo();
-	velocidad(-vel_nI, -vel_nD, true);
-
-}
-
-//metodo de ataque en direccion a izquierda
-void ControlMotores::ataque_ai(){
-	velocidad(vel_aI, vel_aD, true);
-}
-
-//metodo de ataque en direccion b izquierda
-void ControlMotores::ataque_bi(){
-	velocidad(-vel_aI, -vel_aD, true);
-}
-
-//metodo de ataque en direccion a derecha
-void ControlMotores::ataque_ad(){
-	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
-	velocidad(vel_aD, vel_aI, true);
-}
-
-//metodo de ataque en direccion b derecha
-void ControlMotores::ataque_bd(){
-	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
-	velocidad(-vel_aD, -vel_aI, true);
-}
-
-//metodo de velocidad maxima en direccion a
-void ControlMotores::max_a(){
-	velocidad(vel_mI, vel_mD, false);
-}
-
-//metodo de velocidad maxima en direccion b
-void ControlMotores::max_b(){
-	velocidad(-vel_mI, -vel_mD, false);
-}
-
-//metodo de ataque pronunciado en direccion a, a la izquierda
-void ControlMotores::pronunciado_ai(){
-	velocidad(vel_pI, vel_pD, true);
-}
-
-//metodo de ataque pronunciado en direccion b, a la izquierda
-void ControlMotores::pronunciado_bi(){
-	velocidad(-vel_pI, -vel_pD, true);
-}
-
-//metodo de ataque pronunciado en direccion a, a la derecha
-void ControlMotores::pronunciado_ad(){
-	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
-	velocidad(vel_pD, vel_pI, true);
-}
-
-//metodo de ataque pronunciado en direccion b, a la derecha
-void ControlMotores::pronunciado_bd(){
-	//se invierte la direccion de las velocidades para efectuar el giro a la derecha
-	velocidad(-vel_pD, -vel_pI, true);
-}
-
-//metodo de giro
-void ControlMotores::giro(){
-	velocidad(vel_gI, vel_gD, false);
-}
-
-//metodo de evasion frontal
-void ControlMotores::evasion_a(){
-	velocidad(-vel_eI, -vel_eD, false);
-}
-
-//metodo de evasion trasera
-void ControlMotores::evasion_b(){
-	velocidad(vel_eI, vel_eD, false);
-}
-
-//metodo de huida direccion a
-void ControlMotores::huir_a(){
-	desbloqueo();
-	velocidad(vel_hI, vel_hD, false);
-}
-
-//metodo de huida direccion b
-void ControlMotores::huir_b(){
-	desbloqueo();
-	velocidad(-vel_hI, -vel_hD, false);
-}
-
-//metodo que inicializa y prepara todo
-void ControlMotores::begin() {
-	//se leen los valores del nvs
-    nvsLeer();
-
-	//se configura el timer
-    mcpwm_timer_config_t timer_config = {};
-    timer_config.group_id = 0;
-    timer_config.clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT;
-    timer_config.resolution_hz = freq;
-    timer_config.count_mode = MCPWM_TIMER_COUNT_MODE_UP;
-    timer_config.period_ticks = period;
-
-	//se crea el timer
-    ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &timer));
-
-	//se configura el operador
-    mcpwm_operator_config_t operator_config = {};
-    operator_config.group_id = 0;
-    operator_config.flags.update_gen_action_on_tez = true;
-
-	//se crean los operadores
-    ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper_izq));
-    ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &oper_der));
-
-	//se conectan los operadores al timer
-    ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper_izq, timer));
-    ESP_ERROR_CHECK(mcpwm_operator_connect_timer(oper_der, timer));
-
-	//se configura el comparador
-    mcpwm_comparator_config_t comparator_config = {};
-    comparator_config.flags.update_cmp_on_tez = true;
-
-	//se crean los comparadores
-    ESP_ERROR_CHECK(mcpwm_new_comparator(oper_izq, &comparator_config, &cmpr_izq));
-    ESP_ERROR_CHECK(mcpwm_new_comparator(oper_der, &comparator_config, &cmpr_der));
-	ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(cmpr_izq, 0));
-	ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(cmpr_der, 0));
-
-	//se configuran los generadores
-    mcpwm_generator_config_t generator_config = {};
-
-	//se crean los generadores y se asignan a los pines correspondientes del lado izquierdo
-   	generator_config.gen_gpio_num = mot[0];
-    ESP_ERROR_CHECK(mcpwm_new_generator(oper_izq, &generator_config, &gen_izq_a));
-    generator_config.gen_gpio_num = mot2[0];
-    ESP_ERROR_CHECK(mcpwm_new_generator(oper_izq, &generator_config, &gen_izq_b));
-
-	//se crean los generadores y se asignan a los pines correspondientes del lado derecho
-    generator_config.gen_gpio_num = mot[1];
-    ESP_ERROR_CHECK(mcpwm_new_generator(oper_der, &generator_config, &gen_der_a));
-    generator_config.gen_gpio_num = mot2[1];
-    ESP_ERROR_CHECK(mcpwm_new_generator(oper_der, &generator_config, &gen_der_b));
-
-	// Configuración de la acción de los generadores en eventos del timer
-	mcpwm_gen_timer_event_action_t accion_timer = {};
-	accion_timer.direction = MCPWM_TIMER_DIRECTION_UP;
-	accion_timer.event = MCPWM_TIMER_EVENT_EMPTY;
-	accion_timer.action = MCPWM_GEN_ACTION_HIGH;
-
-	//se aplica la acción de los generadores en eventos del timer
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_izq_a, accion_timer));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_izq_b, accion_timer));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_der_a, accion_timer));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(gen_der_b, accion_timer));
-
-	//configuración de la acción de los generadores en eventos del comparador
-	mcpwm_gen_compare_event_action_t accion_comparator = {};
-
-	// Configuración de la acción de los generadores en eventos del comparador
-	accion_comparator.direction = MCPWM_TIMER_DIRECTION_UP;
-	accion_comparator.comparator = cmpr_izq;
-	accion_comparator.action = MCPWM_GEN_ACTION_LOW;
-
-	//se aplica la acción de los generadores en eventos del comparador
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_izq_a, accion_comparator));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_izq_b, accion_comparator));
-
-	//se cambia la acción para el lado derecho
-	accion_comparator.comparator = cmpr_der;
-
-	//se aplica la acción de los generadores en eventos del comparador para el lado derecho
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_der_a, accion_comparator));
-	ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(gen_der_b, accion_comparator));
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-	// Configuración de falla para el sensor TCRT
-    mcpwm_gpio_fault_config_t fault_config = {};
-    fault_config.group_id = 0;
-    fault_config.gpio_num = FAULT_A;
-    fault_config.intr_priority = 0;
-    fault_config.flags.active_level = 1;
-
-	// Se crea el manejador de falla para el sensor TCRT de la direccion a
-    ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_a));
-
-	// Se crea el manejador de falla para el sensor TCRT de la direccion b
-	fault_config.gpio_num = FAULT_B;
-	ESP_ERROR_CHECK(mcpwm_new_gpio_fault(&fault_config, &fallo_b));
-
-	// Configuración de freno para la falla del sensor TCRT en direccion a
-    mcpwm_brake_config_t freno_config = {};
-    freno_config.fault = fallo_a;
-    freno_config.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
-
-	// Se asigna la acción de freno a ambos operadores en caso de falla del sensor TCRT en direccion a
-    ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_izq, &freno_config));
-    ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_der, &freno_config));
-
-	// Se cambia la configuración de freno para la falla del sensor TCRT en direccion b
-	freno_config.fault = fallo_b;
-
-	// Se asigna la acción de freno a ambos operadores en caso de falla del sensor TCRT en direccion b
-	ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_izq, &freno_config));
-	ESP_ERROR_CHECK(mcpwm_operator_set_brake_on_fault(oper_der, &freno_config));
-
-	// Configuración de la acción de freno para los generadores en caso de evento de freno
-    mcpwm_gen_brake_event_action_t accion_freno = {};
-    accion_freno.direction = MCPWM_TIMER_DIRECTION_UP;
-    accion_freno.brake_mode = MCPWM_OPER_BRAKE_MODE_OST;
-    accion_freno.action = MCPWM_GEN_ACTION_HIGH;
-
-	// Se asigna la acción de freno a los generadores en caso de evento de freno
-    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_a, accion_freno));
-    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_izq_b, accion_freno));
-    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_a, accion_freno));
-    ESP_ERROR_CHECK(mcpwm_generator_set_action_on_brake_event(gen_der_b, accion_freno));
-#endif
-
-    ESP_ERROR_CHECK(mcpwm_timer_enable(timer));
-    ESP_ERROR_CHECK(mcpwm_timer_start_stop(timer, MCPWM_TIMER_START_NO_STOP));
-
-    alto();
-
-	//se crea la tarea de la rampa
-	xTaskCreateStaticPinnedToCore(tareaRampa, "TareaRampa", sizeof(stackMotores), (void*)this, 5, stackMotores, &tcbMotores, 0);
-}
-
-void ControlMotores::controlador(int accion){
-	//se estable o restablece al freno dependiendo de la accion
-	saltarFreno(false);
-	switch(accion){
-		case 0:
-			alto();
-			break;
-		case 1:
-			dir_a();
-			break;
-		case 2:
-			dir_b();
-			break;
-		case 3:
-			evasion_a();
-			break;
-		case 4:
-			evasion_b();
-			break;
-		case 5:
-			ataque_ai();
-			break;
-		case 6:
-			ataque_bi();
-			break;
-		case 7:
-			ataque_ad();
-			break;
-		case 8:
-			ataque_bd();
-			break;
-		case 9:
-			pronunciado_ai();
-			break;
-		case 10:
-			pronunciado_bi();
-			break;
-		case 11:
-			pronunciado_ad();
-			break;
-		case 12:
-			pronunciado_bd();
-			break;
-		case 13:
-			max_a();
-			break;
-		case 14:
-			max_b();
-			break;
-		case 15:
-			giro();
-			break;
-		case 16:
-			huir_a();
-			break;
-		case 17:
-			huir_b();
-			break;
-	}
-}
-
-void ControlMotores::nvsLeer(){
-	//constructor de nvs con el namespace de motores
-	Nvs nvs("motores");
-
-	//se aplica cada variable
-	tRam = nvs.leer("tiempo_rampa", tRam);
-	vel_nI = nvs.leer("velocidad_nI", vel_nI);
-	vel_nD = nvs.leer("velocidad_nD", vel_nD);
-	vel_aI = nvs.leer("velocidad_aI", vel_aI);
-	vel_aD = nvs.leer("velocidad_aD", vel_aD);
-	vel_mI = nvs.leer("velocidad_mI", vel_mI);
-	vel_mD = nvs.leer("velocidad_mD", vel_mD);
-	vel_pI = nvs.leer("velocidad_pI", vel_pI);
-	vel_pD = nvs.leer("velocidad_pD", vel_pD);
-	vel_gI = nvs.leer("velocidad_gI", vel_gI);
-	vel_gD = nvs.leer("velocidad_gD", vel_gD);
-	vel_eI = nvs.leer("velocidad_eI", 950);
-	vel_eD = nvs.leer("velocidad_eD", 200);
-	vel_hI = nvs.leer("velocidad_hI", vel_hI);
-	vel_hD = nvs.leer("velocidad_hD", vel_hD);
-}
-
-//envia los datos a la telemetria
-void ControlMotores::velocidades(int16_t* v1, int16_t* v2, int16_t* vo1, int16_t* vo2){
-	uint32_t cv = control_vector.load(std::memory_order_relaxed);
-	*v1 = vel1;
-	*v2 = vel2;
-	*vo1 = static_cast<int16_t>(cv >> 16);
-	*vo2 = static_cast<int16_t>(cv & 0xFFFF);
-}
-
-
-==========================================
-FILE PATH: ./components/actuadores/ControlMotores.h
-==========================================
-
-#ifndef CONTROLMOTORES_H
-#define CONTROLMOTORES_H
-
-#include "driver/gpio.h"
-#include "driver/mcpwm_prelude.h"
-#include "freertos/FreeRTOS.h"
-#include "portmacro.h"
-#include <cstdint>
-#include <atomic>
-
-class ControlMotores{
-	private:
-		//handles del MCPWM
-
-		// declaracion del timer
-		mcpwm_timer_handle_t timer;
-
-		//declaracion de operadores
-		mcpwm_oper_handle_t oper_izq;
-		mcpwm_oper_handle_t oper_der;
-
-		//declaracion de comparadores
-		mcpwm_cmpr_handle_t cmpr_izq;
-		mcpwm_cmpr_handle_t cmpr_der;
-
-		//declaracion de generadores
-		mcpwm_gen_handle_t gen_izq_a;
-		mcpwm_gen_handle_t gen_izq_b;
-		mcpwm_gen_handle_t gen_der_a;
-		mcpwm_gen_handle_t gen_der_b;
-
-		//declaracion de fallos
-    	mcpwm_fault_handle_t fallo_a;
-    	mcpwm_fault_handle_t fallo_b;
-
-		//variables necesarias
-		uint32_t freq;
-		uint16_t period;
-
-		gpio_num_t mot2[2];
-		gpio_num_t mot[2];
-
-		//variables de la rampa
-		int tRam;
-		uint8_t indiceRampa;
-
-		//funcion velocidad
-		void velocidad(int16_t vel_1, int16_t vel_2, bool ram);
-
-		//variables que definien las velocidades
-		int16_t vel_nI;
-		int16_t vel_nD;
-		int16_t vel_aI;
-		int16_t vel_aD;
-		int16_t vel_mI;
-		int16_t vel_mD;
-		int16_t vel_pI;
-		int16_t vel_pD;
-		int16_t vel_gI;
-		int16_t vel_gD;
-		int16_t vel_eI; // Evasión Izquierda
-		int16_t vel_eD; // Evasión Derecha
-		int16_t vel_hI; // Huida Izquierda
-		int16_t vel_hD; // Huida Derecha
-
-		//variables que guardan la velocidad actual
-		volatile int16_t vel1;
-		volatile int16_t vel2;
-
-		//variables que guarda la velocidad inicial
-		volatile int16_t vel1_ini;
-		volatile int16_t vel2_ini;
-
-		//booleano de la rampa
-		volatile bool rampa;
-
-		// Vector de control atomico (Bits 16-31: vel_izq, Bits 0-15: vel_der)
-		std::atomic<uint32_t> control_vector;
-
-		//variables de la tarea estatica
-		StaticTask_t tcbMotores;
-		StackType_t stackMotores[2048];
-
-		//metodos de acciones
-		void dir_a();
-		void dir_b();
-		void ataque_ai();
-		void ataque_bi();
-		void ataque_ad();
-		void ataque_bd();
-		void max_a();
-		void max_b();
-		void pronunciado_ai();
-		void pronunciado_bi();
-		void pronunciado_ad();
-		void pronunciado_bd();
-		void giro();
-		void evasion_a();
-		void evasion_b();
-		void huir_a();
-		void huir_b();
-
-		//metodo para leer y aplicar los valores de la nvs
-		void nvsLeer();
-		//tarea de rampa
-		static void tareaRampa(void* arg);
-		//metodo que se salta el freno de seguridad
-		void saltarFreno(bool estado);
-	public:
-		//variables control e inicializacion
-		ControlMotores(gpio_num_t motA2, gpio_num_t motB2, gpio_num_t motA1, gpio_num_t motB1);
-		//begin
-		void begin();
-		//controlador de acciones
-		void controlador(int accion);
-		//alto
-		void alto();
-		//envia los datos a telemetria
-		void velocidades(int16_t* v1, int16_t* v2, int16_t* vo1, int16_t* vo2);
-		//desbloque los motores luego de los fallos
-		void desbloqueo();
-};
-
-#endif
-
-
-==========================================
-FILE PATH: ./components/actuadores/Multiplexor.cpp
-==========================================
-
-#include "Multiplexor.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-#define TCAADDR 0x70
-static const char* TAG = "Multiplexor";
-
-Multiplexor::Multiplexor() {}
-
-bool Multiplexor::sel(GestorI2C* i2c, uint8_t canal) {
-    if (canal > 7) return false;
-    uint8_t data = 1 << canal;
-    
-    i2c_master_dev_handle_t dev = i2c->get_device(TCAADDR);
-    if (!dev) return false;
-
-    esp_err_t error = i2c_master_transmit(dev, &data, 1, pdMS_TO_TICKS(20));
-    if (error != ESP_OK) {
-        ESP_LOGE(TAG, "Error al seleccionar canal %d: %s", canal, esp_err_to_name(error));
-        return false;
-    }
-    return true;
-}
-
-
-==========================================
-FILE PATH: ./components/actuadores/Multiplexor.h
-==========================================
-
-#ifndef MULTIPLEXOR_H
-#define MULTIPLEXOR_H
-
-#include "GestorI2C.h"
-
-class Multiplexor {
-    public:
-        Multiplexor();
-        bool sel(GestorI2C* i2c, uint8_t canal);
-};
-
-#endif
-
-
-==========================================
 FILE PATH: ./components/comunicaciones/Mqtt.cpp
 ==========================================
 
@@ -1078,10 +365,10 @@ FILE PATH: ./components/comunicaciones/Telemetria.cpp
 #include "DatosT.h"
 #include "Mqtt.h"
 #include "MaquinaEstados.h"
-#include "ControlMotores.h"
-#include "SensorLimite.h"
 #include "Wifi.h"
 #include "esp_system.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include <cstdio>
 #include <inttypes.h>
 
@@ -1089,162 +376,44 @@ FILE PATH: ./components/comunicaciones/Telemetria.cpp
 #define COMMIT 0
 #endif
 
-//constructor
-Telemetria::Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, MonitorSistema* s, bool _final):
+// Constructor limpio, sin dependencias de hardware esclavo
+Telemetria::Telemetria(MaquinaEstados* e, Mqtt* q, Wifi* w):
 	d{},
-	final(_final),
 	me(e),
-	cm(m),
-	sc(c),
-	sr(r),
 	mq(q),
-	wf(w),
-	ms(s)
+	wf(w)
 {}
 
-void Telemetria::sistema(){
-	d.pila = ms->bateria();
-}
-
-//metodo que accede a los datos de los sensores del limite
-void Telemetria::sensorLimite(){
-	//se arma el struct con los valores correspondientes
-	uint16_t colBuffer[16];
-	// Polimorfismo para sensores de limite
-	sc->colores(colBuffer);
-	if(final){
-		// datos para TCRT
-		d.Tcrt1 = colBuffer[0];
-		d.Tcrt2 = colBuffer[1];
-		d.Tcrt3 = colBuffer[2];
-		d.Tcrt4 = colBuffer[3];
-	}else{
-		// datos para sensores de color
-		d.cR1 = colBuffer[0];
-		d.cG1 = colBuffer[1];
-		d.cB1 = colBuffer[2];
-		d.cC1 = colBuffer[3];
-
-		d.cR2 = colBuffer[4];
-		d.cG2 = colBuffer[5];
-		d.cB2 = colBuffer[6];
-		d.cC2 = colBuffer[7];
-
-		d.scR1 = colBuffer[8];
-		d.scG1 = colBuffer[9];
-		d.scB1 = colBuffer[10];
-		d.scC1 = colBuffer[11];
-
-		d.scR2 = colBuffer[12];
-		d.scG2 = colBuffer[13];
-		d.scB2 = colBuffer[14];
-		d.scC2 = colBuffer[15];
-	}
-}
-
-//metodo que accede a los datos de los sensores del rival
-void Telemetria::sensorRival(){
-	//se arma el struct con los valores correspondientes
-	uint16_t distBuffer[24];
-	sr->getDistancias(distBuffer);
-	if(final){
-		//distancias para sensores ToF
-		d.ToF1 = distBuffer[0];
-		d.ToF2 = distBuffer[1];
-		d.ToF3 = distBuffer[2];
-		d.ToF4 = distBuffer[3];
-		d.ToF5 = distBuffer[4];
-		d.ToF6 = distBuffer[5];
-
-	    // Fiabilidad
-		d.estadoToF1 = distBuffer[6];
-		d.estadoToF2 = distBuffer[7];
-		d.estadoToF3 = distBuffer[8];
-		d.estadoToF4 = distBuffer[9];
-		d.estadoToF5 = distBuffer[10];
-		d.estadoToF6 = distBuffer[11];
-
-		d.señalTof1 = distBuffer[12];
-		d.señalTof2 = distBuffer[13];
-		d.señalTof3 = distBuffer[14];
-		d.señalTof4 = distBuffer[15];
-		d.señalTof5 = distBuffer[16];
-		d.señalTof6 = distBuffer[17];
-
-		d.ambienteToF1 = distBuffer[18];
-		d.ambienteToF2 = distBuffer[19];
-		d.ambienteToF3 = distBuffer[20];
-		d.ambienteToF4 = distBuffer[21];
-		d.ambienteToF5 = distBuffer[22];
-		d.ambienteToF6 = distBuffer[23];
-
-	}else{
-		//distancias para sensores ultrasónicos
-		d.ojos1 = distBuffer[0];
-		d.ojos2 = distBuffer[1];
-	}
-}
-
 void Telemetria::recopilar(){
-	//se arma el struct con los valores correspondientes
-	bool _stall;
+	bool _stall = false;
 	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio, &_stall);
 	d.stall = _stall ? 1 : 0;
-	d.corriente = me->corrienteA;
+	
 	wf->signalW(&d.wifi);
-	cm->velocidades(&d.pwm1, &d.pwm2, &d.pwm1_obj, &d.pwm2_obj);
 
-	//datos de sensores del rival
-	sensorRival();
+	// TODO: Los 6 ToFs (I2C DMA) y los estados del STM32 (TCRT, Corriente, PWM)
+	// se actualizarán aquí leyendo la estructura empaquetada del Bus de la Verdad (SPI).
+	// La Máquina de Estados (me) u otro gestor deberá proveer acceso a esos datos.
 
-	//datos de sensores del limite
-	sensorLimite();
-
-	//dato del sitema
-	sistema();
-
-	//datos generales
-	d.prototipo = !final;
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
 }
 
 void Telemetria::enviar(){
-	//se crea el strcut
 	recopilar();
 
-	//variable que guardara el json
 	char json[NJSON];
-	int lon = 0;
-	//se arma el json
-	if(final){
-		//json del robot final con métricas de fiabilidad extendidas
-		lon = snprintf(json, NJSON,
-    	"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d],\"f_señal\":[%d,%d,%d,%d,%d,%d],\"f_amb\":[%d,%d,%d,%d,%d,%d],\"tcrt\":[%d,%d,%d,%d]}}",
-    	COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo ,d.prototipo,
+	
+	// JSON estricto. Cero ramas condicionales. Cero variables de prototipo o sensores inútiles.
+	int lon = snprintf(json, NJSON,
+		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"stm32\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d]}}",
+		COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo,
 		d.estado, d.estrategia, d.inicio,
-    	d.pwm1, d.pwm2, d.pwm1_obj, d.pwm2_obj, d.stall, d.corriente,
-    	d.ToF1, d.ToF2, d.ToF3, d.ToF4, d.ToF5, d.ToF6,
-		d.estadoToF1, d.estadoToF2, d.estadoToF3, d.estadoToF4, d.estadoToF5, d.estadoToF6,
-		d.señalTof1, d.señalTof2, d.señalTof3, d.señalTof4, d.señalTof5, d.señalTof6,
-		d.ambienteToF1, d.ambienteToF2, d.ambienteToF3, d.ambienteToF4, d.ambienteToF5, d.ambienteToF6,
-		d.Tcrt1, d.Tcrt2, d.Tcrt3, d.Tcrt4
-    	);
-	}else{
-		//json del prototipo
-		lon = snprintf(json, NJSON,
-		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d,\"prototipo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"motores\":{\"pwm_izq\":%d,\"pwm_der\":%d, \"pwm_izq_obj\":%d, \"pwm_der_obj\":%d, \"corriente\":%f},\"sensores\":{\"ultra_del\":%d,\"ultra_atr\":%d,\"referencia_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"referencia_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_del\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d},\"col_atr\":{\"r\":%d,\"g\":%d,\"b\":%d,\"c\":%d}}}",
-		COMMIT, d.tiempo, d.heap, d.pila, d.wifi, d.ciclo ,d.prototipo,
-		d.estado, d.estrategia, d.inicio,
-		d.pwm1, d.pwm2, d.pwm1_obj, d.pwm2_obj, d.corriente,
-		d.ojos1, d.ojos2,
-		d.cR1, d.cG1, d.cB1, d.cC1,
-		d.cR2, d.cG2, d.cB2, d.cC2,
-		d.scR1, d.scG1, d.scB1, d.scC1,
-		d.scR2, d.scG2, d.scB2, d.scC2
-		);
-	}
-	//se valida y envia el json
+		d.pwm1, d.pwm2, d.stall, d.corriente,
+		d.ToF1, d.ToF2, d.ToF3, d.ToF4, d.ToF5, d.ToF6,
+		d.estadoToF1, d.estadoToF2, d.estadoToF3, d.estadoToF4, d.estadoToF5, d.estadoToF6
+	);
+
 	if(lon > 0){
 		mq->pub(json, "robot/telemetria", 0, 0);
 	}
@@ -1261,10 +430,6 @@ FILE PATH: ./components/comunicaciones/Telemetria.h
 #include "DatosT.h"
 #include "Mqtt.h"
 #include "MaquinaEstados.h"
-#include "ControlMotores.h"
-#include "SensorLimite.h"
-#include "SensorRival.h"
-#include "MonitorSistema.h"
 #include "Wifi.h"
 
 #define NJSON 2048
@@ -1272,20 +437,13 @@ FILE PATH: ./components/comunicaciones/Telemetria.h
 class Telemetria{
 	private:
 		Datos d;
-		bool final;
 		MaquinaEstados* me;
-		ControlMotores* cm;
-		SensorLimite* sc;
-		SensorRival* sr;
 		Mqtt* mq;
 		Wifi* wf;
-		MonitorSistema* ms;
-		void sensorLimite();
-		void sensorRival();
-		void sistema();
+		
 		void recopilar();
 	public:
-		Telemetria(MaquinaEstados* e, ControlMotores* m, SensorLimite* c, SensorRival* r, Mqtt* q, Wifi* w, MonitorSistema* s, bool _final);
+		Telemetria(MaquinaEstados* e, Mqtt* q, Wifi* w);
 		void enviar();
 };
 
@@ -1578,10 +736,6 @@ static const EventBits_t TOF_BITS[6] = {
 	BIT_TOF_BD
 };
 
-//bits de sensores ultrasonicos
-#define BIT_ULTRA_A (1 << 8)
-#define BIT_ULTRA_B (1 << 9)
-
 //mascara de bits para sensores de limite
 #define MASK_COLOR (MASK_LIM_A | MASK_LIM_B)
 
@@ -1590,9 +744,6 @@ static const EventBits_t TOF_BITS[6] = {
 
 //mascara de bits para sensores TOF direccion B
 #define MASK_TOF_B (BIT_TOF_BI | BIT_TOF_BC | BIT_TOF_BD)
-
-//mascara de bits para sensores ultrasonicos
-#define MASK_ULTRA (BIT_ULTRA_A | BIT_ULTRA_B)
 
 //mascaras de convinaciones de TOFs
 
@@ -1646,7 +797,6 @@ FILE PATH: ./components/configuracion/pines.h
 
 #include "driver/gpio.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32S3
     // Pines para ESP32-S3
     #define MUS GPIO_NUM_3
     #define INI GPIO_NUM_35
@@ -1697,32 +847,6 @@ FILE PATH: ./components/configuracion/pines.h
     // Botones Auxiliares
     #define VIC GPIO_NUM_36
     #define DER GPIO_NUM_37
-#else
-    // Pines para ESP32 Estándar (PROTOTIPO)
-    #define MUS GPIO_NUM_4
-    #define INI GPIO_NUM_26
-
-    // I2C
-    #define SDA GPIO_NUM_21
-    #define SCL GPIO_NUM_22
-
-    // Ultrasonicos
-    #define TRIG_1 GPIO_NUM_19
-    #define ECHO_1 GPIO_NUM_23
-    #define TRIG_2 GPIO_NUM_18
-    #define ECHO_2 GPIO_NUM_25
-
-    // Motores
-    #define MOT_A1 GPIO_NUM_13
-    #define MOT_A2 GPIO_NUM_14
-    #define MOT_B1 GPIO_NUM_16
-    #define MOT_B2 GPIO_NUM_17
-
-	// LED RGB
-    #define RGB_PIN_A GPIO_NUM_32
-    #define RGB_PIN_B GPIO_NUM_33
-#endif
-
 #endif
 
 
@@ -1740,10 +864,6 @@ struct Datos{
 	int estado;
 	int estrategia;
 	int inicio;
-
-	//variables de los sensores ultrasonicos
-	uint16_t ojos1;
-	uint16_t ojos2;
 
 	//variable de los sensores ToF
 	uint16_t ToF1;
@@ -1775,29 +895,6 @@ struct Datos{
 	uint16_t ambienteToF5;
 	uint16_t ambienteToF6;
 
-	//variables de la calibracion de los sensores de color
-	uint16_t cR1;
-	uint16_t cG1;
-	uint16_t cB1;
-	uint16_t cC1;
-	uint16_t cR2;
-	uint16_t cG2;
-	uint16_t cB2;
-	uint16_t cC2;
-
-
-	//variables del primero sensor de color
-	uint16_t scR1;
-	uint16_t scG1;
-	uint16_t scB1;
-	uint16_t scC1;
-
-	//variables del segundo sensor de color
-	uint16_t scR2;
-	uint16_t scG2;
-	uint16_t scB2;
-	uint16_t scC2;
-
 	//variable de la pila
 	float pila;
 	float corriente;
@@ -1814,7 +911,6 @@ struct Datos{
 	uint32_t heap;
 	int wifi;
 	int ciclo;
-	int prototipo;
 
 	// Variables de sensores TCRT
 	uint16_t Tcrt1;
@@ -2463,184 +1559,6 @@ public:
 
 
 ==========================================
-FILE PATH: ./components/core/EstrategiaPrototipo.cpp
-==========================================
-
-#include "EstrategiaPrototipo.h"
-#include "eventos.h"
-#include "MaquinaEstados.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-
-void EstrategiaPrototipo::seleccion(MaquinaEstados* ctx) {
-    //se reciben los bits de los sensores
-	uint32_t noti = 0;
-    noti = xEventGroupWaitBits(eventos, 0xFFFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(1));
-
-    //se verifica si se detecto algun sensor de color el que sea
-    if(noti & MASK_COLOR){
-        // si detecta el limite por la direccion A
-        if (noti & MASK_LIM_A) {
-            ctx->modo = 0;
-        }
-        // si detecta el limite por la direccion B
-        else if (noti & MASK_LIM_B) {
-            ctx->modo = 1;
-        }
-    //se verifica si hay alguna memoria del sensor de color
-    }else if(ctx->memo_C != 0) {
-        // si deja de detectar el limite por sc 1
-        if (ctx->memo_C == 1) {
-            ctx->modo = 2;
-        }
-        // si deja de detectar el limite por sc 2
-        else if (ctx->memo_C == 2) {
-            ctx->modo = 3;
-        }
-	}else if(ctx->stall) {
-		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
-		return;
-	}else if(ctx->detectarStall(ctx->corrienteA)) {
-		ctx->stall = true;
-		ctx->tempEva = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
-		return;
-    //se detecta si alguno de los sensores ultrasonicos fue activado
-    }else if(noti & MASK_ULTRA) {
-        // si detecta el robot por ultrasonico A
-        if (noti & BIT_ULTRA_A) {
-            ctx->modo = 6;
-        }
-        // si detecta el robot por ultrasonico B
-        else if (noti & BIT_ULTRA_B) {
-            ctx->modo = 7;
-        }
-    }else if(ctx->memo_TL != 0) {
-        // si deja de detectar al robot por ultrasonico A
-        if (ctx->memo_TL == 1) {
-            ctx->modo = 8;
-        }
-        // si deja de detectar al robot por ultrasonico B
-        else if (ctx->memo_TL == 2) {
-            ctx->modo = 9;
-        }
-    }else{
-        //memoria de avance de estrella
-        if (ctx->memo_E) {
-            ctx->modo = 10;
-        }
-        // si no detecta nada
-        else{
-            ctx->modo = 11;
-        }
-    }
-}
-
-void EstrategiaPrototipo::ejecucion(MaquinaEstados* ctx) {
-    // variable del comandos
-    int com = ALTO;
-
-    // se guarda el tiempo
-    unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-
-    // ejecuta el estado
-    switch (ctx->modo) {
-        // detiene el movimiento y retrocede en direccion b
-        case 0:
-            com = HUIR_B;
-            ctx->memo_C = 1;
-            ctx->tempC = temp;
-            break;
-        // detiene el movimiento y retrocede en direccion a
-        case 1:
-            com = HUIR_A;
-            ctx->memo_C = 2;
-            ctx->tempC = temp;
-            break;
-        // continua avanzando en direccion b por un tiempo definido para alejarse del borde
-        case 2:
-            com = HUIR_B;
-            break;
-        // continua avanzando en direccion a por un tiempo definido para alejarse del borde
-        case 3:
-            com = HUIR_A;
-            break;
-		case 4:
-			com = EVA_A;
-			break;
-		case 5:
-			com = EVA_B;
-			break;
-        // avanza en direccion a
-        case 6:
-            com = ATAQUE_AI;
-            ctx->memo_TL = 1;
-            ctx->tempTL = temp;
-            break;
-        // avanza en direccion b
-        case 7:
-            com = ATAQUE_BI;
-            ctx->memo_TL = 2;
-            ctx->tempTL = temp;
-            break;
-        // avanza por un tiempo definido de 4 segundo en direccion a
-        case 8:
-            com = ATAQUE_AI;
-            break;
-        // avanza por un tiempo definido de 4 segundos en direccion b
-        case 9:
-            com = ATAQUE_BI;
-            break;
-        // da vueltas hasta encontrar el robot
-        case 10:
-            // aqui pondre la logica para que avanze formando la estrella
-            if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
-                ctx->memo_E = false; // ir a girar
-                ctx->tempE2 = temp;
-                com = GIRO;
-            } else {
-                com = DIR_A;
-            }
-            break;
-        case 11:
-            if (temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5) {
-                ctx->memo_E = true; // Termina giro → pasará a estado 8
-                ctx->tempE1 = temp; // Reiniciar timer del avance
-                com = DIR_A;
-            } else {
-                com = GIRO;
-            }
-            break;
-        default:
-            com = ALTO;
-            break;
-    }
-    xTaskNotify(*(ctx->motr), com, eSetValueWithOverwrite);
-}
-
-
-==========================================
-FILE PATH: ./components/core/EstrategiaPrototipo.h
-==========================================
-
-#ifndef ESTRATEGIA_PROTOTIPO_H
-#define ESTRATEGIA_PROTOTIPO_H
-
-#include "EstrategiaBase.h"
-
-class MaquinaEstados;
-
-class EstrategiaPrototipo : public EstrategiaBase {
-public:
-    void seleccion(MaquinaEstados* ctx) override;
-    void ejecucion(MaquinaEstados* ctx) override;
-};
-
-#endif
-
-
-==========================================
 FILE PATH: ./components/core/GestorI2C.cpp
 ==========================================
 
@@ -2837,11 +1755,10 @@ FILE PATH: ./components/core/MaquinaEstados.cpp
 #include "nvs_flash.h"
 #include <cstdint>
 
-#include "EstrategiaPrototipo.h"
 #include "Estrategia1.h"
 #include "Estrategia2.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final):
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr):
 	tempTL(0),
 	tempC(0),
 	tempE1(0),
@@ -2867,33 +1784,26 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	memo_TC(0),
 	memo_TL(0),
 	memo_C(0),
-	memo_E(false),
-	final(_final)
+	memo_E(false)
 {
-	estPrototipo = new EstrategiaPrototipo();
 	estE1 = new Estrategia1();
 	estE2 = new Estrategia2();
 
 	nvsLeer();
-	if(final){
-		switch(estrategia){
-			case 0:
-				estActual = estE1;
-				break;
-			case 1:
-				estActual = estE2;
-				break;
-			default:
-				estActual = estE1;
-				break;
-		}
-	}else{
-		estActual = estPrototipo;
+	switch(estrategia){
+		case 0:
+			estActual = estE1;
+			break;
+		case 1:
+			estActual = estE2;
+			break;
+		default:
+			estActual = estE1;
+			break;
 	}
 }
 
 MaquinaEstados::~MaquinaEstados() {
-	delete estPrototipo;
 	delete estE1;
 	delete estE2;
 }
@@ -2991,6 +1901,12 @@ FILE PATH: ./components/core/MaquinaEstados.h
 #ifndef MAQUINAESTADOS_H
 #define MAQUINAESTADOS_H
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/semphr.h"
+#include "freertos/queue.h"
+#include "EstrategiaBase.h"
+
 // comandos de movimiento
 #include <cstdint>
 #define ALTO 0
@@ -3012,18 +1928,11 @@ FILE PATH: ./components/core/MaquinaEstados.h
 #define HUIR_A 16
 #define HUIR_B 17
 
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
-#include "EstrategiaBase.h"
 
-class EstrategiaPrototipo;
 class Estrategia1;
 class Estrategia2;
 
 class MaquinaEstados{
-	friend class EstrategiaPrototipo;
 	friend class EstrategiaEstandar;
 	friend class Estrategia1;
 	friend class Estrategia2;
@@ -3075,15 +1984,11 @@ class MaquinaEstados{
 		bool memo_E;//contol estrella
 
 		// Instancias de estrategias
-		EstrategiaPrototipo* estPrototipo;
 		Estrategia1* estE1;
 		Estrategia2* estE2;
 
 		//puntero de la estrategia actual
 		EstrategiaBase* estActual;
-
-		// version del hardware
-		bool final;
 
 		//metodo de validacion del tiempo
 		void tiempo();
@@ -3095,7 +2000,7 @@ class MaquinaEstados{
 		bool detectarStall(float corrienteA);
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
 
 		//destructor
 		~MaquinaEstados();
@@ -3114,92 +2019,6 @@ class MaquinaEstados{
 		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall);
 };
 #endif // !DEBUG
-
-
-==========================================
-FILE PATH: ./components/core/MonitorSistema.cpp
-==========================================
-
-#include "MonitorSistema.h"
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-#include "esp_log.h"
-#endif
-
-MonitorSistema::MonitorSistema() {
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    adc1_handle = NULL;
-#endif
-    ema_corriente = 0.0f;
-}
-
-void MonitorSistema::begin() {
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    adc_oneshot_unit_init_cfg_t init_config1 = {};
-    init_config1.unit_id = ADC_UNIT_1;
-    init_config1.ulp_mode = ADC_ULP_MODE_DISABLE;
-    adc_oneshot_new_unit(&init_config1, &adc1_handle);
-
-    adc_oneshot_chan_cfg_t config = {};
-    config.atten = ADC_ATTEN_DB_12;
-    config.bitwidth = ADC_BITWIDTH_DEFAULT;
-
-    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_1, &config);
-    adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_0, &config);
-#endif
-}
-
-float MonitorSistema::bateria() {
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    int raw;
-    adc_oneshot_read(adc1_handle, ADC_CHANNEL_1, &raw);
-    return (float)raw * (3.3f / 4095.0f) * 4.03f;
-#else
-    return 0.0f;
-#endif
-}
-
-float MonitorSistema::corrienteStall() {
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    int raw;
-    adc_oneshot_read(adc1_handle, ADC_CHANNEL_0, &raw);
-    float v = (float)raw * (3.3f / 4095.0f);
-    float i_inst = v / (0.1f * 10.0f);
-    ema_corriente = (i_inst * 0.1f) + (ema_corriente * 0.9f);
-    return ema_corriente;
-#else
-    return 0.0f;
-#endif
-}
-
-
-==========================================
-FILE PATH: ./components/core/MonitorSistema.h
-==========================================
-
-#ifndef MONITOR_SISTEMA_H
-#define MONITOR_SISTEMA_H
-
-#include "pines.h"
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-#include "esp_adc/adc_oneshot.h"
-#endif
-
-class MonitorSistema {
-private:
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    adc_oneshot_unit_handle_t adc1_handle;
-#endif
-    float ema_corriente;
-
-public:
-    MonitorSistema();
-    void begin();
-    float bateria();
-    float corrienteStall();
-};
-
-#endif
 
 
 ==========================================
@@ -3895,605 +2714,6 @@ void prueba();
 
 
 ==========================================
-FILE PATH: ./components/sensores/SensorLimite.h
-==========================================
-
-#ifndef SENSORLIMITE_H
-#define SENSORLIMITE_H
-
-#include <cstdint>
-
-class SensorLimite {
-public:
-    virtual ~SensorLimite() {}
-    virtual void begin() = 0;
-    virtual void colores(uint16_t* buffer) = 0;
-};
-
-#endif
-
-
-==========================================
-FILE PATH: ./components/sensores/SensorRival.h
-==========================================
-
-#ifndef SENSORRIVAL_H
-#define SENSORRIVAL_H
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-class SensorRival {
-	public:
-		virtual ~SensorRival() {}
-		virtual bool begin() = 0;
-		virtual void getDistancias(uint16_t* buffer) = 0;
-};
-#endif // SENSORRIVAL_H
-
-
-==========================================
-FILE PATH: ./components/sensores/SensorTcrt.cpp
-==========================================
-
-#include "SensorTcrt.h"
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-
-#include "eventos.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/event_groups.h"
-#include "driver/gpio.h"
-#include "esp_log.h"
-#include <cstdint>
-#include "esp_attr.h"
-
-extern EventGroupHandle_t eventos;
-extern TaskHandle_t th_robot;
-
-static const char* TAG = "SensorTcrt";
-
-SensorTcrt::SensorTcrt(gpio_num_t _p1, gpio_num_t _p2, gpio_num_t _p3, gpio_num_t _p4) :
-	pin1(_p1),
-	pin2(_p2),
-	pin3(_p3),
-	pin4(_p4)
-{}
-
-void IRAM_ATTR SensorTcrt::limite_isr(void* arg) {
-	SensorTcrt* sensor = static_cast<SensorTcrt*>(arg);
-	uint32_t estado = 0;
-	BaseType_t cambioC = pdFALSE;
-
-	if (sensor == nullptr || sensor->tarea == NULL) {
-		return;
-	}
-
-	if(gpio_get_level(sensor->pin1)){
-		estado |= (1 << 0);
-	}
-	if(gpio_get_level(sensor->pin2)){
-		estado |= (1 << 1);
-	}
-	if(gpio_get_level(sensor->pin3)){
-		estado |= (1 << 2);
-	}
-	if(gpio_get_level(sensor->pin4)){
-		estado |= (1 << 3);
-	}
-	xTaskNotifyFromISR(sensor->tarea, estado, eSetValueWithOverwrite, &cambioC);
-	
-	// Notificar a la máquina de estados para romper su latencia instantáneamente
-	if(th_robot != NULL){
-		vTaskNotifyGiveFromISR(th_robot, &cambioC);
-	}
-
-    if (cambioC) {
-        portYIELD_FROM_ISR();
-    }
-}
-
-void SensorTcrt::begin() {
-    gpio_config_t io_conf = {};
-    io_conf.intr_type = GPIO_INTR_ANYEDGE;
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = (1ULL << pin1) | (1ULL << pin2) | (1ULL << pin3) | (1ULL << pin4);
-    io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-    gpio_config(&io_conf);
-
-    ESP_LOGI(TAG, "Interrupciones configuradas para 4 TCRT en pines %d, %d, %d y %d", pin1, pin2, pin3, pin4);
-
-	tarea = xTaskCreateStaticPinnedToCore(tareaTcrt, "tareaTcrt", sizeof(stackTcrt), (void*)this, 10, stackTcrt, &tcbTcrt, 1);
-}
-
-void SensorTcrt::colores(uint16_t* buffer) {
-    buffer[0] = (uint16_t)gpio_get_level(pin1);
-    buffer[1] = (uint16_t)gpio_get_level(pin2);
-    buffer[2] = (uint16_t)gpio_get_level(pin3);
-    buffer[3] = (uint16_t)gpio_get_level(pin4);
-    for(int i = 4; i < 16; i++) {
-        buffer[i] = 0;
-    }
-}
-
-void SensorTcrt::tareaTcrt(void* pvParameters) {
-	SensorTcrt* sensor = (SensorTcrt*)pvParameters;
-
-	// instalar la interrupcion si no esta instalada
-	esp_err_t isr_err = gpio_install_isr_service(0);
-	if (isr_err != ESP_OK && isr_err != ESP_ERR_INVALID_STATE) {
-		ESP_LOGE(TAG, "Error instalando ISR service TCRT: %s", esp_err_to_name(isr_err));
-	}
-
-    gpio_isr_handler_add(sensor->pin1, &SensorTcrt::limite_isr, (void*)sensor);
-    gpio_isr_handler_add(sensor->pin2, &SensorTcrt::limite_isr, (void*)sensor);
-    gpio_isr_handler_add(sensor->pin3, &SensorTcrt::limite_isr, (void*)sensor);
-    gpio_isr_handler_add(sensor->pin4, &SensorTcrt::limite_isr, (void*)sensor);
-
-	uint32_t estado = 0;
-	while (true) {
-		if(xTaskNotifyWait(0, 0, &estado, portMAX_DELAY) == pdTRUE){
-			if(sensor == nullptr) {
-				ESP_LOGE(TAG, "Error: puntero a SensorTcrt es nulo");
-				continue;
-			}
-			
-			// Procesar bits de sensores TCRT
-			if(estado & (1 << 0)) xEventGroupSetBits(eventos, BIT_LIM_AI);
-			else xEventGroupClearBits(eventos, BIT_LIM_AI);
-
-			if(estado & (1 << 1)) xEventGroupSetBits(eventos, BIT_LIM_AD);
-			else xEventGroupClearBits(eventos, BIT_LIM_AD);
-
-			if(estado & (1 << 2)) xEventGroupSetBits(eventos, BIT_LIM_BI);
-			else xEventGroupClearBits(eventos, BIT_LIM_BI);
-
-			if(estado & (1 << 3)) xEventGroupSetBits(eventos, BIT_LIM_BD);
-			else xEventGroupClearBits(eventos, BIT_LIM_BD);
-		}
-	}
-}
-
-#endif // CONFIG_IDF_TARGET_ESP32S3
-
-
-==========================================
-FILE PATH: ./components/sensores/SensorTcrt.h
-==========================================
-
-#ifndef SENSORTCRT_H
-#define SENSORTCRT_H
-
-#include "sdkconfig.h"
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-
-#include "SensorLimite.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/gpio.h"
-#include <cstdint>
-#include "esp_attr.h"
-
-class SensorTcrt : public SensorLimite {
-	private:
-		gpio_num_t pin1;
-		gpio_num_t pin2;
-		gpio_num_t pin3;
-		gpio_num_t pin4;
-
-		//handle de la tarea
-		TaskHandle_t tarea = nullptr;
-
-		//buffer de la tarea
-		StaticTask_t tcbTcrt;
-
-		//stack de la tarea
-		StackType_t stackTcrt[2048];
-
-		//tarea de lectura de los sensores
-		static void tareaTcrt(void* pvParameters);
-
-		//funcion de interrupcion para los sensores
-		static void IRAM_ATTR limite_isr(void* arg);
-
-	public:
-		SensorTcrt(gpio_num_t _p1, gpio_num_t _p2, gpio_num_t _p3, gpio_num_t _p4);
-		virtual ~SensorTcrt() {}
-		void begin() override;
-		void colores(uint16_t* buffer) override;
-};
-
-#endif // CONFIG_IDF_TARGET_ESP32S3
-#endif // SENSORTCRT_H
-
-
-==========================================
-FILE PATH: ./components/sensores/SensorTcs.cpp
-==========================================
-
-#include "SensorTcs.h"
-
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-
-#include "Nvs.h"
-#include "driver/i2c_master.h"
-#include "rgb.h"
-#include "eventos.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include <cstdint>
-
-#define TCSADDR 0x29 // Dirección I2C estándar del TCS34725
-#define TAG "SensorTcs"
-
-#define TCS_ENABLE 0x80 | 0x00
-#define TCS_ATIME 0x80 | 0x01
-#define TCS_CONTROL 0x80 | 0x0F
-#define TCS_CDATAL 0x80 | 0x14
-
-extern volatile bool start;
-
-//constructor
-SensorTcs::SensorTcs(int _limCol, GestorI2C* _i2c):
-	//tolerancia de color
-    limCol(_limCol),
-
-    //variables de la logica
-    estado(false),
-    estado2(false),
-	i2c(_i2c),
-
-	//variables predeterminadas
-    lcr(50),
-    lcg(50),
-    lcb(50),
-	lcc(50),
-	lcr2(50),
-	lcg2(50),
-	lcb2(50),
-	lcc2(50),
-	r1(0),
-	g1(0),
-	b1(0),
-	c1(0),
-	r2(0),
-	g2(0),
-	b2(0),
-	c2(0)
-{}
-
-
-bool SensorTcs::read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c){
-	uint8_t write_buf[1] = {TCS_CDATAL};
-	uint8_t read_buf[8];
-
-    i2c_master_dev_handle_t dev = i2c->get_device(TCSADDR);
-    if (!dev) return false;
-
-	//definir donde empezar a escribir los datos leidos
-	esp_err_t err = i2c_master_transmit_receive(dev, write_buf, 1, read_buf, 8, pdMS_TO_TICKS(20));
-    if (err != ESP_OK) {
-		i2c->error();
-        return false;
-    }
-
-	//conbina los bytes para transformarlos a valores en 16bits
-	*c = (read_buf[1] << 8) | read_buf[0];
-    *r = (read_buf[3] << 8) | read_buf[2];
-    *g = (read_buf[5] << 8) | read_buf[4];
-    *b = (read_buf[7] << 8) | read_buf[6];
-
-	i2c->reset();
-	return true;
-}
-
-void SensorTcs::calCol(){
- 	// Acumuladores para promediar las lecturas
-  	uint32_t t_r = 0;
-  	uint32_t t_g = 0;
-  	uint32_t t_b = 0;
-	uint32_t t_c = 0;
-  	uint16_t r, g, b, c;
-  	const int NUMM = 15;
-
-	//primero sensor
-  	for (int i = 0; i < NUMM; i++) {
-  	  	// Leer sensor 1
-  	  	mu.sel(i2c, 0);
-  	  	if(read(&r, &g, &b, &c)){
-			t_r += r;
-  	  		t_g += g;
-  	  		t_b += b;
-			t_c += c;
-		}
-	    vTaskDelay(pdMS_TO_TICKS(10));
-  	}
-	// calcula el promedio de las muestras
- 	lcr = t_r / NUMM;
-	lcg = t_g / NUMM;
-  	lcb = t_b / NUMM;
-	lcc = t_c / NUMM;
-
-	ESP_LOGI(TAG, "Calibracion: R=%d, G=%d, B=%d, C=%d", lcr, lcg, lcb, lcc);
-
-	//segundo sensor
-	t_r = 0;
-	t_g = 0;
-	t_b = 0;
-	t_c = 0;
-  	for (int i = 0; i < NUMM; i++) {
-  		// Leer sensor 2
-  		mu.sel(i2c, 3);
-  		if(read(&r, &g, &b, &c)){
-			t_r += r;
-  			t_g += g;
-  			t_b += b;
-			t_c += c;
-		}
-    	vTaskDelay(pdMS_TO_TICKS(10));
-  	}
-  	// calcula el promedio de las muestras
- 	lcr2 = t_r / NUMM;
-	lcg2 = t_g / NUMM;
-  		lcb2 = t_b / NUMM;
-	lcc2 = t_c / NUMM;
-
-	ESP_LOGI(TAG, "Calibracion 2: R=%d, G=%d, B=%d, C=%d", lcr2, lcg2, lcb2, lcc2);
-}
-
-void SensorTcs::begin(){
-	nvsLeer();
-    i2c_master_dev_handle_t dev = i2c->get_device(TCSADDR);
-    if (!dev) {
-        ESP_LOGE(TAG, "No se pudo obtener el handle del TCS34725");
-        return;
-    }
-
-	uint8_t write_buf[2];
-
-    write_buf[0] = TCS_ATIME;
-    write_buf[1] = 0xFF;
-	uint8_t write_buf_gain[2] = {TCS_CONTROL, 0x01};
-	uint8_t write_buf_enable[2] = {TCS_ENABLE, 0x03};
-
-	// selecciona sc_1
-	mu.sel(i2c, 0);
-	// verifica el funcionamiento de sc_1
-	if (i2c_master_transmit(dev, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_transmit(dev, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_transmit(dev, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
-        estado = true;
-    } else {
-	    estado = false;
-		ESP_LOGE(TAG, "No se pudo inicializar sc_1 (TCS34725)");
-		rgb(0, 1023);
-	}
-
-	mu.sel(i2c, 3);
-
-    // Intentamos escribir la configuración
-    if (i2c_master_transmit(dev, write_buf, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_transmit(dev, write_buf_gain, 2, pdMS_TO_TICKS(100)) == ESP_OK &&
-        i2c_master_transmit(dev, write_buf_enable, 2, pdMS_TO_TICKS(100)) == ESP_OK) {
-	    estado2 = true;
-	} else {
-	    estado2 = false;
-		ESP_LOGE(TAG, "No se pudo inicializar sc_2 (TCS34725)");
-		rgb(0, 1023);
-	}
-
-	//se  calibra si por lo menos uno funciono
-	if(estado || estado2){
-		calCol();
-	}
-	//se crea la tarea de los sensores de color
-  	tarea = xTaskCreateStaticPinnedToCore(senColor, "sensorColor", sizeof(stackTcs), this, 3, stackTcs, &tcbTcs, 1);
-}
-
-bool SensorTcs::sc_1Verify(){
-	//variable que guarda el resultado
-	bool res = false;
-	//variable tempotales
-	uint16_t rt, gt, bt, ct;
-    // detecta si el sensor de color funciona bien
-    if (estado) {
-    	// selecciona sc_1
-    	mu.sel(i2c, 0);
-      	// sc_1 lee el color
-      	if(read(&rt, &gt, &bt, &ct)){
-			//se aplican
-			r1 = rt;
-			g1 = gt;
-			b1 = bt;
-			c1 = ct;
-      		// sc_1 determina si el color detectado es el mismo del limite
-      		long difCol = labs(r1 - lcr) + labs(g1 - lcg) + labs(b1 - lcb);
-      		if (difCol > limCol) {
-        		// retorna verdadero al detectar el limite
-				res = true;
-			}
-		}
-	}
-	vTaskDelay(1);
-	return res;
-}
-
-bool SensorTcs::sc_2Verify(){
-	//variable del resultado
-	bool res = false;
-	//variables temporales
-	uint16_t rt, gt, bt, ct;
-	if (estado2) {
-      	// selecciona sc_2
-      	mu.sel(i2c, 3);
-      	// sc_2 lee el color
-      	if(read(&rt, &gt, &bt, &ct)){
-			r2 = rt;
-			g2 = gt;
-			b2 = bt;
-			c2 = ct;
-      		// sc_2 determina si el color detectado es el mismo del limite
-      		long difCol = labs(r2 - lcr2) + labs(g2 - lcg2) + labs(b2 - lcb2);
-      		if (difCol > limCol) {
-        		// retorna verdadero al detectar el limite
-				res = true;
-			}
-		}
-    }
-	vTaskDelay(1);
-	return res;
-}
-
-//metodo que procesa las detecciones tanto de sc_1 como sc_2
-void SensorTcs::procesar(){
-	//se verifica si se detecta el limite en direccion A
-	if(sc_1Verify()){
-		//manda bit si sc_1 detecta el limite
-		xEventGroupSetBits(eventos, BIT_LIM_AI);
-	}else{
-		//limpia el bit si sc_1 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_LIM_AI);
-	}
-
-	//se verifica si se detecta el limite en direccion B
-	if(sc_2Verify()){
-		//manda bit si sc_2 detecta el limite
-		xEventGroupSetBits(eventos, BIT_LIM_BI);
-	}else{
-		//limpia el bit si sc_2 deja de detectar el limite
-		xEventGroupClearBits(eventos, BIT_LIM_BI);
-	}
-}
-
-//tarea que se encarga de procesar los datos de los sensores de color
-void SensorTcs::senColor(void *pvParameters) {
-	//se obtiene el puntero del objeto
-	SensorTcs* sensor = (SensorTcs*)pvParameters;
-	while (true) {
-		//inicia el combate
-		if (start) {
-			//se verifican ambos sensores de color
-			sensor->procesar();
-		}
-   	 	vTaskDelay(pdMS_TO_TICKS(10));
-  	}
-}
-
-//metodo que lee la Nvs
-void SensorTcs::nvsLeer(){
-	//se accede al namspace de sensores
-	Nvs nvs("sensores");
-	//extrae el valor del limite de color
-	limCol = nvs.leer("umbral_color", limCol);
-}
-
-//metdo que recopila las lecturas y datos en general para la telemetria
-void SensorTcs::colores(uint16_t* buffer){
-	//se envian los respecivos datos a la telemetria
-
-	//Calibracion de sc_1
-	buffer[0] = lcr;
-	buffer[1] = lcg;
-	buffer[2] = lcb;
-	buffer[3] = lcc;
-
-	//Calibracion de sc_2
-	buffer[4] = lcr2;
-	buffer[5] = lcg2;
-	buffer[6] = lcb2;
-	buffer[7] = lcc2;
-
-	//lecturas de sc_1
-	buffer[8] = r1;
-	buffer[9] = g1;
-	buffer[10] = b1;
-	buffer[11] = c1;
-
-	//lecturas de sc_2
-	buffer[12] = r2;
-	buffer[13] = g2;
-	buffer[14] = b2;
-	buffer[15] = c2;
-}
-
-#endif // !CONFIG_IDF_TARGET_ESP32S3
-
-
-==========================================
-FILE PATH: ./components/sensores/SensorTcs.h
-==========================================
-
-#ifndef SENSORTCS_H
-#define SENSORTCS_H
-
-#include "sdkconfig.h"
-
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-
-#include "driver/i2c_master.h"
-#include "freertos/task.h"
-#include "GestorI2C.h"
-#include "Multiplexor.h"
-#include "SensorLimite.h"
-#include <cstdint>
-
-class SensorTcs : public SensorLimite {
-	private:
-		int limCol;
-		bool estado;
-		bool estado2;
-
-		GestorI2C* i2c;
-		Multiplexor mu;
-
-		uint16_t lcr, lcg, lcb, lcc;
-		uint16_t lcr2, lcg2, lcb2, lcc2;
-
-		bool read(uint16_t* r, uint16_t* g, uint16_t* b, uint16_t* c);
-		void nvsLeer();
-
-		uint16_t r1;
-		uint16_t g1;
-		uint16_t b1;
-		uint16_t c1;
-		uint16_t r2;
-		uint16_t g2;
-		uint16_t b2;
-		uint16_t c2;
-
-		//handle de la tarea
-		TaskHandle_t tarea = NULL;
-		//tcb de la tarea
-		StaticTask_t tcbTcs;
-		//stack de la tarea
-		StackType_t stackTcs[2048];
-	public:
-		SensorTcs(int limCol, GestorI2C* _i2c);
-		virtual ~SensorTcs() {}
-
-		void calCol();
-
-		bool sc_1Verify();
-		bool sc_2Verify();
-
-		static void senColor(void* pvParameters);
-
-		void procesar();
-
-		void begin() override;
-
-		void colores(uint16_t* buffer) override;
-};
-
-#endif // !CONFIG_IDF_TARGET_ESP32S3
-#endif // SENSORTCS_H
-
-
-==========================================
 FILE PATH: ./components/sensores/SensorTof.cpp
 ==========================================
 
@@ -4936,417 +3156,6 @@ class SensorTof : public SensorRival {
 
 
 ==========================================
-FILE PATH: ./components/sensores/SensorUltra.cpp
-==========================================
-
-#include "sdkconfig.h"
-
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-
-#include "driver/rmt_common.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_err.h"
-#include "SensorUltra.h"
-#include "Nvs.h"
-#include "driver/gpio.h"
-#include "driver/rmt_tx.h"
-#include "driver/rmt_rx.h"
-#include "driver/rmt_encoder.h"
-#include "driver/rmt_types.h"
-#include "esp_log.h"
-#include <cstdint>
-#include "pines.h"
-#include "eventos.h"
-
-//TAG
-#define TAG "ultra"
-
-SensorUltra::SensorUltra(int _maxd):
-	txC1(NULL),
-	txC2(NULL),
-	rxC1(NULL),
-	rxC2(NULL),
-	encoder(NULL),
-	dis1(0),
-	dis2(0),
-    maxd(_maxd),
-	ind1(0),
-	ind2(0),
-	total1(0),
-	total2(0)
-{
-    trig_1 = TRIG_1;
-    echo_1 = ECHO_1;
-    trig_2 = TRIG_2;
-    echo_2 = ECHO_2;
-
-for(int i = 0; i < N_MUESTRAS; i++) {
-        mem1[i] = 0;
-        mem2[i] = 0;
-    }
-}
-
-//metodo que inicializa cosas
-bool SensorUltra::begin(){
-	nvsLeer();
-
-	// se inicializan los pines output
-	gpio_config_t io_conf_output;
-	io_conf_output.pin_bit_mask = (1ULL << trig_1) | (1ULL << trig_2);
-	io_conf_output.mode = GPIO_MODE_OUTPUT;
-	io_conf_output.pull_up_en = GPIO_PULLUP_DISABLE;
-	io_conf_output.pull_down_en = GPIO_PULLDOWN_DISABLE;
-	io_conf_output.intr_type = GPIO_INTR_DISABLE;
-	gpio_config(&io_conf_output);
-
-	//se inicializan los pines input
-   	gpio_config_t io_conf_input_simple;
-    io_conf_input_simple.pin_bit_mask = (1ULL << echo_1) | (1ULL << echo_2);
-    io_conf_input_simple.mode = GPIO_MODE_INPUT;
-    io_conf_input_simple.pull_up_en = GPIO_PULLUP_DISABLE;
-    io_conf_input_simple.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    io_conf_input_simple.intr_type = GPIO_INTR_DISABLE;
-    gpio_config(&io_conf_input_simple);
-
-	//creamos el encoder
-	rmt_copy_encoder_config_t confE = {};
-	ESP_ERROR_CHECK(rmt_new_copy_encoder(&confE, &encoder));
-
-	//configuracion de canal tx1
-	rmt_tx_channel_config_t confT1 = {};
-	confT1.gpio_num = trig_1;
-	confT1.clk_src = RMT_CLK_SRC_DEFAULT;
-	confT1.resolution_hz = 1000000;
-	confT1.mem_block_symbols = 64;
-	confT1.trans_queue_depth = 4;
-
-	//handle del canal tx1
-	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT1, &txC1));
-
-	//configuracion de canal tx2
-	rmt_tx_channel_config_t confT2 = {};
-	confT2.gpio_num = trig_2;
-	confT2.clk_src = RMT_CLK_SRC_DEFAULT;
-	confT2.resolution_hz = 1000000;
-	confT2.mem_block_symbols = 64;
-	confT2.trans_queue_depth = 4;
-
-	//handle del canal tx2
-	ESP_ERROR_CHECK(rmt_new_tx_channel(&confT2, &txC2));
-
-	//configuracion del canal rx1
-	rmt_rx_channel_config_t confR1 = {};
-	confR1.gpio_num = echo_1;
-	confR1.clk_src = RMT_CLK_SRC_DEFAULT;
-	confR1.resolution_hz = 1000000;
-	confR1.mem_block_symbols = 64;
-
-	//handle del canal rx1
-	ESP_ERROR_CHECK(rmt_new_rx_channel(&confR1, &rxC1));
-
-	//configuracion del canal rx2
-	rmt_rx_channel_config_t confR2 = {};
-	confR2.gpio_num = echo_2;
-	confR2.clk_src = RMT_CLK_SRC_DEFAULT;
-	confR2.resolution_hz = 1000000;
-	confR2.mem_block_symbols = 64;
-
-	//handle del canal rx2
-	ESP_ERROR_CHECK(rmt_new_rx_channel(&confR2, &rxC2));
-
-	//se registrar los callback
-	rmt_rx_event_callbacks_t cb = {};
-	cb.on_recv_done = evento;
-
-
-	ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rxC1, &cb, this));
-	ESP_ERROR_CHECK(rmt_rx_register_event_callbacks(rxC2, &cb, this));
-
-	//habilitamos los canales
-	ESP_ERROR_CHECK(rmt_enable(txC1));
-	ESP_ERROR_CHECK(rmt_enable(txC2));
-	ESP_ERROR_CHECK(rmt_enable(rxC1));
-	ESP_ERROR_CHECK(rmt_enable(rxC2));
-
-	//se crea la tarea
-	task = xTaskCreateStaticPinnedToCore(senRival, "SensorRival", sizeof(stackUltra), this, 2, stackUltra, &tcbUltra, 0);
-	return true;
-}
-
-uint16_t SensorUltra::dist_mm(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC){
-	rmt_symbol_word_t pul[3];
-
-	//se guarda el handle
-	this->task = xTaskGetCurrentTaskHandle();
-
-	//configuracion inicial del payload
-	pul[0].level0 = 1;
-	pul[0].duration0 = 10;
-	pul[0].level1 = 0;
-	pul[0].duration1 = 0;
-
-	//cofiguracion de la transmision
-	rmt_transmit_config_t confT = {};
-	confT.loop_count = 0;
-
-	//configuracion de la recepcion dl pulso
-	rmt_receive_config_t confR = {};
-	confR.signal_range_min_ns = 1000;
-	confR.signal_range_max_ns = 25000000;
-
-	//detectar por echo
-	esp_err_t err = rmt_receive(rxC, buf, sizeof(buf), &confR);
-	if(err == ESP_ERR_INVALID_STATE){
-		rmt_disable(rxC);
-		vTaskDelay(1);
-		rmt_enable(rxC);
-		err = rmt_receive(rxC, buf, sizeof(buf), &confR);
-	}
-	if(err != ESP_OK){
-		rmt_disable(rxC);
-		vTaskDelay(1);
-		rmt_enable(rxC);
-		return 0;
-	}
-
-
-	//pulso trigger
-	err = rmt_transmit(txC, encoder, pul, sizeof(pul), &confT);
-	if(err != ESP_OK){
-		rmt_disable(rxC);
-		vTaskDelay(1);
-		rmt_enable(rxC);
-		return 0;
-	}
-
-	//espera los datos del callback
-	if(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(5)) == 0){
-		rmt_disable(rxC);
-        vTaskDelay(1);
-		rmt_enable(rxC);
-        return 0;
-    }
-
-    //Retornamos el valor correspondiente al canal que acabamos de usar
-    if(rxC == rxC1) {
-		return dis1;
-	}else if(rxC == rxC2) {
-		return dis2;
-	}
-    return 0;
-}
-
-uint16_t SensorUltra::filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total){
-	//se eliminaba del total la lectura mas vieja
-	total = total - mem[ind];
-
-	//se le la nueva lectura
-	int lec = dist_mm(trig, echo, rxC, txC);
-	if(lec == 0 || lec > maxd){
-		//retornamos lo que ya estaba si la lectura no es valida
-		return total / N_MUESTRAS;
-	}
-	//se agrega a la lista
-	mem[ind] = lec;
-
-	//se agrega al total
-	total = total + mem[ind];
-
-	//se suma 1 al indice o lo restablecemos a 0 si llega al maximo
-	ind++;
-	if(ind >= N_MUESTRAS){
-		ind = 0;
-	}
-
-	//retorna el promedio
-	return total / N_MUESTRAS;
-}
-
-//metodo que procesara los eventos del callback
-bool IRAM_ATTR SensorUltra::evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user){
-	BaseType_t high_task_wakeup = pdFALSE;
-	SensorUltra *self = (SensorUltra *)user;
-	rmt_symbol_word_t *sim = (rmt_symbol_word_t *)data->received_symbols;
-	int tiempo = 0;
-	//extraemos el tiempo
-	for(size_t i = 0; i < data->num_symbols; i++){
-		if(sim[i].level0 == 1){
-			tiempo = sim[i].duration0;
-            break;
-		}
-	}
-	uint16_t dis = (tiempo * 10) / 58;
-	//calculamos la distancia
-	if(tiempo > 0){
-		if(rxC == self->rxC1){
-			self->dis1 = dis;
-		}else if(rxC == self->rxC2){
-			self->dis2 = dis;
-		}
-	}
-	vTaskNotifyGiveFromISR(self->task, &high_task_wakeup);
-    return high_task_wakeup == pdTRUE;
-}
-
-//metodo que verifica ojos 1
-bool SensorUltra::ojos_1Verify(){
-	dis1 = filtro(trig_1, echo_1, rxC1, txC1, mem1, ind1, total1);
-	return (dis1 > 0 && dis1 <= maxd);
-}
-
-//metodo que verifica ojos 2
-bool SensorUltra::ojos_2Verify(){
-	dis2 = filtro(trig_2, echo_2, rxC2, txC2, mem2, ind2, total2);
-	return (dis2 > 0 && dis2 <= maxd);
-}
-
-void SensorUltra::procesar(){
-	if(ojos_1Verify()){
-		xEventGroupSetBits(eventos, BIT_ULTRA_A);
-	}else{
-		xEventGroupClearBits(eventos, BIT_ULTRA_A);
-	}
-	if(ojos_2Verify()){
-		xEventGroupSetBits(eventos, BIT_ULTRA_B);
-	}else{
-		xEventGroupClearBits(eventos, BIT_ULTRA_B);
-	}
-}
-
-void SensorUltra::senRival(void* pvParameters){
-	SensorUltra* sensor = (SensorUltra*)pvParameters;
-	while(true){
-		sensor->procesar();
-		vTaskDelay(pdMS_TO_TICKS(100));
-	}
-	vTaskDelete(NULL);
-}
-
-//metodo que lee de la nvs la distancia maxima guardada
-void SensorUltra::nvsLeer(){
-	Nvs nvs("sensores");
-	maxd = nvs.leer("dist_max", maxd);
-}
-
-//metodo que da las distancias para telemetria
-void SensorUltra::getDistancias(uint16_t* buffer){
-    buffer[0] = dis1;
-    buffer[1] = dis2;
-    // Rellenamos el resto (reservado para ToF) con 0
-    for(int i = 2; i < 24; i++) {
-        buffer[i] = 0;
-    }
-}
-
-#endif // !CONFIG_IDF_TARGET_ESP32S3
-
-
-==========================================
-FILE PATH: ./components/sensores/SensorUltra.h
-==========================================
-
-#ifndef SENSORULTRA_H
-#define SENSORULTRA_H
-
-#include "sdkconfig.h"
-
-#ifndef CONFIG_IDF_TARGET_ESP32S3
-
-#include "SensorRival.h"
-#include "driver/gpio.h"
-#include "driver/rmt_tx.h"
-#include "driver/rmt_rx.h"
-#include "driver/rmt_encoder.h"
-#include "driver/rmt_types.h"
-
-#define N_MUESTRAS 5
-
-class SensorUltra : public SensorRival {
-	private:
-		//pines de los sensores
-		gpio_num_t trig_1;
-		gpio_num_t trig_2;
-		gpio_num_t echo_1;
-		gpio_num_t echo_2;
-
-		//handles del rmt
-		rmt_channel_handle_t txC1;
-		rmt_channel_handle_t txC2;
-		rmt_channel_handle_t rxC1;
-		rmt_channel_handle_t rxC2;
-
-		//el handle del encoder
-		rmt_encoder_handle_t encoder;
-
-		//buffer de los datos recibidos por echo
-		rmt_symbol_word_t buf[9];
-
-		//vaiables de las distancias leidas
-		uint16_t dis1;
-		uint16_t dis2;
-
-		//handle de la tarea
-		TaskHandle_t task;
-
-		//tcb de la tarea
-		StaticTask_t tcbUltra;
-		//stack de la tarea
-		StackType_t stackUltra[4096];
-
-		//limite de distancia
-		int maxd;
-
-		//variables que almacenan muestas
-		uint16_t mem1[N_MUESTRAS];
-		uint16_t mem2[N_MUESTRAS];
-
-		//variables que de los indices
-		int ind1;
-		int ind2;
-
-		//variables de los totales promedio
-		long total1;
-		long total2;
-
-		//metodo para medir distancia
-		uint16_t dist_mm(gpio_num_t trig_pin, gpio_num_t echo_pin, rmt_channel_handle_t rxC, rmt_channel_handle_t txC);
-
-		//metodo que filtra las lecturas
-		uint16_t filtro(gpio_num_t trig, gpio_num_t echo, rmt_channel_handle_t rxC, rmt_channel_handle_t txC, uint16_t* mem, int& ind, long& total);
-
-		//metodo del callback
-		static bool IRAM_ATTR evento(rmt_channel_handle_t rxC, const rmt_rx_done_event_data_t *data, void *user);
-
-		//metodo para leer los valores del nvs
-		void nvsLeer();
-	public:
-		//costructor
-		SensorUltra(int _maxd);
-		virtual ~SensorUltra() {}
-
-		//metodos de verificacion
-		bool ojos_1Verify();
-		bool ojos_2Verify();
-
-		//inicializamos el RMT
-		bool begin()override;
-
-		//metodo que lee ambos sensores ultrasonicos
-		void procesar();
-
-		//funcion de la tarea
-		static void senRival(void *pvParameters);
-
-		//metodo para devolver las distancias estandarizado
-		void getDistancias(uint16_t* buffer) override;
-};
-
-#endif // !CONFIG_IDF_TARGET_ESP32S3
-#endif // !SENSORULTRA_H
-
-
-==========================================
 FILE PATH: ./components/ui/rgb.h
 ==========================================
 
@@ -5438,20 +3247,10 @@ FILE PATH: ./main/main.cpp
 #include "esp_task_wdt.h"
 #include "Wifi.h"
 #include "Mqtt.h"
-#include "ControlMotores.h"
 #include "MaquinaEstados.h"
 #include "GestorI2C.h"
-#include "SensorLimite.h"
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    #include "SensorTcrt.h"
-    #include "SensorTof.h"
-#else
-    #include "SensorTcs.h"
-    #include "SensorUltra.h"
-#endif
-#include "SensorRival.h"
+#include "SensorTof.h"
 #include "Telemetria.h"
-#include "MonitorSistema.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "rgb.h"
@@ -5484,26 +3283,14 @@ Wifi wi;
 //objeto del protocolo MQTT
 Mqtt mq;
 
-//objeto que recopila datos del sistema
-MonitorSistema mon;
-
 //objeto que gestiona el bus I2C
 GestorI2C i2c;
 
-// objeto de los sensores de limite
-SensorLimite* sl = nullptr;
-
 // objeto del sensor rival
-SensorRival* sr = nullptr;
-
-// objeto del controlador de motores
-ControlMotores cm(MOT_A2, MOT_B2, MOT_A1, MOT_B1);
+SensorTof* sr = nullptr;
 
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
-
-// variable que define la version del hardware
-bool final = false;
 
 // objeto de la telemetria
 Telemetria* tm = nullptr;
@@ -5516,13 +3303,11 @@ TaskHandle_t th_robot = NULL;
 
 //buffer para el TCB
 StaticTask_t tcbRobot;
-StaticTask_t tcbMotores;
 StaticTask_t tcbMusica;
 StaticTask_t tcbTelemetria;
 
 //stack de las tareas
 StackType_t stackRobot[4096];
-StackType_t stackMotores[2048];
 StackType_t stackMusica[1024];
 StackType_t stackTelemetria[10240];
 
@@ -5530,7 +3315,6 @@ StackType_t stackTelemetria[10240];
 
 //protoripos de las tareas
 void robot(void *pvParameters);
-void motores(void *pvParameters);
 void musica(void *pvParameters);
 void telemetria(void *pvParameters);
 
@@ -5550,7 +3334,6 @@ extern "C" void app_main(void){
 
   	// se crean las tareas
   	th_robot = xTaskCreateStaticPinnedToCore(robot, "robot", sizeof(stackRobot), NULL, 2, stackRobot, &tcbRobot, 1);
-  	motr = xTaskCreateStaticPinnedToCore(motores, "motores", sizeof(stackMotores), NULL, 5, stackMotores, &tcbMotores, 1);
 	xTaskCreateStaticPinnedToCore(musica, "musica", sizeof(stackMusica), NULL, 1, stackMusica, &tcbMusica, 0);
 
 	ESP_LOGI(TAG, "se inicializo las tareas");
@@ -5607,39 +3390,17 @@ void robot(void *pvParameters) {
 		}
 
     	// MAQUINA DE ESTADOS
-		me->corrienteA = mon.corrienteStall();
     	me->logica();
 
 		//se calcula y envia la duracion de un ciclo
 		uint64_t Tfin = esp_timer_get_time();
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
-		
+
 		// Espera event-driven: duerme hasta 1ms (dejando respirar a telemetria e IDLE)
 		// pero despierta instantaneamente si la ISR del TCRT5000 avisa.
 		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
-}
-
-
-//MOTORES
-
-
-void motores(void *pvParameters) {
-  	uint32_t accion = 0;
-  	uint32_t accionNueva;
-
-  	while (true) {
-    	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
-      		// Actualiza solo cuando llega algo nuevo
-			if(accionNueva != accion){
-      			accion = accionNueva;
-		      	// Aplica el nuevo movimiento
-      			cm.controlador(accion);
-			}
-		}
-	}
 }
 
 
@@ -5673,12 +3434,6 @@ void telemetria(void *pvParameters){
 
 // funcion que inicializa el sistema
 void begin() {
-    #ifdef CONFIG_IDF_TARGET_ESP32S3
-        ESP_LOGI(TAG, "TARGET DETECTADO: ESP32-S3");
-    #else
-        ESP_LOGW(TAG, "DETECTADO: ESP32 ESTANDAR");
-    #endif
-
 	//inicializar la memoria nvs personalizada
 	esp_err_t err = nvs_flash_init_partition("configuracion");
 	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
@@ -5749,7 +3504,6 @@ void begin() {
 
 
   	pwm_rgb();
-	mon.begin();
   	rgb(1023, 800);
 }
 
@@ -5758,28 +3512,12 @@ void begin_hardware() {
   	//ajustes iniciales
     ESP_LOGI(TAG, "Iniciando hardware...");
   	i2c.begin();
-  	cm.begin();
-  	cm.alto();
 
   	//pin de la musica
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-    #ifdef CONFIG_IDF_TARGET_ESP32S3
-        final = true;
-        sl = new SensorTcrt(TCRT_1, TCRT_2, TCRT_3, TCRT_4);
-        sr = new SensorTof(i2c, dir, maxd);
-    #else
-        final = false;
-        sl = new SensorTcs(limCol, &i2c);
-        sr = new SensorUltra(maxd);
-    #endif
-
-    if (sl != nullptr) {
-        sl->begin();
-    } else {
-        ESP_LOGE(TAG, "No se pudo crear el sensor de limite");
-    }
+    sr = new SensorTof(i2c, dir, maxd);
 
     if (sr != nullptr) {
         sr->begin();
@@ -5788,7 +3526,7 @@ void begin_hardware() {
     }
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr, final);
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 
@@ -5806,7 +3544,7 @@ void comunicaciones() {
 		wi.espera();
  		mq.begin();
 
-		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, &mon, final);
+		tm = new Telemetria(me, &mq, &wi);
 
 		//tarea de telemetria
 		xTaskCreateStaticPinnedToCore(telemetria, "telemetria", sizeof(stackTelemetria), NULL, 1, stackTelemetria, &tcbTelemetria, 0);
@@ -5821,6 +3559,166 @@ void limpiar_memoria() {
     if (tm != nullptr) { delete tm; tm = nullptr; }
     if (me != nullptr) { delete me; me = nullptr; }
     if (sr != nullptr) { delete sr; sr = nullptr; }
-    if (sl != nullptr) { delete sl; sl = nullptr; }
     ESP_LOGI(TAG, "Memoria de objetos liberada.");
 }
+
+
+==========================================
+FILE PATH: ../protocolo/Crc8Table.h
+==========================================
+
+#ifndef CRC8_TABLE_H
+#define CRC8_TABLE_H
+
+#include <stdint.h>
+#include <stddef.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+static const uint8_t CRC8[256] = {
+    0x00, 0x07, 0x0E, 0x09, 0x1C, 0x1B, 0x12, 0x15, 0x38, 0x3F, 0x36, 0x31, 0x24, 0x23, 0x2A, 0x2D,
+    0x70, 0x77, 0x7E, 0x79, 0x6C, 0x6B, 0x62, 0x65, 0x48, 0x4F, 0x46, 0x41, 0x54, 0x53, 0x5A, 0x5D,
+    0xE0, 0xE7, 0xEE, 0xE9, 0xFC, 0xFB, 0xF2, 0xF5, 0xD8, 0xDF, 0xD6, 0xD1, 0xC4, 0xC3, 0xCA, 0xCD,
+    0x90, 0x97, 0x9E, 0x99, 0x8C, 0x8B, 0x82, 0x85, 0xA8, 0xAF, 0xA6, 0xA1, 0xB4, 0xB3, 0xBA, 0xBD,
+    0xC7, 0xC0, 0xC9, 0xCE, 0xDB, 0xDC, 0xD5, 0xD2, 0xFF, 0xF8, 0xF1, 0xF6, 0xE3, 0xE4, 0xED, 0xEA,
+    0xB7, 0xB0, 0xB9, 0xBE, 0xAB, 0xAC, 0xA5, 0xA2, 0x8F, 0x88, 0x81, 0x86, 0x93, 0x94, 0x9D, 0x9A,
+    0x27, 0x20, 0x29, 0x2E, 0x3B, 0x3C, 0x35, 0x32, 0x1F, 0x18, 0x11, 0x16, 0x03, 0x04, 0x0D, 0x0A,
+    0x57, 0x50, 0x59, 0x5E, 0x4B, 0x4C, 0x45, 0x42, 0x6F, 0x68, 0x61, 0x66, 0x73, 0x74, 0x7D, 0x7A,
+    0x89, 0x8E, 0x87, 0x80, 0x95, 0x92, 0x9B, 0x9C, 0xB1, 0xB6, 0xBF, 0xB8, 0xAD, 0xAA, 0xA3, 0xA4,
+    0xF9, 0xFE, 0xF7, 0xF0, 0xE5, 0xE2, 0xEB, 0xEC, 0xC1, 0xC6, 0xCF, 0xC8, 0xDD, 0xDA, 0xD3, 0xD4,
+    0x69, 0x6E, 0x67, 0x60, 0x75, 0x72, 0x7B, 0x7C, 0x51, 0x56, 0x5F, 0x58, 0x4D, 0x4A, 0x43, 0x44,
+    0x19, 0x1E, 0x17, 0x10, 0x05, 0x02, 0x0B, 0x0C, 0x21, 0x26, 0x2F, 0x28, 0x3D, 0x3A, 0x33, 0x34,
+    0x4E, 0x49, 0x40, 0x47, 0x52, 0x55, 0x5C, 0x5B, 0x76, 0x71, 0x78, 0x7F, 0x6A, 0x6D, 0x64, 0x63,
+    0x3E, 0x39, 0x30, 0x37, 0x22, 0x25, 0x2C, 0x2B, 0x06, 0x01, 0x08, 0x0F, 0x1A, 0x1D, 0x14, 0x13,
+    0xAE, 0xA9, 0xA0, 0xA7, 0xB2, 0xB5, 0xBC, 0xBB, 0x96, 0x91, 0x98, 0x9F, 0x8A, 0x8D, 0x84, 0x83,
+    0xDE, 0xD9, 0xD0, 0xD7, 0xC2, 0xC5, 0xCC, 0xCB, 0xE6, 0xE1, 0xE8, 0xEF, 0xFA, 0xFD, 0xF4, 0xF3,
+};
+
+static inline uint8_t crc8(const uint8_t* paquete, size_t tamaño) {
+    uint8_t crc = 0xFF;
+    for (size_t i = 0; i < tamaño; i++) {
+        crc = CRC8[crc ^ paquete[i]];
+    }
+    return crc;
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // CRC8_TABLE_H
+
+
+==========================================
+FILE PATH: ../protocolo/sumo_protocol.h
+==========================================
+
+#ifndef SUMO_PROTOCOL_H
+#define SUMO_PROTOCOL_H
+
+#include <stdint.h>
+
+#define HEADER_1 0xAA
+#define HEADER_2 0x55
+#define HEADER_3 0xA5
+#define ID_CONF 0x01
+#define ID_ESP 0x02
+#define ID_STM 0x03
+#define ID_OK 0x04
+#define UNLOCK_M (1 << 0)
+#define MAX_PACKET_SIZE sizeof(Stm_t)
+
+
+#pragma pack(push, 1)
+
+typedef struct {
+	//verificador del inicio de la configuracion
+	uint8_t inicio[3];
+
+	//identificador del mensaje
+	uint8_t id;
+
+	//umbral de los TCRT
+	uint16_t u_limite;
+
+	//tiempo de retroceso
+	uint16_t t_ret;
+
+	//relleno
+	uint8_t relleno[11];
+
+	//verificador del final de la configuracion
+	uint8_t final;
+} Conf_t;
+
+typedef struct {
+	//verificador del inicio de la accion
+	uint8_t inicio[3];
+
+	//identificador del mensaje
+	uint8_t id;
+
+	//velocidades objetio
+	int16_t obj_1;
+	int16_t obj_2;
+
+	//banderas
+	uint8_t banderas;
+
+	//contador
+	uint8_t cont;
+
+	//relleno
+	uint8_t relleno[9];
+
+	//verificador del final de la accion
+	uint8_t final;
+} Esp_t;
+
+typedef struct {
+	//verificador del inicio de la transmision
+	uint8_t inicio[3];
+
+	//identificador del mensaje
+	uint8_t id;
+
+	//valores de los TCRT5000
+    uint8_t tcrt_1;
+	uint8_t tcrt_2;
+	uint8_t tcrt_3;
+	uint8_t tcrt_4;
+
+	//corriente de cada DRV8874
+	uint16_t drv_1;
+	uint16_t drv_2;
+	uint16_t drv_3;
+	uint16_t drv_4;
+
+	//bateria
+	uint16_t bateria;
+
+	//contador
+	uint8_t cont;
+
+	//verificador del final de la transmision
+	uint8_t final;
+} Stm_t;
+
+typedef struct {
+	//verificador del inicio de la transmision
+	uint8_t inicio[3];
+
+	//identificador del mensaje
+	uint8_t id;
+
+	//relleno
+	uint8_t relleno[15];
+
+	//verificador del final de la transmision
+	uint8_t final;
+} Ok_t;
+#pragma pack(pop)
+
+#endif // SUMO_PROTOCOL_H

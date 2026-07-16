@@ -36,10 +36,6 @@ static const EventBits_t TOF_BITS[6] = {
 	BIT_TOF_BD
 };
 
-//bits de sensores ultrasonicos
-#define BIT_ULTRA_A (1 << 8)
-#define BIT_ULTRA_B (1 << 9)
-
 //mascara de bits para sensores de limite
 #define MASK_COLOR (MASK_LIM_A | MASK_LIM_B)
 
@@ -48,9 +44,6 @@ static const EventBits_t TOF_BITS[6] = {
 
 //mascara de bits para sensores TOF direccion B
 #define MASK_TOF_B (BIT_TOF_BI | BIT_TOF_BC | BIT_TOF_BD)
-
-//mascara de bits para sensores ultrasonicos
-#define MASK_ULTRA (BIT_ULTRA_A | BIT_ULTRA_B)
 
 //mascaras de convinaciones de TOFs
 

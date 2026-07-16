@@ -2,20 +2,10 @@
 #include "esp_task_wdt.h"
 #include "Wifi.h"
 #include "Mqtt.h"
-#include "ControlMotores.h"
 #include "MaquinaEstados.h"
 #include "GestorI2C.h"
-#include "SensorLimite.h"
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-    #include "SensorTcrt.h"
-    #include "SensorTof.h"
-#else
-    #include "SensorTcs.h"
-    #include "SensorUltra.h"
-#endif
-#include "SensorRival.h"
+#include "SensorTof.h"
 #include "Telemetria.h"
-#include "MonitorSistema.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "rgb.h"
@@ -48,26 +38,14 @@ Wifi wi;
 //objeto del protocolo MQTT
 Mqtt mq;
 
-//objeto que recopila datos del sistema
-MonitorSistema mon;
-
 //objeto que gestiona el bus I2C
 GestorI2C i2c;
 
-// objeto de los sensores de limite
-SensorLimite* sl = nullptr;
-
 // objeto del sensor rival
-SensorRival* sr = nullptr;
-
-// objeto del controlador de motores
-ControlMotores cm(MOT_A2, MOT_B2, MOT_A1, MOT_B1);
+SensorTof* sr = nullptr;
 
 // puntero de la maquina de estados
 MaquinaEstados *me = nullptr;
-
-// variable que define la version del hardware
-bool final = false;
 
 // objeto de la telemetria
 Telemetria* tm = nullptr;
@@ -80,13 +58,11 @@ TaskHandle_t th_robot = NULL;
 
 //buffer para el TCB
 StaticTask_t tcbRobot;
-StaticTask_t tcbMotores;
 StaticTask_t tcbMusica;
 StaticTask_t tcbTelemetria;
 
 //stack de las tareas
 StackType_t stackRobot[4096];
-StackType_t stackMotores[2048];
 StackType_t stackMusica[1024];
 StackType_t stackTelemetria[10240];
 
@@ -94,7 +70,6 @@ StackType_t stackTelemetria[10240];
 
 //protoripos de las tareas
 void robot(void *pvParameters);
-void motores(void *pvParameters);
 void musica(void *pvParameters);
 void telemetria(void *pvParameters);
 
@@ -114,7 +89,6 @@ extern "C" void app_main(void){
 
   	// se crean las tareas
   	th_robot = xTaskCreateStaticPinnedToCore(robot, "robot", sizeof(stackRobot), NULL, 2, stackRobot, &tcbRobot, 1);
-  	motr = xTaskCreateStaticPinnedToCore(motores, "motores", sizeof(stackMotores), NULL, 5, stackMotores, &tcbMotores, 1);
 	xTaskCreateStaticPinnedToCore(musica, "musica", sizeof(stackMusica), NULL, 1, stackMusica, &tcbMusica, 0);
 
 	ESP_LOGI(TAG, "se inicializo las tareas");
@@ -171,39 +145,17 @@ void robot(void *pvParameters) {
 		}
 
     	// MAQUINA DE ESTADOS
-		me->corrienteA = mon.corrienteStall();
     	me->logica();
 
 		//se calcula y envia la duracion de un ciclo
 		uint64_t Tfin = esp_timer_get_time();
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
-		
+
 		// Espera event-driven: duerme hasta 1ms (dejando respirar a telemetria e IDLE)
 		// pero despierta instantaneamente si la ISR del TCRT5000 avisa.
 		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
-}
-
-
-//MOTORES
-
-
-void motores(void *pvParameters) {
-  	uint32_t accion = 0;
-  	uint32_t accionNueva;
-
-  	while (true) {
-    	// Espera una nueva orden indefinidamente
-    	if (xTaskNotifyWait(0, 0, &accionNueva, portMAX_DELAY) == pdPASS) {
-      		// Actualiza solo cuando llega algo nuevo
-			if(accionNueva != accion){
-      			accion = accionNueva;
-		      	// Aplica el nuevo movimiento
-      			cm.controlador(accion);
-			}
-		}
-	}
 }
 
 
@@ -237,12 +189,6 @@ void telemetria(void *pvParameters){
 
 // funcion que inicializa el sistema
 void begin() {
-    #ifdef CONFIG_IDF_TARGET_ESP32S3
-        ESP_LOGI(TAG, "TARGET DETECTADO: ESP32-S3");
-    #else
-        ESP_LOGW(TAG, "DETECTADO: ESP32 ESTANDAR");
-    #endif
-
 	//inicializar la memoria nvs personalizada
 	esp_err_t err = nvs_flash_init_partition("configuracion");
 	if(err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND){
@@ -313,7 +259,6 @@ void begin() {
 
 
   	pwm_rgb();
-	mon.begin();
   	rgb(1023, 800);
 }
 
@@ -322,28 +267,12 @@ void begin_hardware() {
   	//ajustes iniciales
     ESP_LOGI(TAG, "Iniciando hardware...");
   	i2c.begin();
-  	cm.begin();
-  	cm.alto();
 
   	//pin de la musica
   	pinMus(MUS);
 
 	//se le asigna al puntero los el objeto correspondiente
-    #ifdef CONFIG_IDF_TARGET_ESP32S3
-        final = true;
-        sl = new SensorTcrt(TCRT_1, TCRT_2, TCRT_3, TCRT_4);
-        sr = new SensorTof(i2c, dir, maxd);
-    #else
-        final = false;
-        sl = new SensorTcs(limCol, &i2c);
-        sr = new SensorUltra(maxd);
-    #endif
-
-    if (sl != nullptr) {
-        sl->begin();
-    } else {
-        ESP_LOGE(TAG, "No se pudo crear el sensor de limite");
-    }
+    sr = new SensorTof(i2c, dir, maxd);
 
     if (sr != nullptr) {
         sr->begin();
@@ -352,7 +281,7 @@ void begin_hardware() {
     }
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &motr, final);
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 
@@ -370,7 +299,7 @@ void comunicaciones() {
 		wi.espera();
  		mq.begin();
 
-		tm = new Telemetria(me, &cm, sl, sr, &mq, &wi, &mon, final);
+		tm = new Telemetria(me, &mq, &wi);
 
 		//tarea de telemetria
 		xTaskCreateStaticPinnedToCore(telemetria, "telemetria", sizeof(stackTelemetria), NULL, 1, stackTelemetria, &tcbTelemetria, 0);
@@ -385,6 +314,5 @@ void limpiar_memoria() {
     if (tm != nullptr) { delete tm; tm = nullptr; }
     if (me != nullptr) { delete me; me = nullptr; }
     if (sr != nullptr) { delete sr; sr = nullptr; }
-    if (sl != nullptr) { delete sl; sl = nullptr; }
     ESP_LOGI(TAG, "Memoria de objetos liberada.");
 }

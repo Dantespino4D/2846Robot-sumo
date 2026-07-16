@@ -6,11 +6,10 @@
 #include "nvs_flash.h"
 #include <cstdint>
 
-#include "EstrategiaPrototipo.h"
 #include "Estrategia1.h"
 #include "Estrategia2.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr, bool _final):
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr):
 	tempTL(0),
 	tempC(0),
 	tempE1(0),
@@ -36,33 +35,26 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	memo_TC(0),
 	memo_TL(0),
 	memo_C(0),
-	memo_E(false),
-	final(_final)
+	memo_E(false)
 {
-	estPrototipo = new EstrategiaPrototipo();
 	estE1 = new Estrategia1();
 	estE2 = new Estrategia2();
 
 	nvsLeer();
-	if(final){
-		switch(estrategia){
-			case 0:
-				estActual = estE1;
-				break;
-			case 1:
-				estActual = estE2;
-				break;
-			default:
-				estActual = estE1;
-				break;
-		}
-	}else{
-		estActual = estPrototipo;
+	switch(estrategia){
+		case 0:
+			estActual = estE1;
+			break;
+		case 1:
+			estActual = estE2;
+			break;
+		default:
+			estActual = estE1;
+			break;
 	}
 }
 
 MaquinaEstados::~MaquinaEstados() {
-	delete estPrototipo;
 	delete estE1;
 	delete estE2;
 }

@@ -3,7 +3,6 @@
 
 #include "driver/gpio.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32S3
     // Pines para ESP32-S3
     #define MUS GPIO_NUM_3
     #define INI GPIO_NUM_35
@@ -54,30 +53,4 @@
     // Botones Auxiliares
     #define VIC GPIO_NUM_36
     #define DER GPIO_NUM_37
-#else
-    // Pines para ESP32 Estándar (PROTOTIPO)
-    #define MUS GPIO_NUM_4
-    #define INI GPIO_NUM_26
-
-    // I2C
-    #define SDA GPIO_NUM_21
-    #define SCL GPIO_NUM_22
-
-    // Ultrasonicos
-    #define TRIG_1 GPIO_NUM_19
-    #define ECHO_1 GPIO_NUM_23
-    #define TRIG_2 GPIO_NUM_18
-    #define ECHO_2 GPIO_NUM_25
-
-    // Motores
-    #define MOT_A1 GPIO_NUM_13
-    #define MOT_A2 GPIO_NUM_14
-    #define MOT_B1 GPIO_NUM_16
-    #define MOT_B2 GPIO_NUM_17
-
-	// LED RGB
-    #define RGB_PIN_A GPIO_NUM_32
-    #define RGB_PIN_B GPIO_NUM_33
-#endif
-
 #endif
