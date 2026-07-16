@@ -9,7 +9,7 @@
 #include "Estrategia1.h"
 #include "Estrategia2.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr):
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5):
 	tempTL(0),
 	tempC(0),
 	tempE1(0),
@@ -22,10 +22,6 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	tiempo4(_tiempo4),
 	tiempo5(_tiempo5),
 	tiempo6(1000),
-	umbral_stall(2.0f),
-	tiempo_stall(250),
-	corrienteA(0.0f),
-	motr(_motr),
 	modo(-1),
 	estrategia(0),
 	ciclo(0),
@@ -98,35 +94,8 @@ void MaquinaEstados::nvsLeer(){
 	tiempo3 = nvs.leer("tof_largo_plazo",tiempo3);
 	tiempo4 = nvs.leer("recta_star",tiempo4);
 	tiempo5 = nvs.leer("giro_star",tiempo5);
-	tiempo_stall = nvs.leer("t_stall", tiempo_stall);
 	tiempo6 = nvs.leer("evasion", tiempo6);
 	estrategia = nvs.leer("estrategia",estrategia);
-
-	Nvs mot("motores");
-	umbral_stall = mot.leerFloat("u_stall", umbral_stall);
-}
-
-//metodo para detectar atascos
-bool MaquinaEstados::detectarStall(float corrienteA){
-	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-	bool mov_frontal = (modo >= 6 && modo <= 12) || modo == 24 || modo == 25 || modo == 28 || modo == 30 || modo == 31;
-	bool mov_trasero = (modo >= 13 && modo <= 19) || modo == 26 || modo == 27 || modo == 29 || modo == 32 || modo == 33;
-
-	if (mov_frontal || mov_trasero) {
-		if (corrienteA > umbral_stall) {
-			if (tempS == 0) tempS = temp;
-			if (temp - tempS > (unsigned long)tiempo_stall) {
-				memo_eva = mov_frontal ? 1 : 2;
-				tempS = 0;
-				return true;
-			}
-		} else {
-			tempS = 0;
-		}
-	} else {
-		tempS = 0;
-	}
-	return false;
 }
 
 //metodo que recibe la duracion del ciclo
@@ -136,10 +105,9 @@ void MaquinaEstados::cicloR(int c, int i){
 }
 
 //metodo que entrega el estado actual
-void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall){
+void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini){
 	 *_modo = modo;
 	 *_estra = estrategia;
 	 *_ciclo =ciclo;
 	 *_ini = ini;
-	 *_stall = stall;
 }

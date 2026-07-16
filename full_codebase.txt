@@ -386,15 +386,10 @@ Telemetria::Telemetria(MaquinaEstados* e, Mqtt* q, Wifi* w):
 
 void Telemetria::recopilar(){
 	bool _stall = false;
-	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio, &_stall);
+	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
 	d.stall = _stall ? 1 : 0;
-	
+
 	wf->signalW(&d.wifi);
-
-	// TODO: Los 6 ToFs (I2C DMA) y los estados del STM32 (TCRT, Corriente, PWM)
-	// se actualizarán aquí leyendo la estructura empaquetada del Bus de la Verdad (SPI).
-	// La Máquina de Estados (me) u otro gestor deberá proveer acceso a esos datos.
-
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
 }
@@ -403,7 +398,7 @@ void Telemetria::enviar(){
 	recopilar();
 
 	char json[NJSON];
-	
+
 	// JSON estricto. Cero ramas condicionales. Cero variables de prototipo o sensores inútiles.
 	int lon = snprintf(json, NJSON,
 		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"stm32\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d]}}",
@@ -1109,7 +1104,6 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
             com = ALTO;
             break;
     }
-    xTaskNotify(*(ctx->motr), com, eSetValueWithOverwrite);
 }
 
 
@@ -1319,7 +1313,6 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
             com = ALTO;
             break;
     }
-    xTaskNotify(*(ctx->motr), com, eSetValueWithOverwrite);
 }
 
 
@@ -1402,8 +1395,7 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	}else if(ctx->stall) {
 		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
 		return;
-	}else if(ctx->detectarStall(ctx->corrienteA)) {
-		ctx->stall = true;
+	}else if(false) {//se dejara en false por ahora
 		ctx->tempEva = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
 		return;
@@ -1758,7 +1750,7 @@ FILE PATH: ./esp32-s3/components/core/MaquinaEstados.cpp
 #include "Estrategia1.h"
 #include "Estrategia2.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, TaskHandle_t* _motr):
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5):
 	tempTL(0),
 	tempC(0),
 	tempE1(0),
@@ -1771,10 +1763,6 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	tiempo4(_tiempo4),
 	tiempo5(_tiempo5),
 	tiempo6(1000),
-	umbral_stall(2.0f),
-	tiempo_stall(250),
-	corrienteA(0.0f),
-	motr(_motr),
 	modo(-1),
 	estrategia(0),
 	ciclo(0),
@@ -1847,35 +1835,8 @@ void MaquinaEstados::nvsLeer(){
 	tiempo3 = nvs.leer("tof_largo_plazo",tiempo3);
 	tiempo4 = nvs.leer("recta_star",tiempo4);
 	tiempo5 = nvs.leer("giro_star",tiempo5);
-	tiempo_stall = nvs.leer("t_stall", tiempo_stall);
 	tiempo6 = nvs.leer("evasion", tiempo6);
 	estrategia = nvs.leer("estrategia",estrategia);
-
-	Nvs mot("motores");
-	umbral_stall = mot.leerFloat("u_stall", umbral_stall);
-}
-
-//metodo para detectar atascos
-bool MaquinaEstados::detectarStall(float corrienteA){
-	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-	bool mov_frontal = (modo >= 6 && modo <= 12) || modo == 24 || modo == 25 || modo == 28 || modo == 30 || modo == 31;
-	bool mov_trasero = (modo >= 13 && modo <= 19) || modo == 26 || modo == 27 || modo == 29 || modo == 32 || modo == 33;
-
-	if (mov_frontal || mov_trasero) {
-		if (corrienteA > umbral_stall) {
-			if (tempS == 0) tempS = temp;
-			if (temp - tempS > (unsigned long)tiempo_stall) {
-				memo_eva = mov_frontal ? 1 : 2;
-				tempS = 0;
-				return true;
-			}
-		} else {
-			tempS = 0;
-		}
-	} else {
-		tempS = 0;
-	}
-	return false;
 }
 
 //metodo que recibe la duracion del ciclo
@@ -1885,12 +1846,11 @@ void MaquinaEstados::cicloR(int c, int i){
 }
 
 //metodo que entrega el estado actual
-void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall){
+void MaquinaEstados::datos(int* _modo, int* _estra, int* _ciclo, int* _ini){
 	 *_modo = modo;
 	 *_estra = estrategia;
 	 *_ciclo =ciclo;
 	 *_ini = ini;
-	 *_stall = stall;
 }
 
 
@@ -1953,16 +1913,7 @@ class MaquinaEstados{
 		int tiempo4;
 		int tiempo5;
 		int tiempo6;
-
-	public:
-		float umbral_stall;
-		unsigned long tiempo_stall;
-		float corrienteA;
-
 	private:
-		// handle de la tarea de los motores
-		TaskHandle_t* motr;
-
 		//variables de control
 		volatile int modo;
 		volatile int estrategia;
@@ -1996,11 +1947,9 @@ class MaquinaEstados{
 		//lee los datos de la nvs
 		void nvsLeer();
 
-		//metodo para detectar atascos
-		bool detectarStall(float corrienteA);
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5);
 
 		//destructor
 		~MaquinaEstados();
@@ -2016,7 +1965,7 @@ class MaquinaEstados{
 		void cicloR(int c, int i);
 
 		//metodo que entrega el estado actual
-		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall);
+		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini);
 };
 #endif // !DEBUG
 
@@ -2720,9 +2669,6 @@ FILE PATH: ./esp32-s3/components/sensores/SensorTof.cpp
 #include "SensorTof.h"
 #include "driver/i2c_types.h"
 #include <climits>
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-
 #include "Nvs.h"
 #include "rgb.h"
 #include "eventos.h"
@@ -3022,8 +2968,6 @@ void SensorTof::nvsLeer(){
 }
 
 void SensorTof::getDistancias(uint16_t* buffer){
-    buffer[0] = 0;
-    buffer[1] = 0;
     for(int i=0; i<NUM_TOF; i++){
         buffer[i] = data[i].distancia;
 		buffer[i+6] = data[i].estado;
@@ -3032,7 +2976,6 @@ void SensorTof::getDistancias(uint16_t* buffer){
     }
 }
 
-#endif // CONFIG_IDF_TARGET_ESP32S3
 
 
 ==========================================
@@ -3044,10 +2987,10 @@ FILE PATH: ./esp32-s3/components/sensores/SensorTof.h
 
 #include "sdkconfig.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32S3
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "vl53l.hpp"
-#include "SensorRival.h"
 #include "GestorI2C.h"
 #include "driver/gpio.h"
 #include <system_error>
@@ -3088,7 +3031,7 @@ class MiVl53l : public espp::Vl53l {
         }
 };
 
-class SensorTof : public SensorRival {
+class SensorTof{
 	public:
 		//struct de los datos leidos
 		struct TofData {
@@ -3138,7 +3081,7 @@ class SensorTof : public SensorRival {
 		//destructor
 		~SensorTof();
 		//inicializa los sensores ToF
-		bool begin() override;
+		bool begin();
 		//leera los valores de los sensores
 		TofData dist(uint8_t i2c_dir);
 		//atiende las interrupciones
@@ -3148,10 +3091,9 @@ class SensorTof : public SensorRival {
 		//callback del DMA
 		static bool IRAM_ATTR dmaCallback(i2c_master_dev_handle_t dev, const i2c_master_event_data_t* event, void* arg);
 		//metodo que envia las medidas de cada sensor a la telemetria
-		void getDistancias(uint16_t* buffer) override;
+		void getDistancias(uint16_t* buffer);
 };
 
-#endif // CONFIG_IDF_TARGET_ESP32S3
 #endif // SENSORTOF_H
 
 
@@ -3295,9 +3237,6 @@ MaquinaEstados *me = nullptr;
 // objeto de la telemetria
 Telemetria* tm = nullptr;
 
-//handle de la tarea de los motores
-TaskHandle_t motr = NULL;
-
 //handle de la tarea del robot
 TaskHandle_t th_robot = NULL;
 
@@ -3382,12 +3321,6 @@ void robot(void *pvParameters) {
 		esp_task_wdt_reset();
 
 	  	uint64_t Tini = esp_timer_get_time();
-
-		// se obtienen las distancias de los sensores rivales
-		uint16_t distBuffer[24] = {0};
-		if (sr != nullptr) {
-			sr->getDistancias(distBuffer);
-		}
 
     	// MAQUINA DE ESTADOS
     	me->logica();
@@ -3558,7 +3491,6 @@ void comunicaciones() {
 void limpiar_memoria() {
     if (tm != nullptr) { delete tm; tm = nullptr; }
     if (me != nullptr) { delete me; me = nullptr; }
-    if (sr != nullptr) { delete sr; sr = nullptr; }
     ESP_LOGI(TAG, "Memoria de objetos liberada.");
 }
 

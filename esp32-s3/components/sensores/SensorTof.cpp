@@ -1,9 +1,6 @@
 #include "SensorTof.h"
 #include "driver/i2c_types.h"
 #include <climits>
-
-#ifdef CONFIG_IDF_TARGET_ESP32S3
-
 #include "Nvs.h"
 #include "rgb.h"
 #include "eventos.h"
@@ -303,8 +300,6 @@ void SensorTof::nvsLeer(){
 }
 
 void SensorTof::getDistancias(uint16_t* buffer){
-    buffer[0] = 0;
-    buffer[1] = 0;
     for(int i=0; i<NUM_TOF; i++){
         buffer[i] = data[i].distancia;
 		buffer[i+6] = data[i].estado;
@@ -313,4 +308,3 @@ void SensorTof::getDistancias(uint16_t* buffer){
     }
 }
 
-#endif // CONFIG_IDF_TARGET_ESP32S3

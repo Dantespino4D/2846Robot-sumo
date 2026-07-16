@@ -3,10 +3,10 @@
 
 #include "sdkconfig.h"
 
-#ifdef CONFIG_IDF_TARGET_ESP32S3
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "vl53l.hpp"
-#include "SensorRival.h"
 #include "GestorI2C.h"
 #include "driver/gpio.h"
 #include <system_error>
@@ -47,7 +47,7 @@ class MiVl53l : public espp::Vl53l {
         }
 };
 
-class SensorTof : public SensorRival {
+class SensorTof{
 	public:
 		//struct de los datos leidos
 		struct TofData {
@@ -97,7 +97,7 @@ class SensorTof : public SensorRival {
 		//destructor
 		~SensorTof();
 		//inicializa los sensores ToF
-		bool begin() override;
+		bool begin();
 		//leera los valores de los sensores
 		TofData dist(uint8_t i2c_dir);
 		//atiende las interrupciones
@@ -107,8 +107,7 @@ class SensorTof : public SensorRival {
 		//callback del DMA
 		static bool IRAM_ATTR dmaCallback(i2c_master_dev_handle_t dev, const i2c_master_event_data_t* event, void* arg);
 		//metodo que envia las medidas de cada sensor a la telemetria
-		void getDistancias(uint16_t* buffer) override;
+		void getDistancias(uint16_t* buffer);
 };
 
-#endif // CONFIG_IDF_TARGET_ESP32S3
 #endif // SENSORTOF_H

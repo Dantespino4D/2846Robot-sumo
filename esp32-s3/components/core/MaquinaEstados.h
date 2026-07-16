@@ -53,16 +53,7 @@ class MaquinaEstados{
 		int tiempo4;
 		int tiempo5;
 		int tiempo6;
-
-	public:
-		float umbral_stall;
-		unsigned long tiempo_stall;
-		float corrienteA;
-
 	private:
-		// handle de la tarea de los motores
-		TaskHandle_t* motr;
-
 		//variables de control
 		volatile int modo;
 		volatile int estrategia;
@@ -96,11 +87,9 @@ class MaquinaEstados{
 		//lee los datos de la nvs
 		void nvsLeer();
 
-		//metodo para detectar atascos
-		bool detectarStall(float corrienteA);
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, TaskHandle_t* _motr);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5);
 
 		//destructor
 		~MaquinaEstados();
@@ -116,6 +105,6 @@ class MaquinaEstados{
 		void cicloR(int c, int i);
 
 		//metodo que entrega el estado actual
-		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini, bool* _stall);
+		void datos(int* _modo, int* _estra, int* _ciclo, int* _ini);
 };
 #endif // !DEBUG

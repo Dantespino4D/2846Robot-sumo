@@ -181,5 +181,4 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
             com = ALTO;
             break;
     }
-    xTaskNotify(*(ctx->motr), com, eSetValueWithOverwrite);
 }

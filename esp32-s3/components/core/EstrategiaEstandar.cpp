@@ -35,8 +35,7 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	}else if(ctx->stall) {
 		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
 		return;
-	}else if(ctx->detectarStall(ctx->corrienteA)) {
-		ctx->stall = true;
+	}else if(false) {//se dejara en false por ahora
 		ctx->tempEva = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
 		return;

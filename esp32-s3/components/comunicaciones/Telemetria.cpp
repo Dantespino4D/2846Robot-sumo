@@ -23,15 +23,10 @@ Telemetria::Telemetria(MaquinaEstados* e, Mqtt* q, Wifi* w):
 
 void Telemetria::recopilar(){
 	bool _stall = false;
-	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio, &_stall);
+	me->datos(&d.estado, &d.estrategia, &d.ciclo, &d.inicio);
 	d.stall = _stall ? 1 : 0;
-	
+
 	wf->signalW(&d.wifi);
-
-	// TODO: Los 6 ToFs (I2C DMA) y los estados del STM32 (TCRT, Corriente, PWM)
-	// se actualizarán aquí leyendo la estructura empaquetada del Bus de la Verdad (SPI).
-	// La Máquina de Estados (me) u otro gestor deberá proveer acceso a esos datos.
-
 	d.tiempo = xTaskGetTickCount() * portTICK_PERIOD_MS;
 	d.heap = esp_get_free_heap_size();
 }
@@ -40,7 +35,7 @@ void Telemetria::enviar(){
 	recopilar();
 
 	char json[NJSON];
-	
+
 	// JSON estricto. Cero ramas condicionales. Cero variables de prototipo o sensores inútiles.
 	int lon = snprintf(json, NJSON,
 		"{\"sistema\":{\"commit\":%d,\"tiempo\":%" PRIu32 ",\"heap\":%" PRIu32 ",\"pila\":%f,\"wifi\":%d,\"ciclo\":%d},\"estado\":{\"modo\":%d,\"estrategia\":%d,\"inicio\":%d},\"stm32\":{\"pwm_izq\":%d,\"pwm_der\":%d,\"stall\":%d,\"corriente\":%f},\"sensores\":{\"tof\":[%d,%d,%d,%d,%d,%d],\"f_estado\":[%d,%d,%d,%d,%d,%d]}}",

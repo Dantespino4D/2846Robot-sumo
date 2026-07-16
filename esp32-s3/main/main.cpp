@@ -50,9 +50,6 @@ MaquinaEstados *me = nullptr;
 // objeto de la telemetria
 Telemetria* tm = nullptr;
 
-//handle de la tarea de los motores
-TaskHandle_t motr = NULL;
-
 //handle de la tarea del robot
 TaskHandle_t th_robot = NULL;
 
@@ -137,12 +134,6 @@ void robot(void *pvParameters) {
 		esp_task_wdt_reset();
 
 	  	uint64_t Tini = esp_timer_get_time();
-
-		// se obtienen las distancias de los sensores rivales
-		uint16_t distBuffer[24] = {0};
-		if (sr != nullptr) {
-			sr->getDistancias(distBuffer);
-		}
 
     	// MAQUINA DE ESTADOS
     	me->logica();
@@ -313,6 +304,5 @@ void comunicaciones() {
 void limpiar_memoria() {
     if (tm != nullptr) { delete tm; tm = nullptr; }
     if (me != nullptr) { delete me; me = nullptr; }
-    if (sr != nullptr) { delete sr; sr = nullptr; }
     ESP_LOGI(TAG, "Memoria de objetos liberada.");
 }
