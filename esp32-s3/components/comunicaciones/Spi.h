@@ -9,9 +9,12 @@
 class Spi {
 	private:
 		spi_transaction_t transmision;
+		spi_device_interface_config_t spistm32;
 		spi_device_handle_t stm32_handle;
 		bool transaccionEnCurso;
 		uint8_t cont;
+		uint8_t fallos;
+		void reiniciar();
 	public:
 		Spi();
 		void begin();

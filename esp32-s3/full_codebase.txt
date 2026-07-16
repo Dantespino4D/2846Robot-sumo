@@ -358,6 +358,147 @@ class Ota{
 
 
 ==========================================
+FILE PATH: ./components/comunicaciones/Spi.cpp
+==========================================
+
+#include "Spi.h"
+#include "pines.h"
+#include "driver/spi_master.h"
+#include "esp_heap_caps.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include <cstdint>
+#include <string.h>
+#include "protocolo/sumo_protocol.h"
+#include "protocolo/Crc8Table.h"
+
+#define TAG "spi"
+
+uint8_t* tx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+uint8_t* rx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+
+Spi::Spi():
+	stm32_handle(nullptr),
+	transaccionEnCurso(false),
+	cont(0),
+	fallos(0)
+{
+	memset(&transmision, 0, sizeof(spi_transaction_t));
+	memset(&spistm32, 0, sizeof(spi_device_interface_config_t));
+}
+
+void Spi::begin() {
+    spi_bus_config_t spibus = {};
+    spibus.mosi_io_num = SPI_MOSI;
+    spibus.miso_io_num = SPI_MISO;
+    spibus.sclk_io_num = SPI_CLK;
+    spibus.quadwp_io_num = -1;
+    spibus.quadhd_io_num = -1;
+    spibus.max_transfer_sz = MAX_PACKET_SIZE;
+
+    spistm32 = {};
+    spistm32.clock_speed_hz = 10000000;
+    spistm32.mode = 0;
+    spistm32.spics_io_num = SPI_CS;
+    spistm32.queue_size = 7;
+
+    esp_err_t ret = spi_bus_initialize(SPI2_HOST, &spibus, SPI_DMA_CH_AUTO);
+    if(ret != ESP_OK){
+        ESP_LOGE(TAG, "error al configurar el bus SPI");
+    }
+
+    ret = spi_bus_add_device(SPI2_HOST, &spistm32, &stm32_handle);
+    if(ret != ESP_OK){
+        ESP_LOGE(TAG, "error al configurar el dispositivo SPI");
+    }
+}
+
+void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
+	if(transaccionEnCurso){
+		spi_transaction_t* tran;
+		esp_err_t err = spi_device_get_trans_result(stm32_handle, &tran, portMAX_DELAY);
+		if(err != ESP_OK){
+			fallos++;
+			reiniciar();
+			return;
+		}
+		fallos = 0;
+		transaccionEnCurso = false;
+	}
+	Esp_t* orden = (Esp_t*)tx;
+	orden->inicio[0] = HEADER_1;
+	orden->inicio[1] = HEADER_2;
+	orden->inicio[2] = HEADER_3;
+	orden->id = ID_ESP;
+	orden->obj_1 = obj_1;
+	orden->obj_2 = obj_2;
+	orden->banderas = ban;
+	orden->cont = cont;
+	orden->final = crc8((uint8_t*)orden, sizeof(Esp_t) - 1);
+	enviarRecibir((uint8_t*)orden, rx, sizeof(Esp_t));
+	cont++;
+}
+
+void Spi::enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size){
+	transmision.length = size * 8;
+	transmision.tx_buffer = mensaje;
+	transmision.rx_buffer = respuesta;
+	esp_err_t err = spi_device_queue_trans(stm32_handle, &transmision, portMAX_DELAY);
+	if(err == ESP_OK){
+		transaccionEnCurso = true;
+	}else{
+		fallos++;
+		reiniciar();
+	}
+}
+
+void Spi::reiniciar(){
+	//borrar la cola la conexion con el stm32
+	spi_bus_remove_device(stm32_handle);
+
+	//volver a agregar el dispositivo
+	esp_err_t err = spi_bus_add_device(SPI2_HOST, &spistm32, &stm32_handle);
+	if(err == ESP_OK){
+		transaccionEnCurso = false;
+		fallos++;
+	}else{
+		ESP_LOGE(TAG, "error al reiniciar la conexion SPI");
+	}
+}
+
+
+==========================================
+FILE PATH: ./components/comunicaciones/Spi.h
+==========================================
+
+#ifndef SPI_H
+#define SPI_H
+
+#include "driver/spi_master.h"
+#include <cstdint>
+#include <string.h>
+#include "esp_log.h"
+
+class Spi {
+	private:
+		spi_transaction_t transmision;
+		spi_device_interface_config_t spistm32;
+		spi_device_handle_t stm32_handle;
+		bool transaccionEnCurso;
+		uint8_t cont;
+		uint8_t fallos;
+		void reiniciar();
+	public:
+		Spi();
+		void begin();
+		void armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban);
+		void enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size);
+};
+
+#endif // SPI_H
+
+
+==========================================
 FILE PATH: ./components/comunicaciones/Telemetria.cpp
 ==========================================
 
@@ -796,24 +937,11 @@ FILE PATH: ./components/configuracion/pines.h
     #define MUS GPIO_NUM_3
     #define INI GPIO_NUM_35
 
-    // Lectura de ADC
-    #define BAT GPIO_NUM_2
-
-    // Motores
-    #define MOT_A1 GPIO_NUM_39
-    #define MOT_A2 GPIO_NUM_40
-    #define MOT_B1 GPIO_NUM_41
-    #define MOT_B2 GPIO_NUM_42
-
-	// Sensores TCRT
-	#define TCRT_1 GPIO_NUM_5
-	#define TCRT_2 GPIO_NUM_10
-	#define TCRT_3 GPIO_NUM_6
-	#define TCRT_4 GPIO_NUM_21
-
-    // Hardware Faults para MCPWM (Señales combinadas)
-    #define FAULT_A GPIO_NUM_1
-    #define FAULT_B GPIO_NUM_7
+	//spi
+	#define SPI_MOSI GPIO_NUM_42
+	#define SPI_MISO GPIO_NUM_41
+	#define SPI_CLK GPIO_NUM_40
+	#define SPI_CS GPIO_NUM_39
 
     // I2C
     #define SDA GPIO_NUM_8

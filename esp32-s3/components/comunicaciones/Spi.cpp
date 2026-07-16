@@ -15,10 +15,13 @@ uint8_t* tx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLO
 uint8_t* rx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
 
 Spi::Spi():
+	stm32_handle(nullptr),
 	transaccionEnCurso(false),
-	cont(0)
+	cont(0),
+	fallos(0)
 {
 	memset(&transmision, 0, sizeof(spi_transaction_t));
+	memset(&spistm32, 0, sizeof(spi_device_interface_config_t));
 }
 
 void Spi::begin() {
@@ -30,7 +33,7 @@ void Spi::begin() {
     spibus.quadhd_io_num = -1;
     spibus.max_transfer_sz = MAX_PACKET_SIZE;
 
-    spi_device_interface_config_t spistm32 = {};
+    spistm32 = {};
     spistm32.clock_speed_hz = 10000000;
     spistm32.mode = 0;
     spistm32.spics_io_num = SPI_CS;
@@ -52,8 +55,11 @@ void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
 		spi_transaction_t* tran;
 		esp_err_t err = spi_device_get_trans_result(stm32_handle, &tran, portMAX_DELAY);
 		if(err != ESP_OK){
-
+			fallos++;
+			reiniciar();
+			return;
 		}
+		fallos = 0;
 		transaccionEnCurso = false;
 	}
 	Esp_t* orden = (Esp_t*)tx;
@@ -78,6 +84,21 @@ void Spi::enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size){
 	if(err == ESP_OK){
 		transaccionEnCurso = true;
 	}else{
+		fallos++;
+		reiniciar();
+	}
+}
 
+void Spi::reiniciar(){
+	//borrar la cola la conexion con el stm32
+	spi_bus_remove_device(stm32_handle);
+
+	//volver a agregar el dispositivo
+	esp_err_t err = spi_bus_add_device(SPI2_HOST, &spistm32, &stm32_handle);
+	if(err == ESP_OK){
+		transaccionEnCurso = false;
+		fallos++;
+	}else{
+		ESP_LOGE(TAG, "error al reiniciar la conexion SPI");
 	}
 }
