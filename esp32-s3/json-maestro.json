@@ -1,7 +1,6 @@
 {
   "motores": {
 	"tiempo_rampa": 200,
-    "u_stall": 2.0,
     "normal": { "izq": 700, "der": 700 },
     "ataque": { "izq": 950, "der": 800 },
 		"pronunciado": { "izq": 950, "der": 600 },

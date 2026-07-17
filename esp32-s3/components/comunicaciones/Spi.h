@@ -15,11 +15,12 @@ class Spi {
 		uint8_t cont;
 		uint8_t fallos;
 		void reiniciar();
+		void enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size);
 	public:
 		Spi();
 		void begin();
 		void armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban);
-		void enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size);
+		void enviaConfiguracion();
 };
 
 #endif // SPI_H

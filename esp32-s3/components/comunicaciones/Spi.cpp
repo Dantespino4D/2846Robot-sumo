@@ -1,4 +1,5 @@
 #include "Spi.h"
+#include "Nvs.h"
 #include "pines.h"
 #include "driver/spi_master.h"
 #include "esp_heap_caps.h"
@@ -101,4 +102,29 @@ void Spi::reiniciar(){
 	}else{
 		ESP_LOGE(TAG, "error al reiniciar la conexion SPI");
 	}
+}
+
+void Spi::enviaConfiguracion(){
+	if(transaccionEnCurso){
+		spi_transaction_t* tran;
+		esp_err_t err = spi_device_get_trans_result(stm32_handle, &tran, portMAX_DELAY);
+		if(err != ESP_OK){
+			fallos++;
+			reiniciar();
+			return;
+		}
+		fallos = 0;
+		transaccionEnCurso = false;
+	}
+	Nvs sensores("sensores");
+	Nvs tiempos("tiempos");
+	Conf_t* conf = (Conf_t*)tx;
+	conf->inicio[0] = HEADER_1;
+	conf->inicio[1] = HEADER_2;
+	conf->inicio[2] = HEADER_3;
+	conf->id = ID_CONF;
+	conf->u_limite = sensores.leer("umbral_color", 1000);//valor por defecto a definir en el futuro
+	conf->t_ret = tiempos.leer("retroceso", 1000);//valor por defecto a definir en el futuro
+	conf->final = crc8((uint8_t*)conf, sizeof(Conf_t) - 1);
+	enviarRecibir((uint8_t*)conf, rx, sizeof(Conf_t));
 }
