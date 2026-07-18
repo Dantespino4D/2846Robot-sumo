@@ -12,17 +12,24 @@
 
 #define TAG "spi"
 
-uint8_t* tx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-uint8_t* rx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-
 Spi::Spi():
+	telemetria{},
+	orden{},
+	ok{},
+	conf{},
 	stm32_handle(nullptr),
 	transaccionEnCurso(false),
 	cont(0),
 	fallos(0)
 {
+	tx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+	rx = (uint8_t*)heap_caps_malloc(MAX_PACKET_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
 	memset(&transmision, 0, sizeof(spi_transaction_t));
 	memset(&spistm32, 0, sizeof(spi_device_interface_config_t));
+	if(tx == nullptr || rx == nullptr){
+		ESP_LOGE(TAG, "error al asignar memoria para buffers SPI");
+		abort();
+	}
 }
 
 void Spi::begin() {
@@ -52,17 +59,6 @@ void Spi::begin() {
 }
 
 void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
-	if(transaccionEnCurso){
-		spi_transaction_t* tran;
-		esp_err_t err = spi_device_get_trans_result(stm32_handle, &tran, portMAX_DELAY);
-		if(err != ESP_OK){
-			fallos++;
-			reiniciar();
-			return;
-		}
-		fallos = 0;
-		transaccionEnCurso = false;
-	}
 	Esp_t* orden = (Esp_t*)tx;
 	orden->inicio[0] = HEADER_1;
 	orden->inicio[1] = HEADER_2;
@@ -86,36 +82,10 @@ void Spi::enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size){
 		transaccionEnCurso = true;
 	}else{
 		fallos++;
-		reiniciar();
-	}
-}
-
-void Spi::reiniciar(){
-	//borrar la cola la conexion con el stm32
-	spi_bus_remove_device(stm32_handle);
-
-	//volver a agregar el dispositivo
-	esp_err_t err = spi_bus_add_device(SPI2_HOST, &spistm32, &stm32_handle);
-	if(err == ESP_OK){
-		transaccionEnCurso = false;
-		fallos++;
-	}else{
-		ESP_LOGE(TAG, "error al reiniciar la conexion SPI");
 	}
 }
 
 void Spi::enviaConfiguracion(){
-	if(transaccionEnCurso){
-		spi_transaction_t* tran;
-		esp_err_t err = spi_device_get_trans_result(stm32_handle, &tran, portMAX_DELAY);
-		if(err != ESP_OK){
-			fallos++;
-			reiniciar();
-			return;
-		}
-		fallos = 0;
-		transaccionEnCurso = false;
-	}
 	Nvs sensores("sensores");
 	Nvs tiempos("tiempos");
 	Conf_t* conf = (Conf_t*)tx;
@@ -127,4 +97,55 @@ void Spi::enviaConfiguracion(){
 	conf->t_ret = tiempos.leer("retroceso", 1000);//valor por defecto a definir en el futuro
 	conf->final = crc8((uint8_t*)conf, sizeof(Conf_t) - 1);
 	enviarRecibir((uint8_t*)conf, rx, sizeof(Conf_t));
+}
+
+void Spi::procesarRespuesta(){
+	if(rx == nullptr){
+		fallos++;
+		return;
+	}
+	if(rx[0] != HEADER_1 || rx[1] != HEADER_2 || rx[2] != HEADER_3){
+		fallos++;
+		return;
+	}
+	if(rx[3] == ID_STM){
+		Stm_t* mensaje = (Stm_t*)rx;
+		if(mensaje->final != crc8((uint8_t*)mensaje, sizeof(Stm_t) - 1)){
+			fallos++;
+			return;
+		}
+		fallos = 0;
+		telemetria = *mensaje;
+	}else if(rx[3] == ID_OK){
+		Ok_t* mensaje = (Ok_t*)rx;
+		if(mensaje->final != crc8((uint8_t*)mensaje, sizeof(Ok_t) - 1)){
+			fallos++;
+			return;
+		}
+		fallos = 0;
+		ok = *mensaje;
+	}else{
+		fallos++;
+	}
+}
+
+void Spi::recolectar(){
+	if(!transaccionEnCurso){
+		return;
+	}
+
+	spi_transaction_t* tran;
+
+	esp_err_t err = spi_device_get_trans_result(stm32_handle, &tran, portMAX_DELAY);
+	if(err != ESP_OK){
+		fallos++;
+		return;
+	}else{
+		transaccionEnCurso = false;
+		procesarRespuesta();
+	}
+}
+
+Stm_t Spi::getTelemetria() const{
+	return telemetria;
 }
