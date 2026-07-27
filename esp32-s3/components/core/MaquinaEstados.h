@@ -6,28 +6,10 @@
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 #include "EstrategiaBase.h"
+#include "Spi.h"
 
 // comandos de movimiento
 #include <cstdint>
-#define ALTO 0
-#define DIR_A 1
-#define DIR_B 2
-#define EVA_A 3
-#define EVA_B 4
-#define ATAQUE_AI 5
-#define ATAQUE_BI 6
-#define ATAQUE_AD 7
-#define ATAQUE_BD 8
-#define PRO_AI 9
-#define PRO_BI 10
-#define PRO_AD 11
-#define PRO_BD 12
-#define MAX_A 13
-#define MAX_B 14
-#define GIRO 15
-#define HUIR_A 16
-#define HUIR_B 17
-
 
 class Estrategia1;
 class Estrategia2;
@@ -60,6 +42,8 @@ class MaquinaEstados{
 		volatile int ciclo;
 		int ini;
 
+		Spi* spi;
+
 		bool stall;
 		int memo_eva;
 
@@ -89,7 +73,7 @@ class MaquinaEstados{
 
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5);
+		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, Spi* spi);
 
 		//destructor
 		~MaquinaEstados();

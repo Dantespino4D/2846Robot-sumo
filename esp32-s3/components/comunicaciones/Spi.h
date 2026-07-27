@@ -26,8 +26,8 @@ class Spi {
 	public:
 		Spi();
 		void begin();
-		void armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban);
-		void enviaConfiguracion();
+		void armarOrden(int16_t obj_1, int16_t obj_2);
+		void enviarConfiguracion();
 		void procesarRespuesta();
 		void recolectar();
 		Stm_t getTelemetria() const;

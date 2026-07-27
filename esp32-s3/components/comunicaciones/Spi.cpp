@@ -1,5 +1,6 @@
 #include "Spi.h"
 #include "Nvs.h"
+#include "Velocidades.h"
 #include "pines.h"
 #include "driver/spi_master.h"
 #include "esp_heap_caps.h"
@@ -58,7 +59,7 @@ void Spi::begin() {
     }
 }
 
-void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
+void Spi::armarOrden(int16_t obj_1, int16_t obj_2){
 	Esp_t* orden = (Esp_t*)tx;
 	orden->inicio[0] = HEADER_1;
 	orden->inicio[1] = HEADER_2;
@@ -66,7 +67,7 @@ void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
 	orden->id = ID_ESP;
 	orden->obj_1 = obj_1;
 	orden->obj_2 = obj_2;
-	orden->banderas = ban;
+	orden->banderas = 0;//quizas se elminara si se encuentra inutil
 	orden->cont = cont;
 	orden->final = crc8((uint8_t*)orden, sizeof(Esp_t) - 1);
 	enviarRecibir((uint8_t*)orden, rx, sizeof(Esp_t));
@@ -85,7 +86,7 @@ void Spi::enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size){
 	}
 }
 
-void Spi::enviaConfiguracion(){
+void Spi::enviarConfiguracion(){
 	Nvs sensores("sensores");
 	Nvs tiempos("tiempos");
 	Conf_t* conf = (Conf_t*)tx;

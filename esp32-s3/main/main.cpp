@@ -2,6 +2,7 @@
 #include "esp_task_wdt.h"
 #include "Wifi.h"
 #include "Mqtt.h"
+#include "Spi.h"
 #include "MaquinaEstados.h"
 #include "GestorI2C.h"
 #include "SensorTof.h"
@@ -40,6 +41,9 @@ Mqtt mq;
 
 //objeto que gestiona el bus I2C
 GestorI2C i2c;
+
+//objeto del SPI
+Spi spi;
 
 // objeto del sensor rival
 SensorTof* sr = nullptr;
@@ -272,7 +276,7 @@ void begin_hardware() {
     }
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5);
+    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &spi);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 
@@ -298,6 +302,8 @@ void comunicaciones() {
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		esp_log_level_set("*", ESP_LOG_NONE);
 	}
+	spi.begin();
+	spi.enviarConfiguracion();
 }
 
 // funcion que libera la memoria de los objetos creados

@@ -1,0 +1,26 @@
+#ifndef ESTADOS_H
+#define ESTADOS_H
+
+enum Estado {
+	ALTO,
+	DIR_A,
+	DIR_B,
+	EVA_A,
+	EVA_B,
+	ATAQUE_AI,
+	ATAQUE_BI,
+	ATAQUE_AD,
+	ATAQUE_BD,
+	PRO_AI,
+	PRO_BI,
+	PRO_AD,
+	PRO_BD,
+	MAX_A,
+	MAX_B,
+	GIRO,
+	HUIR_A,
+	HUIR_B,
+	ESTADOS
+};
+
+#endif // !ESTADOS_H

@@ -1,8 +1,10 @@
 #include "Estrategia2.h"
 #include "MaquinaEstados.h"
+#include "Estados.h"
+#include "Velocidades.h"
 
 void Estrategia2::ejecucion(MaquinaEstados* ctx) {
-	int com = ALTO;
+	Estado com = ALTO;
 
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
@@ -181,4 +183,6 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
             com = ALTO;
             break;
     }
+	ctx->spi->armarOrden(vels_1[com], vels_2[com]);
+	ctx->spi->procesarRespuesta();
 }

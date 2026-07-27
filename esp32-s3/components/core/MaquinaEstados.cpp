@@ -8,8 +8,9 @@
 
 #include "Estrategia1.h"
 #include "Estrategia2.h"
+#include "Spi.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5):
+MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, Spi* _spi):
 	tempTL(0),
 	tempC(0),
 	tempE1(0),
@@ -26,6 +27,7 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	estrategia(0),
 	ciclo(0),
 	ini(0),
+	spi(_spi),
 	stall(false),
 	memo_eva(0),
 	memo_TC(0),
