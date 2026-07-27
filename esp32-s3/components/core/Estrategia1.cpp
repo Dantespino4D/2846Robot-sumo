@@ -8,6 +8,8 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
 
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
+	ctx->spi->recolectar();
+
 	switch (ctx->modo) {
 		case 0:
 	  		com = HUIR_B;
@@ -184,5 +186,4 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
             break;
    	}
 	ctx->spi->armarOrden(vels_1[com], vels_2[com]);
-	ctx->spi->procesarRespuesta();
 }
