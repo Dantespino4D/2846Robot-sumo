@@ -4,6 +4,8 @@
 #include "Mqtt.h"
 #include "Spi.h"
 #include "MaquinaEstados.h"
+#include "Estados.h"
+#include "Velocidades.h"
 #include "GestorI2C.h"
 #include "SensorTof.h"
 #include "Telemetria.h"
@@ -274,6 +276,61 @@ void begin_hardware() {
     } else {
         ESP_LOGE(TAG, "No se pudo crear el sensor rival");
     }
+
+	//objeto que maneja la memoria NVS de las velocidades
+	Nvs vel("motores");
+
+	//velocidades de avance normal
+	vels_1[DIR_A] = vel.leer("velocidad_nI", vels_1[DIR_A]);
+	vels_2[DIR_A] = vel.leer("velocidad_nD", vels_2[DIR_A]);
+	vels_1[DIR_B] = -vel.leer("velocidad_nI", vels_1[DIR_A]);
+	vels_2[DIR_B] = -vel.leer("velocidad_nD", vels_2[DIR_A]);
+
+	//velocidades de ataque con giro a la izquierda
+	vels_1[ATAQUE_AI] = vel.leer("velocidad_aI", vels_1[ATAQUE_AI]);
+	vels_2[ATAQUE_AI] = vel.leer("velocidad_aD", vels_2[ATAQUE_AI]);
+	vels_1[ATAQUE_BI] = -vel.leer("velocidad_aI", vels_1[ATAQUE_AI]);
+	vels_2[ATAQUE_BI] = -vel.leer("velocidad_aD", vels_2[ATAQUE_AI]);
+
+	//velocidades de ataque con giro a la derecha
+	vels_1[ATAQUE_AD] = vel.leer("velocidad_aD", vels_1[ATAQUE_AD]);
+	vels_2[ATAQUE_AD] = vel.leer("velocidad_aI", vels_2[ATAQUE_AD]);
+	vels_1[ATAQUE_BD] = -vel.leer("velocidad_aD", vels_1[ATAQUE_AD]);
+	vels_2[ATAQUE_BD] = -vel.leer("velocidad_aI", vels_2[ATAQUE_AD]);
+
+	//velocidades de ataque con giro pronunciado a la izquierda
+	vels_1[PRO_AI] = vel.leer("velocidad_pI", vels_1[PRO_AI]);
+	vels_2[PRO_AI] = vel.leer("velocidad_pD", vels_2[PRO_AI]);
+	vels_1[PRO_BI] = -vel.leer("velocidad_pI", vels_1[PRO_AI]);
+	vels_2[PRO_BI] = -vel.leer("velocidad_pD", vels_2[PRO_AI]);
+
+	//velocidades de ataque con giro pronunciado a la derecha
+	vels_1[PRO_AD] = vel.leer("velocidad_pD", vels_1[PRO_AD]);
+	vels_2[PRO_AD] = vel.leer("velocidad_pI", vels_2[PRO_AD]);
+	vels_1[PRO_BD] = -vel.leer("velocidad_pD", vels_1[PRO_AD]);
+	vels_2[PRO_BD] = -vel.leer("velocidad_pI", vels_2[PRO_AD]);
+
+	//velocidades de avance a maxima velocidad
+	vels_1[MAX_A] = vel.leer("velocidad_mI", vels_1[MAX_A]);
+	vels_2[MAX_A] = vel.leer("velocidad_mD", vels_2[MAX_A]);
+	vels_1[MAX_B] = -vel.leer("velocidad_mI", vels_1[MAX_A]);
+	vels_2[MAX_B] = -vel.leer("velocidad_mD", vels_2[MAX_A]);
+
+	//velocidades de evasion
+	vels_1[EVA_A] = vel.leer("velocidad_eI", vels_1[EVA_A]);
+	vels_2[EVA_A] = vel.leer("velocidad_eD", vels_2[EVA_A]);
+	vels_1[EVA_B] = -vel.leer("velocidad_eI", vels_1[EVA_A]);
+	vels_2[EVA_B] = -vel.leer("velocidad_eD", vels_2[EVA_A]);
+
+	//velocidades de huida
+	vels_1[HUIR_A] = vel.leer("velocidad_hI", vels_1[HUIR_A]);
+	vels_2[HUIR_A] = vel.leer("velocidad_hD", vels_2[HUIR_A]);
+	vels_1[HUIR_B] = -vel.leer("velocidad_hI", vels_1[HUIR_A]);
+	vels_2[HUIR_B] = -vel.leer("velocidad_hD", vels_2[HUIR_A]);
+
+	//velocidades del giro de busqueda
+	vels_1[GIRO] = vel.leer("velocidad_gI", vels_1[GIRO]);
+	vels_2[GIRO] = vel.leer("velocidad_gD", vels_2[GIRO]);
 
 	//se inicializa la maquina de estados
     me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &spi);
