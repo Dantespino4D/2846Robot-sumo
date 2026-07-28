@@ -10,14 +10,12 @@
 #include "Estrategia2.h"
 #include "Spi.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, Spi* _spi):
+MaquinaEstados::MaquinaEstados(int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, Spi* _spi):
 	tempTL(0),
-	tempC(0),
 	tempE1(0),
 	tempE2(0),
 	tempS(0),
 	tempEva(0),
-	tiempo1(_tiempo1),
 	tiempo2(_tiempo2),
 	tiempo3(_tiempo3),
 	tiempo4(_tiempo4),
@@ -32,7 +30,6 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	memo_eva(0),
 	memo_TC(0),
 	memo_TL(0),
-	memo_C(0),
 	memo_E(false)
 {
 	estE1 = new Estrategia1();
@@ -62,10 +59,6 @@ void MaquinaEstados::tiempo(){
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
 	// condiciones que evaluan si ya pasaron los tiempos
-    if (temp - tempC >= (unsigned long)tiempo1) {
-		//timepo de retroceso dir a
-    	memo_C = 0;
-    }
 	if (temp - tempTC >= (unsigned long)tiempo2) {
 		//tiempo de memoria a corto plazo
 		memo_TC = 0;
@@ -91,7 +84,6 @@ void MaquinaEstados::logica(){
 
 void MaquinaEstados::nvsLeer(){
 	Nvs nvs("tiempos");
-	tiempo1 = nvs.leer("retroceso",tiempo1);
 	tiempo2 = nvs.leer("tof_corto_plazo",tiempo2);
 	tiempo3 = nvs.leer("tof_largo_plazo",tiempo3);
 	tiempo4 = nvs.leer("recta_star",tiempo4);

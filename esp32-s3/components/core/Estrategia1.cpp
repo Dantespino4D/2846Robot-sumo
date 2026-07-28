@@ -11,159 +11,143 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
 	ctx->spi->recolectar();
 
 	switch (ctx->modo) {
-		case 0:
-	  		com = HUIR_B;
-	  		ctx->memo_C = 1;
-	  		ctx->tempC = temp;
-	  		break;
-		case 1:
-		  	com = HUIR_A;
-	  		ctx->memo_C = 2;
-	  		ctx->tempC = temp;
-	  		break;
-		case 2:
-	  		com = HUIR_B;
-	  		break;
-		case 3:
-	  		com = HUIR_A;
-	  		break;
-		case 4:
+		case -4:
 			com = EVA_A;
 			break;
-		case 5:
+		case -3:
 			com = EVA_B;
 			break;
-        case 6:
+        case -2:
             com = MAX_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 7:
+        case -1:
             com = ATAQUE_AI;
 			ctx->memo_TC = 5;
 			ctx->tempTC = temp;
 			break;
-        case 8:
+        case 0:
             com = MAX_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 9:
+        case 1:
             com = ATAQUE_AD;
 			ctx->memo_TC = 6;
 			ctx->tempTC = temp;
             break;
-        case 10:
+        case 2:
             com = PRO_AI;
 			ctx->memo_TC = 1;
 			ctx->tempTC = temp;
 			break;
-        case 11:
+        case 3:
             com = DIR_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 12:
+        case 4:
             com = PRO_AD;
 			ctx->memo_TC = 2;
 			ctx->tempTC = temp;
             break;
-        case 13:
+        case 5:
             com = MAX_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 14:
+        case 6:
             com = ATAQUE_BI;
 			ctx->memo_TC = 7;
 			ctx->tempTC = temp;
             break;
-        case 15:
+        case 7:
             com = MAX_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 16:
+        case 8:
             com = ATAQUE_BD;
 			ctx->memo_TC = 8;
 			ctx->tempTC = temp;
             break;
-        case 17:
+        case 9:
             com = PRO_BI;
 			ctx->memo_TC = 3;
 			ctx->tempTC = temp;
             break;
-        case 18:
+        case 10:
             com = DIR_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 19:
+        case 11:
             com = PRO_BD;
 			ctx->memo_TC = 4;
 			ctx->tempTC = temp;
             break;
-		case 20:
+		case 12:
 			com = PRO_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 21:
+		case 13:
 			com = PRO_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 22:
+		case 14:
 			com = PRO_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 23:
+		case 15:
 			com = PRO_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 24:
+		case 16:
 			com = ATAQUE_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 25:
+		case 17:
 			com = ATAQUE_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 26:
+		case 18:
 			com = ATAQUE_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 27:
+		case 19:
 			com = ATAQUE_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 28:
+		case 20:
 			com = MAX_A;
 			ctx->memo_TL = 0;
 			break;
-		case 29:
+		case 21:
 			com = MAX_B;
 			ctx->memo_TL = 0;
 			break;
-		case 30:
+		case 22:
 			com = PRO_AI;
 			break;
-		case 31:
+		case 23:
 			com = PRO_AD;
 			break;
-		case 32:
+		case 24:
 			com = PRO_BI;
 			break;
-		case 33:
+		case 25:
 			com = PRO_BD;
 			break;
-		case 34:
+		case 26:
 			if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
 				com = GIRO;
     			ctx->memo_E = false;
@@ -172,7 +156,7 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
       			com = DIR_A;
 			}
       		break;
-		case 35:
+		case 27:
     		if(temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5){
 				com = DIR_A;
     		    ctx->memo_E = true;

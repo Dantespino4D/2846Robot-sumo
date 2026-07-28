@@ -4,7 +4,6 @@
 #include <cstdint>
 
 // variables que establecen el tiemṕo
-extern int tiempo1; // tiempo que retrocede al detectar el borde
 extern int tiempo2; // tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
 extern int tiempo3; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
 extern int tiempo4; // tiempo que avanza en linea recta para buscar al oponente

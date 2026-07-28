@@ -22,14 +22,12 @@ class MaquinaEstados{
 		// variables que cuentan el tiempo
 		unsigned long tempTC;
 		unsigned long tempTL;
-		unsigned long tempC;
 		unsigned long tempE1;
 		unsigned long tempE2;
 		unsigned long tempS;
 		unsigned long tempEva;
 
 		//tiempos establecidos
-		int tiempo1;
 		int tiempo2;
 		int tiempo3;
 		int tiempo4;
@@ -53,9 +51,6 @@ class MaquinaEstados{
 		int memo_TL;//control de los ToF a largo plazo
 			   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
 
-		int memo_C;//control de los sc
-					//0 = sin memoria, 1 = sc_1, 2 = sc_2
-
 		bool memo_E;//contol estrella
 
 		// Instancias de estrategias
@@ -73,7 +68,7 @@ class MaquinaEstados{
 
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, Spi* spi);
+		MaquinaEstados(int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, Spi* spi);
 
 		//destructor
 		~MaquinaEstados();

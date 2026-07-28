@@ -18,8 +18,6 @@ enum Estado {
 	MAX_A,
 	MAX_B,
 	GIRO,
-	HUIR_A,
-	HUIR_B,
 	ESTADOS
 };
 

@@ -322,18 +322,12 @@ void begin_hardware() {
 	vels_1[EVA_B] = -vel.leer("velocidad_eI", vels_1[EVA_A]);
 	vels_2[EVA_B] = -vel.leer("velocidad_eD", vels_2[EVA_A]);
 
-	//velocidades de huida
-	vels_1[HUIR_A] = vel.leer("velocidad_hI", vels_1[HUIR_A]);
-	vels_2[HUIR_A] = vel.leer("velocidad_hD", vels_2[HUIR_A]);
-	vels_1[HUIR_B] = -vel.leer("velocidad_hI", vels_1[HUIR_A]);
-	vels_2[HUIR_B] = -vel.leer("velocidad_hD", vels_2[HUIR_A]);
-
 	//velocidades del giro de busqueda
 	vels_1[GIRO] = vel.leer("velocidad_gI", vels_1[GIRO]);
 	vels_2[GIRO] = vel.leer("velocidad_gD", vels_2[GIRO]);
 
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5, &spi);
+    me = new MaquinaEstados(tiempo2, tiempo3, tiempo4, tiempo5, &spi);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 

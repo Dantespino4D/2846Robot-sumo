@@ -1,6 +1,34 @@
 
 
 ==========================================
+FILE PATH: ./esp32-s3/components/actuadores/Velocidades.cpp
+==========================================
+
+#include "Velocidades.h"
+#include "esp_attr.h"
+
+DRAM_ATTR int16_t vels_1[ESTADOS] = {0, 700, -700, 950, -950, 800, -800, 950, -950, 600, -600, 950, -950, 1023, -1023, 950, 950, -950};
+DRAM_ATTR int16_t vels_2[ESTADOS] = {0, 700, -700, 200, -200, 950, -950, 800, -800, 950, -950, 600, -600, 1023, -1023, -800, 950, -950};
+
+
+
+==========================================
+FILE PATH: ./esp32-s3/components/actuadores/Velocidades.h
+==========================================
+
+#ifndef VELOCIDADES_H
+#define VELOCIDADES_H
+
+#include "Estados.h"
+#include <cstdint>
+
+extern int16_t vels_1[ESTADOS];
+extern int16_t vels_2[ESTADOS];
+
+#endif // VELOCIDADES_H
+
+
+==========================================
 FILE PATH: ./esp32-s3/components/comunicaciones/Mqtt.cpp
 ==========================================
 
@@ -363,6 +391,7 @@ FILE PATH: ./esp32-s3/components/comunicaciones/Spi.cpp
 
 #include "Spi.h"
 #include "Nvs.h"
+#include "Velocidades.h"
 #include "pines.h"
 #include "driver/spi_master.h"
 #include "esp_heap_caps.h"
@@ -421,7 +450,7 @@ void Spi::begin() {
     }
 }
 
-void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
+void Spi::armarOrden(int16_t obj_1, int16_t obj_2){
 	Esp_t* orden = (Esp_t*)tx;
 	orden->inicio[0] = HEADER_1;
 	orden->inicio[1] = HEADER_2;
@@ -429,7 +458,7 @@ void Spi::armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban){
 	orden->id = ID_ESP;
 	orden->obj_1 = obj_1;
 	orden->obj_2 = obj_2;
-	orden->banderas = ban;
+	orden->banderas = 0;//quizas se elminara si se encuentra inutil
 	orden->cont = cont;
 	orden->final = crc8((uint8_t*)orden, sizeof(Esp_t) - 1);
 	enviarRecibir((uint8_t*)orden, rx, sizeof(Esp_t));
@@ -448,7 +477,7 @@ void Spi::enviarRecibir(uint8_t* mensaje, uint8_t* respuesta, size_t size){
 	}
 }
 
-void Spi::enviaConfiguracion(){
+void Spi::enviarConfiguracion(){
 	Nvs sensores("sensores");
 	Nvs tiempos("tiempos");
 	Conf_t* conf = (Conf_t*)tx;
@@ -546,8 +575,8 @@ class Spi {
 	public:
 		Spi();
 		void begin();
-		void armarOrden(int16_t obj_1, int16_t obj_2, uint8_t ban);
-		void enviaConfiguracion();
+		void armarOrden(int16_t obj_1, int16_t obj_2);
+		void enviarConfiguracion();
 		void procesarRespuesta();
 		void recolectar();
 		Stm_t getTelemetria() const;
@@ -852,7 +881,6 @@ FILE PATH: ./esp32-s3/components/configuracion/configuracion.cpp
 #include <cstdint>
 
 // variables que establecen el tiemṕo
-int tiempo1 = 400; // tiempo que retrocede al detectar el borde
 int tiempo2 = 250; // tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
 int tiempo3 = 2000; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
 int tiempo4 = 2000; // tiempo que avanza en linea recta para buscar al oponente
@@ -874,7 +902,6 @@ FILE PATH: ./esp32-s3/components/configuracion/configuracion.h
 #include <cstdint>
 
 // variables que establecen el tiemṕo
-extern int tiempo1; // tiempo que retrocede al detectar el borde
 extern int tiempo2; // tiempo que sigue avanzando despues de dejar de detectar al oponente a corto plazo
 extern int tiempo3; // tiempo que sigue avanzando despues de dejar de detectar al oponente a largo plazo
 extern int tiempo4; // tiempo que avanza en linea recta para buscar al oponente
@@ -1104,171 +1131,189 @@ struct Datos{
 
 
 ==========================================
+FILE PATH: ./esp32-s3/components/core/Estados.h
+==========================================
+
+#ifndef ESTADOS_H
+#define ESTADOS_H
+
+enum Estado {
+	ALTO,
+	DIR_A,
+	DIR_B,
+	EVA_A,
+	EVA_B,
+	ATAQUE_AI,
+	ATAQUE_BI,
+	ATAQUE_AD,
+	ATAQUE_BD,
+	PRO_AI,
+	PRO_BI,
+	PRO_AD,
+	PRO_BD,
+	MAX_A,
+	MAX_B,
+	GIRO,
+	ESTADOS
+};
+
+#endif // !ESTADOS_H
+
+
+==========================================
 FILE PATH: ./esp32-s3/components/core/Estrategia1.cpp
 ==========================================
 
 #include "Estrategia1.h"
 #include "MaquinaEstados.h"
+#include "Estados.h"
+#include "Velocidades.h"
 
 void Estrategia1::ejecucion(MaquinaEstados* ctx){
-	int com = ALTO;
+	Estado com = ALTO;
 
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
+	ctx->spi->recolectar();
+
 	switch (ctx->modo) {
-		case 0:
-	  		com = HUIR_B;
-	  		ctx->memo_C = 1;
-	  		ctx->tempC = temp;
-	  		break;
-		case 1:
-		  	com = HUIR_A;
-	  		ctx->memo_C = 2;
-	  		ctx->tempC = temp;
-	  		break;
-		case 2:
-	  		com = HUIR_B;
-	  		break;
-		case 3:
-	  		com = HUIR_A;
-	  		break;
-		case 4:
+		case -4:
 			com = EVA_A;
 			break;
-		case 5:
+		case -3:
 			com = EVA_B;
 			break;
-        case 6:
+        case -2:
             com = MAX_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 7:
+        case -1:
             com = ATAQUE_AI;
 			ctx->memo_TC = 5;
 			ctx->tempTC = temp;
 			break;
-        case 8:
+        case 0:
             com = MAX_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 9:
+        case 1:
             com = ATAQUE_AD;
 			ctx->memo_TC = 6;
 			ctx->tempTC = temp;
             break;
-        case 10:
+        case 2:
             com = PRO_AI;
 			ctx->memo_TC = 1;
 			ctx->tempTC = temp;
 			break;
-        case 11:
+        case 3:
             com = DIR_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 12:
+        case 4:
             com = PRO_AD;
 			ctx->memo_TC = 2;
 			ctx->tempTC = temp;
             break;
-        case 13:
+        case 5:
             com = MAX_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 14:
+        case 6:
             com = ATAQUE_BI;
 			ctx->memo_TC = 7;
 			ctx->tempTC = temp;
             break;
-        case 15:
+        case 7:
             com = MAX_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 16:
+        case 8:
             com = ATAQUE_BD;
 			ctx->memo_TC = 8;
 			ctx->tempTC = temp;
             break;
-        case 17:
+        case 9:
             com = PRO_BI;
 			ctx->memo_TC = 3;
 			ctx->tempTC = temp;
             break;
-        case 18:
+        case 10:
             com = DIR_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 19:
+        case 11:
             com = PRO_BD;
 			ctx->memo_TC = 4;
 			ctx->tempTC = temp;
             break;
-		case 20:
+		case 12:
 			com = PRO_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 21:
+		case 13:
 			com = PRO_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 22:
+		case 14:
 			com = PRO_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 23:
+		case 15:
 			com = PRO_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 24:
+		case 16:
 			com = ATAQUE_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 25:
+		case 17:
 			com = ATAQUE_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 26:
+		case 18:
 			com = ATAQUE_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 27:
+		case 19:
 			com = ATAQUE_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 28:
+		case 20:
 			com = MAX_A;
 			ctx->memo_TL = 0;
 			break;
-		case 29:
+		case 21:
 			com = MAX_B;
 			ctx->memo_TL = 0;
 			break;
-		case 30:
+		case 22:
 			com = PRO_AI;
 			break;
-		case 31:
+		case 23:
 			com = PRO_AD;
 			break;
-		case 32:
+		case 24:
 			com = PRO_BI;
 			break;
-		case 33:
+		case 25:
 			com = PRO_BD;
 			break;
-		case 34:
+		case 26:
 			if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
 				com = GIRO;
     			ctx->memo_E = false;
@@ -1277,7 +1322,7 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
       			com = DIR_A;
 			}
       		break;
-		case 35:
+		case 27:
     		if(temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5){
 				com = DIR_A;
     		    ctx->memo_E = true;
@@ -1289,7 +1334,8 @@ void Estrategia1::ejecucion(MaquinaEstados* ctx){
         default:
             com = ALTO;
             break;
-    }
+   	}
+	ctx->spi->armarOrden(vels_1[com], vels_2[com]);
 }
 
 
@@ -1318,166 +1364,154 @@ FILE PATH: ./esp32-s3/components/core/Estrategia2.cpp
 
 #include "Estrategia2.h"
 #include "MaquinaEstados.h"
+#include "Estados.h"
+#include "Velocidades.h"
 
 void Estrategia2::ejecucion(MaquinaEstados* ctx) {
-	int com = ALTO;
+	Estado com = ALTO;
 
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
+	ctx->spi->recolectar();
+
 	switch (ctx->modo) {
-		case 0:
-	  		com = HUIR_B;
-	  		ctx->memo_C = 1;
-	  		ctx->tempC = temp;
-	  		break;
-		case 1:
-		  	com = HUIR_A;
-	  		ctx->memo_C = 2;
-	  		ctx->tempC = temp;
-	  		break;
-		case 2:
-	  		com = HUIR_B;
-	  		break;
-		case 3:
-	  		com = HUIR_A;
-	  		break;
-		case 4:
+		case -4:
 			com = EVA_A;
 			break;
-		case 5:
+		case -3:
 			com = EVA_B;
 			break;
-        case 6:
+        case -2:
             com = MAX_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 7:
+        case -1:
             com = ATAQUE_AI;
 			ctx->memo_TC = 5;
 			ctx->tempTC = temp;
 			break;
-        case 8:
+        case 0:
             com = MAX_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 9:
+        case 1:
             com = ATAQUE_AD;
 			ctx->memo_TC = 6;
 			ctx->tempTC = temp;
             break;
-        case 10:
+        case 2:
             com = PRO_AI;
 			ctx->memo_TC = 1;
 			ctx->tempTC = temp;
 			break;
-        case 11:
+        case 3:
             com = DIR_A;
 			ctx->memo_TC = 9;
 			ctx->tempTC = temp;
             break;
-        case 12:
+        case 4:
             com = PRO_AD;
 			ctx->memo_TC = 2;
 			ctx->tempTC = temp;
             break;
-        case 13:
+        case 5:
             com = MAX_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 14:
+        case 6:
             com = ATAQUE_BI;
 			ctx->memo_TC = 7;
 			ctx->tempTC = temp;
             break;
-        case 15:
+        case 7:
             com = MAX_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 16:
+        case 8:
             com = ATAQUE_BD;
 			ctx->memo_TC = 8;
 			ctx->tempTC = temp;
             break;
-        case 17:
+        case 9:
             com = PRO_BI;
 			ctx->memo_TC = 3;
 			ctx->tempTC = temp;
             break;
-        case 18:
+        case 10:
             com = DIR_B;
 			ctx->memo_TC = 10;
 			ctx->tempTC = temp;
             break;
-        case 19:
+        case 11:
             com = PRO_BD;
 			ctx->memo_TC = 4;
 			ctx->tempTC = temp;
             break;
-		case 20:
+		case 12:
 			com = PRO_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 21:
+		case 13:
 			com = PRO_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 22:
+		case 14:
 			com = PRO_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 23:
+		case 15:
 			com = PRO_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 24:
+		case 16:
 			com = ATAQUE_AI;
 			ctx->memo_TL = 1;
 			ctx->tempTL = temp;
 			break;
-		case 25:
+		case 17:
 			com = ATAQUE_AD;
 			ctx->memo_TL = 2;
 			ctx->tempTL = temp;
 			break;
-		case 26:
+		case 18:
 			com = ATAQUE_BI;
 			ctx->memo_TL = 3;
 			ctx->tempTL = temp;
 			break;
-		case 27:
+		case 19:
 			com = ATAQUE_BD;
 			ctx->memo_TL = 4;
 			ctx->tempTL = temp;
 			break;
-		case 28:
+		case 20:
 			com = MAX_A;
 			ctx->memo_TL = 0;
 			break;
-		case 29:
+		case 21:
 			com = MAX_B;
 			ctx->memo_TL = 0;
 			break;
-		case 30:
+		case 22:
 			com = PRO_AD;
 			break;
-		case 31:
+		case 23:
 			com = PRO_AI;
 			break;
-		case 32:
+		case 24:
 			com = PRO_BD;
 			break;
-		case 33:
+		case 25:
 			com = PRO_BI;
 			break;
-		case 34:
+		case 26:
 			if (temp - ctx->tempE1 >= (unsigned long)ctx->tiempo4) {
 				com = GIRO;
     			ctx->memo_E = false;
@@ -1486,7 +1520,7 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
       			com = DIR_A;
 			}
       		break;
-		case 35:
+		case 27:
     		if(temp - ctx->tempE2 >= (unsigned long)ctx->tiempo5){
 				com = DIR_A;
     		    ctx->memo_E = true;
@@ -1499,6 +1533,7 @@ void Estrategia2::ejecucion(MaquinaEstados* ctx) {
             com = ALTO;
             break;
     }
+	ctx->spi->armarOrden(vels_1[com], vels_2[com]);
 }
 
 
@@ -1558,158 +1593,138 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	uint32_t noti = 0;
 	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(1));
 
-	//se verifica si se detecto algun sensor de color el que sea
-	if(noti & MASK_COLOR){
-		// si detecta el limite por la direccion A
-		if (noti & MASK_LIM_A) {
-			ctx->modo = 0;
-		}
-		// si detecta el limite por la direccion B
-		else if (noti & MASK_LIM_B) {
-	 		 ctx->modo = 1;
-		}
-	//se verifica si hay alguna memoria del sensor de color
-	}else if(ctx->memo_C != 0) {
-		// si deja de detectar el limite por sc 1
-		if (ctx->memo_C == 1) {
-			ctx->modo = 2;
-		}
-		// si deja de detectar el limite por sc 2
-		else if (ctx->memo_C == 2) {
-			ctx->modo = 3;
-		}
-	}else if(ctx->stall) {
-		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+	if(ctx->stall) {//quizas se reestructure
+		ctx->modo = (ctx->memo_eva == 1) ? 0 : 1;
 		return;
 	}else if(false) {//se dejara en false por ahora
 		ctx->tempEva = (xTaskGetTickCount() * portTICK_PERIOD_MS);
-		ctx->modo = (ctx->memo_eva == 1) ? 4 : 5;
+		ctx->modo = (ctx->memo_eva == 1) ? 0 : 1;
 		return;
 	//se detecta si los sensores 1, 2, y 3 o sus convinaciones fueron activados
 	}else if(noti & MASK_TOF_A) {
 		//si detecta al robot por ToF1, ToF2 y ToF3
 		if((noti & MASK_TOF_A) == MASK_TOF_A) {
-			ctx->modo = 6;
+			ctx->modo = 2;
 		}
 		//si detecta al robot por ToF1 y Tof2
 		else if((noti & MASK_TOF_1_2) == MASK_TOF_1_2) {
-			ctx->modo = 7;
+			ctx->modo = 3;
 		}
 		//si detecta al robot por ToF1 y ToF3
 		else if((noti & MASK_TOF_1_3) == MASK_TOF_1_3) {
-			ctx->modo = 8;
+			ctx->modo = 4;
 		}
 		//si detecta al robot por ToF2 y ToF3
 		else if((noti & MASK_TOF_2_3) == MASK_TOF_2_3) {
-			ctx->modo = 9;
+			ctx->modo = 5;
 		}
 		// si detecta el robot por ToF1
 		else if (noti & BIT_TOF_AI) {
-			ctx->modo = 10;
+			ctx->modo = 6;
 		}
 		// si detecta el robot por ToF2
 		else if (noti & BIT_TOF_AC) {
-			ctx->modo = 11;
+			ctx->modo = 7;
 		}
 		//si detecta al robot por ToF3
 		else if (noti & BIT_TOF_AD) {
-		  	ctx->modo = 12;
+		  	ctx->modo = 8;
 		}
 	//detecta si los sensores 4, 5, y 6 o sus convinaciones fueron activados
 	}else if(noti & MASK_TOF_B) {
 		//si detecta al robot por ToF4, ToF5 y ToF6
 		if((noti & MASK_TOF_B) == MASK_TOF_B) {
-			ctx->modo = 13;
+			ctx->modo = 9;
 		}
 		//si detecta al robot por ToF4 y ToF5
 		else if((noti & MASK_TOF_4_5) == MASK_TOF_4_5) {
-			ctx->modo = 14;
+			ctx->modo = 10;
 		}
 		//si detecta al robot por ToF4 y ToF6
 		else if((noti & MASK_TOF_4_6) == MASK_TOF_4_6) {
-			ctx->modo = 15;
+			ctx->modo = 11;
 		}
 		//si detecta al robot por ToF5 y ToF6
 		else if((noti & MASK_TOF_5_6) == MASK_TOF_5_6) {
-			ctx->modo = 16;
+			ctx->modo = 12;
 		}
 		// si detecta al robot por ToF4
 		else if (noti & BIT_TOF_BI) {
-		  	ctx->modo = 17;
+		  	ctx->modo = 13;
 		}
 		// si detecta al robot por ToF5
 		else if (noti & BIT_TOF_BC) {
-			ctx->modo = 18;
+			ctx->modo = 14;
 		}
 		//si detecta al robot por ToF6
 		else if (noti & BIT_TOF_BD) {
-			ctx->modo = 19;
+			ctx->modo = 15;
 		}
 	}else if(ctx->memo_TC != 0 || ctx->memo_TL != 0) {
 		//si deja de detectar al robot por direccion AI_P a corto plazo
 		if (ctx->memo_TC == 1) {
-			ctx->modo = 20;
+			ctx->modo = 16;
 		}
 		//si deja de detectar al robot por direccion AD_P a corto plazo
 		else if (ctx->memo_TC == 2) {
-			ctx->modo = 21;
+			ctx->modo = 17;
 		}
 		//si deja de detectar al robot por direccion BI_P a corto plazo
 		else if (ctx->memo_TC == 3) {
-			ctx->modo = 22;
+			ctx->modo = 18;
 		}
 		//si deja de detectar al robot por direccion BD_P a corto plazo
 		else if (ctx->memo_TC == 4) {
-			ctx->modo = 23;
+			ctx->modo = 19;
 		}
 		//si deja de detectar al robot por direccion AI_S a corto plazo
 		else if (ctx->memo_TC == 5) {
-			ctx->modo = 24;
+			ctx->modo = 20;
 		}
 		//si deja de detectar al robot por direccion AD_S a corto plazo
 		else if (ctx->memo_TC == 6) {
-			ctx->modo = 25;
+			ctx->modo = 21;
 		}
 		//si deja de detectar al robot por direccion BI_S a corto plazo
 		else if (ctx->memo_TC == 7) {
-			ctx->modo = 26;
+			ctx->modo = 22;
 		}
 		//si deja de detectar al robot por direccion BD_S a corto plazo
 		else if (ctx->memo_TC == 8) {
-			ctx->modo = 27;
+			ctx->modo = 23;
 		}
 		//si deja de detectar al robot de frente a corto plazo
 		else if (ctx->memo_TC == 9) {
-			ctx->modo = 28;
+			ctx->modo = 24;
 		}
 		//si deja de detectar al robot por atras a corto plazo
 		else if (ctx->memo_TC == 10) {
-			ctx->modo = 29;
+			ctx->modo = 25;
 		}
 		//si deja de detectar al robot por direccion AI a largo plazo
 		else if (ctx->memo_TL == 1) {
-		  	ctx->modo = 30;
+		  	ctx->modo = 26;
 		}
 		//si deja de detectar al robot por direccion AD a largo plazo
 		else if(ctx->memo_TL == 2) {
-		  	ctx->modo = 31;
+		  	ctx->modo = 27;
 		}
 		//si deja de detectar al robot por direccion BI a largo plazo
 		else if (ctx->memo_TL == 3) {
-			ctx->modo = 32;
+			ctx->modo = 28;
 		}
 		//si deja de detectar al robot por direccion BD a largo plazo
 		else if (ctx->memo_TL == 4) {
-		  	ctx->modo = 33;
+		  	ctx->modo = 29;
 		}
 	}else{
 		//memoria de avance de estrella
 		if (ctx->memo_E) {
-			ctx->modo = 34;
+			ctx->modo = 30;
 		}
 		// si no detecta nada
 		else{
-			ctx->modo = 35;
+			ctx->modo = 31;
 		}
 	}
 }
@@ -1935,15 +1950,14 @@ FILE PATH: ./esp32-s3/components/core/MaquinaEstados.cpp
 
 #include "Estrategia1.h"
 #include "Estrategia2.h"
+#include "Spi.h"
 
-MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5):
+MaquinaEstados::MaquinaEstados(int _tiempo2, int _tiempo3, int _tiempo4, int _tiempo5, Spi* _spi):
 	tempTL(0),
-	tempC(0),
 	tempE1(0),
 	tempE2(0),
 	tempS(0),
 	tempEva(0),
-	tiempo1(_tiempo1),
 	tiempo2(_tiempo2),
 	tiempo3(_tiempo3),
 	tiempo4(_tiempo4),
@@ -1953,11 +1967,11 @@ MaquinaEstados::MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int _ti
 	estrategia(0),
 	ciclo(0),
 	ini(0),
+	spi(_spi),
 	stall(false),
 	memo_eva(0),
 	memo_TC(0),
 	memo_TL(0),
-	memo_C(0),
 	memo_E(false)
 {
 	estE1 = new Estrategia1();
@@ -1987,10 +2001,6 @@ void MaquinaEstados::tiempo(){
 	unsigned long temp = (xTaskGetTickCount() * portTICK_PERIOD_MS);
 
 	// condiciones que evaluan si ya pasaron los tiempos
-    if (temp - tempC >= (unsigned long)tiempo1) {
-		//timepo de retroceso dir a
-    	memo_C = 0;
-    }
 	if (temp - tempTC >= (unsigned long)tiempo2) {
 		//tiempo de memoria a corto plazo
 		memo_TC = 0;
@@ -2016,7 +2026,6 @@ void MaquinaEstados::logica(){
 
 void MaquinaEstados::nvsLeer(){
 	Nvs nvs("tiempos");
-	tiempo1 = nvs.leer("retroceso",tiempo1);
 	tiempo2 = nvs.leer("tof_corto_plazo",tiempo2);
 	tiempo3 = nvs.leer("tof_largo_plazo",tiempo3);
 	tiempo4 = nvs.leer("recta_star",tiempo4);
@@ -2052,28 +2061,10 @@ FILE PATH: ./esp32-s3/components/core/MaquinaEstados.h
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
 #include "EstrategiaBase.h"
+#include "Spi.h"
 
 // comandos de movimiento
 #include <cstdint>
-#define ALTO 0
-#define DIR_A 1
-#define DIR_B 2
-#define EVA_A 3
-#define EVA_B 4
-#define ATAQUE_AI 5
-#define ATAQUE_BI 6
-#define ATAQUE_AD 7
-#define ATAQUE_BD 8
-#define PRO_AI 9
-#define PRO_BI 10
-#define PRO_AD 11
-#define PRO_BD 12
-#define MAX_A 13
-#define MAX_B 14
-#define GIRO 15
-#define HUIR_A 16
-#define HUIR_B 17
-
 
 class Estrategia1;
 class Estrategia2;
@@ -2086,14 +2077,12 @@ class MaquinaEstados{
 		// variables que cuentan el tiempo
 		unsigned long tempTC;
 		unsigned long tempTL;
-		unsigned long tempC;
 		unsigned long tempE1;
 		unsigned long tempE2;
 		unsigned long tempS;
 		unsigned long tempEva;
 
 		//tiempos establecidos
-		int tiempo1;
 		int tiempo2;
 		int tiempo3;
 		int tiempo4;
@@ -2106,6 +2095,8 @@ class MaquinaEstados{
 		volatile int ciclo;
 		int ini;
 
+		Spi* spi;
+
 		bool stall;
 		int memo_eva;
 
@@ -2114,9 +2105,6 @@ class MaquinaEstados{
 
 		int memo_TL;//control de los ToF a largo plazo
 			   //0 = sin memoria, 1 = AI, 2 = AD, 3 = BI, 4 = BD
-
-		int memo_C;//control de los sc
-					//0 = sin memoria, 1 = sc_1, 2 = sc_2
 
 		bool memo_E;//contol estrella
 
@@ -2135,7 +2123,7 @@ class MaquinaEstados{
 
 	public:
 		//constructor
-		MaquinaEstados(int _tiempo1, int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5);
+		MaquinaEstados(int _tiempo2, int _tiempo3, int tiempo4, int _tiempo5, Spi* spi);
 
 		//destructor
 		~MaquinaEstados();
@@ -3375,7 +3363,10 @@ FILE PATH: ./esp32-s3/main/main.cpp
 #include "esp_task_wdt.h"
 #include "Wifi.h"
 #include "Mqtt.h"
+#include "Spi.h"
 #include "MaquinaEstados.h"
+#include "Estados.h"
+#include "Velocidades.h"
 #include "GestorI2C.h"
 #include "SensorTof.h"
 #include "Telemetria.h"
@@ -3413,6 +3404,9 @@ Mqtt mq;
 
 //objeto que gestiona el bus I2C
 GestorI2C i2c;
+
+//objeto del SPI
+Spi spi;
 
 // objeto del sensor rival
 SensorTof* sr = nullptr;
@@ -3644,8 +3638,57 @@ void begin_hardware() {
         ESP_LOGE(TAG, "No se pudo crear el sensor rival");
     }
 
+	//objeto que maneja la memoria NVS de las velocidades
+	Nvs vel("motores");
+
+	//velocidades de avance normal
+	vels_1[DIR_A] = vel.leer("velocidad_nI", vels_1[DIR_A]);
+	vels_2[DIR_A] = vel.leer("velocidad_nD", vels_2[DIR_A]);
+	vels_1[DIR_B] = -vel.leer("velocidad_nI", vels_1[DIR_A]);
+	vels_2[DIR_B] = -vel.leer("velocidad_nD", vels_2[DIR_A]);
+
+	//velocidades de ataque con giro a la izquierda
+	vels_1[ATAQUE_AI] = vel.leer("velocidad_aI", vels_1[ATAQUE_AI]);
+	vels_2[ATAQUE_AI] = vel.leer("velocidad_aD", vels_2[ATAQUE_AI]);
+	vels_1[ATAQUE_BI] = -vel.leer("velocidad_aI", vels_1[ATAQUE_AI]);
+	vels_2[ATAQUE_BI] = -vel.leer("velocidad_aD", vels_2[ATAQUE_AI]);
+
+	//velocidades de ataque con giro a la derecha
+	vels_1[ATAQUE_AD] = vel.leer("velocidad_aD", vels_1[ATAQUE_AD]);
+	vels_2[ATAQUE_AD] = vel.leer("velocidad_aI", vels_2[ATAQUE_AD]);
+	vels_1[ATAQUE_BD] = -vel.leer("velocidad_aD", vels_1[ATAQUE_AD]);
+	vels_2[ATAQUE_BD] = -vel.leer("velocidad_aI", vels_2[ATAQUE_AD]);
+
+	//velocidades de ataque con giro pronunciado a la izquierda
+	vels_1[PRO_AI] = vel.leer("velocidad_pI", vels_1[PRO_AI]);
+	vels_2[PRO_AI] = vel.leer("velocidad_pD", vels_2[PRO_AI]);
+	vels_1[PRO_BI] = -vel.leer("velocidad_pI", vels_1[PRO_AI]);
+	vels_2[PRO_BI] = -vel.leer("velocidad_pD", vels_2[PRO_AI]);
+
+	//velocidades de ataque con giro pronunciado a la derecha
+	vels_1[PRO_AD] = vel.leer("velocidad_pD", vels_1[PRO_AD]);
+	vels_2[PRO_AD] = vel.leer("velocidad_pI", vels_2[PRO_AD]);
+	vels_1[PRO_BD] = -vel.leer("velocidad_pD", vels_1[PRO_AD]);
+	vels_2[PRO_BD] = -vel.leer("velocidad_pI", vels_2[PRO_AD]);
+
+	//velocidades de avance a maxima velocidad
+	vels_1[MAX_A] = vel.leer("velocidad_mI", vels_1[MAX_A]);
+	vels_2[MAX_A] = vel.leer("velocidad_mD", vels_2[MAX_A]);
+	vels_1[MAX_B] = -vel.leer("velocidad_mI", vels_1[MAX_A]);
+	vels_2[MAX_B] = -vel.leer("velocidad_mD", vels_2[MAX_A]);
+
+	//velocidades de evasion
+	vels_1[EVA_A] = vel.leer("velocidad_eI", vels_1[EVA_A]);
+	vels_2[EVA_A] = vel.leer("velocidad_eD", vels_2[EVA_A]);
+	vels_1[EVA_B] = -vel.leer("velocidad_eI", vels_1[EVA_A]);
+	vels_2[EVA_B] = -vel.leer("velocidad_eD", vels_2[EVA_A]);
+
+	//velocidades del giro de busqueda
+	vels_1[GIRO] = vel.leer("velocidad_gI", vels_1[GIRO]);
+	vels_2[GIRO] = vel.leer("velocidad_gD", vels_2[GIRO]);
+
 	//se inicializa la maquina de estados
-    me = new MaquinaEstados(tiempo1, tiempo2, tiempo3, tiempo4, tiempo5);
+    me = new MaquinaEstados(tiempo2, tiempo3, tiempo4, tiempo5, &spi);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 
@@ -3671,6 +3714,8 @@ void comunicaciones() {
 		ESP_LOGI(TAG, "monitor desactivado por modo combate");
 		esp_log_level_set("*", ESP_LOG_NONE);
 	}
+	spi.begin();
+	spi.enviarConfiguracion();
 }
 
 // funcion que libera la memoria de los objetos creados
