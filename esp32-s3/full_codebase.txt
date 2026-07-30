@@ -7,8 +7,8 @@ FILE PATH: ./components/actuadores/Velocidades.cpp
 #include "Velocidades.h"
 #include "esp_attr.h"
 
-DRAM_ATTR int16_t vels_1[ESTADOS] = {0, 700, -700, 950, -950, 800, -800, 950, -950, 600, -600, 950, -950, 1023, -1023, 950, 950, -950};
-DRAM_ATTR int16_t vels_2[ESTADOS] = {0, 700, -700, 200, -200, 950, -950, 800, -800, 950, -950, 600, -600, 1023, -1023, -800, 950, -950};
+DRAM_ATTR int16_t vels_1[ESTADOS] = {0, 700, -700, 950, -950, 800, -800, 950, -950, 600, -600, 950, -950, 1023, -1023, 950};
+DRAM_ATTR int16_t vels_2[ESTADOS] = {0, 700, -700, 200, -200, 950, -950, 800, -800, 950, -950, 600, -600, 1023, -1023, -800};
 
 
 
@@ -1018,9 +1018,14 @@ FILE PATH: ./components/configuracion/pines.h
 
 #include "driver/gpio.h"
 
-    // Pines para ESP32-S3
-    #define MUS GPIO_NUM_3
+    // inicio
     #define INI GPIO_NUM_35
+
+	//interrupcion stm32
+	#define STM32_INT GPIO_NUM_5
+
+	//musica
+    #define MUS GPIO_NUM_3
 
 	//spi
 	#define SPI_MOSI GPIO_NUM_42
@@ -1593,7 +1598,7 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	uint32_t noti = 0;
 	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(1));
 
-	if(ctx->stall) {//quizas se reestructure
+	if(ctx->stall) {//quizas se reestructure en el futuro
 		ctx->modo = (ctx->memo_eva == 1) ? 0 : 1;
 		return;
 	}else if(false) {//se dejara en false por ahora
@@ -1746,6 +1751,71 @@ public:
 
     // El método ejecucion sigue siendo obligatorio para los hijos (E1, E2, etc.)
     virtual void ejecucion(MaquinaEstados* ctx) override = 0;
+};
+
+#endif
+
+
+==========================================
+FILE PATH: ./components/core/GestorBorde.cpp
+==========================================
+
+#include "GestorBorde.h"
+#include "MaquinaEstados.h"
+#include "pines.h"
+#include "driver/gpio.h"
+
+#define TAG "GestorBorde"
+
+GestorBorde::GestorBorde() {
+	// Constructor implementation
+}
+
+void GestorBorde::begin(MaquinaEstados* me) {
+	//se inicializa el pin de interrupcion
+	gpio_config_t io_stm = {
+		.pin_bit_mask = (1ULL << STM32_INT),
+		.mode = GPIO_MODE_INPUT,
+		.pull_up_en = GPIO_PULLUP_ENABLE,
+		.pull_down_en = GPIO_PULLDOWN_DISABLE,
+		.intr_type = GPIO_INTR_ANYEDGE
+	};
+	esp_err_t err = gpio_config(&io_stm);
+	if (err != ESP_OK) {
+		ESP_LOGE(TAG, "Error configuring GPIO: %d", err);
+	}
+
+	err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
+	if (err != ESP_OK) {
+		ESP_LOGE(TAG, "Error installing ISR service: %d", err);
+	}
+
+	gpio_isr_handler_add(STM32_INT, INT_Borde, me);
+}
+
+void IRAM_ATTR GestorBorde::INT_Borde(void* arg) {
+	MaquinaEstados* me = static_cast<MaquinaEstados*>(arg);
+	if(me != nullptr) {
+		me->definirEvasion(gpio_get_level(STM32_INT) == 1);
+	}
+}
+
+
+==========================================
+FILE PATH: ./components/core/GestorBorde.h
+==========================================
+
+#ifndef GESTORBORDE_H
+#define GESTORBORDE_H
+
+#include "MaquinaEstados.h"
+
+class GestorBorde {
+	private:
+		static void INT_Borde(void* arg);
+	public:
+		GestorBorde();
+		void begin(MaquinaEstados* me);
 };
 
 #endif
@@ -1948,6 +2018,8 @@ FILE PATH: ./components/core/MaquinaEstados.cpp
 #include "nvs_flash.h"
 #include <cstdint>
 
+#include "Velocidades.h"
+#include "Estados.h"
 #include "Estrategia1.h"
 #include "Estrategia2.h"
 #include "Spi.h"
@@ -2017,6 +2089,11 @@ void MaquinaEstados::tiempo(){
 }
 
 void MaquinaEstados::logica(){
+	//evaluar si esta en curso la maniobra de evacion
+	if(evasion){
+		spi->armarOrden(vels_1[ALTO], vels_2[ALTO]);
+		return;
+	}
 	tiempo();
 	if(estActual != nullptr){
 		estActual->seleccion(this);
@@ -2032,6 +2109,10 @@ void MaquinaEstados::nvsLeer(){
 	tiempo5 = nvs.leer("giro_star",tiempo5);
 	tiempo6 = nvs.leer("evasion", tiempo6);
 	estrategia = nvs.leer("estrategia",estrategia);
+}
+
+void IRAM_ATTR MaquinaEstados::definirEvasion(bool _evasion){
+	evasion = _evasion;
 }
 
 //metodo que recibe la duracion del ciclo
@@ -2098,6 +2179,10 @@ class MaquinaEstados{
 		Spi* spi;
 
 		bool stall;
+
+		//variable de la evasion
+		volatile bool evasion;
+
 		int memo_eva;
 
 		int memo_TC;//control de los ToF a corto plazo
@@ -2134,6 +2219,9 @@ class MaquinaEstados{
 
 		//maquina de estados
 		void logica();
+
+		//metodo que define la evasion
+		void definirEvasion(bool _evasion);
 
 		//se obtiene el ciclo
 		void cicloR(int c, int i);
@@ -3367,6 +3455,7 @@ FILE PATH: ./main/main.cpp
 #include "MaquinaEstados.h"
 #include "Estados.h"
 #include "Velocidades.h"
+#include "GestorBorde.h"
 #include "GestorI2C.h"
 #include "SensorTof.h"
 #include "Telemetria.h"
@@ -3463,11 +3552,17 @@ extern "C" void app_main(void){
 
 
 void robot(void *pvParameters) {
+
+	//CONFIGURACION WATCHDOG
+
 	//suscribir la tarea al watchdog
 	esp_err_t err = esp_task_wdt_add(NULL);
 	if(err != ESP_OK){
 		ESP_LOGE(TAG, "Error al suscribir al watchdog: %s", esp_err_to_name(err));
 	}
+
+	//BOTON Y ESPERA DE 5 SEGUNDOS
+
 	esp_reset_reason_t rason = esp_reset_reason();
 	bool watchdog = (rason == ESP_RST_TASK_WDT || rason == ESP_RST_WDT);
 	if(!watchdog){
@@ -3486,6 +3581,9 @@ void robot(void *pvParameters) {
 	}else{
 		ESP_LOGW(TAG, "Reinicio por Watchdog detectado, omitiendo boton");
 	}
+
+	//INICIO DEL COMBATE
+
 	//prende el led en verde para indicar que todo esta bien
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
@@ -3510,8 +3608,6 @@ void robot(void *pvParameters) {
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
 
-		// Espera event-driven: duerme hasta 1ms (dejando respirar a telemetria e IDLE)
-		// pero despierta instantaneamente si la ISR del TCRT5000 avisa.
 		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
 }
@@ -3689,6 +3785,10 @@ void begin_hardware() {
 
 	//se inicializa la maquina de estados
     me = new MaquinaEstados(tiempo2, tiempo3, tiempo4, tiempo5, &spi);
+
+	//se inicializa el gestor de border
+	GestorBorde gb;
+	gb.begin(me);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 

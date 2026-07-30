@@ -43,6 +43,10 @@ class MaquinaEstados{
 		Spi* spi;
 
 		bool stall;
+
+		//variable de la evasion
+		volatile bool evasion;
+
 		int memo_eva;
 
 		int memo_TC;//control de los ToF a corto plazo
@@ -79,6 +83,9 @@ class MaquinaEstados{
 
 		//maquina de estados
 		void logica();
+
+		//metodo que define la evasion
+		void definirEvasion(bool _evasion);
 
 		//se obtiene el ciclo
 		void cicloR(int c, int i);

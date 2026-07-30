@@ -6,6 +6,7 @@
 #include "MaquinaEstados.h"
 #include "Estados.h"
 #include "Velocidades.h"
+#include "GestorBorde.h"
 #include "GestorI2C.h"
 #include "SensorTof.h"
 #include "Telemetria.h"
@@ -102,11 +103,17 @@ extern "C" void app_main(void){
 
 
 void robot(void *pvParameters) {
+
+	//CONFIGURACION WATCHDOG
+
 	//suscribir la tarea al watchdog
 	esp_err_t err = esp_task_wdt_add(NULL);
 	if(err != ESP_OK){
 		ESP_LOGE(TAG, "Error al suscribir al watchdog: %s", esp_err_to_name(err));
 	}
+
+	//BOTON Y ESPERA DE 5 SEGUNDOS
+
 	esp_reset_reason_t rason = esp_reset_reason();
 	bool watchdog = (rason == ESP_RST_TASK_WDT || rason == ESP_RST_WDT);
 	if(!watchdog){
@@ -125,6 +132,9 @@ void robot(void *pvParameters) {
 	}else{
 		ESP_LOGW(TAG, "Reinicio por Watchdog detectado, omitiendo boton");
 	}
+
+	//INICIO DEL COMBATE
+
 	//prende el led en verde para indicar que todo esta bien
 	rgb(1023, 0);
 	ESP_LOGI(TAG,"iniciando combate");
@@ -149,8 +159,6 @@ void robot(void *pvParameters) {
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
 
-		// Espera event-driven: duerme hasta 1ms (dejando respirar a telemetria e IDLE)
-		// pero despierta instantaneamente si la ISR del TCRT5000 avisa.
 		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
 }
@@ -328,6 +336,10 @@ void begin_hardware() {
 
 	//se inicializa la maquina de estados
     me = new MaquinaEstados(tiempo2, tiempo3, tiempo4, tiempo5, &spi);
+
+	//se inicializa el gestor de border
+	GestorBorde gb;
+	gb.begin(me);
 	ESP_LOGI(TAG, "se inicializo todo");
 }
 

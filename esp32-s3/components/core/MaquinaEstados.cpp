@@ -6,6 +6,8 @@
 #include "nvs_flash.h"
 #include <cstdint>
 
+#include "Velocidades.h"
+#include "Estados.h"
 #include "Estrategia1.h"
 #include "Estrategia2.h"
 #include "Spi.h"
@@ -75,6 +77,11 @@ void MaquinaEstados::tiempo(){
 }
 
 void MaquinaEstados::logica(){
+	//evaluar si esta en curso la maniobra de evacion
+	if(evasion){
+		spi->armarOrden(vels_1[ALTO], vels_2[ALTO]);
+		return;
+	}
 	tiempo();
 	if(estActual != nullptr){
 		estActual->seleccion(this);
@@ -90,6 +97,10 @@ void MaquinaEstados::nvsLeer(){
 	tiempo5 = nvs.leer("giro_star",tiempo5);
 	tiempo6 = nvs.leer("evasion", tiempo6);
 	estrategia = nvs.leer("estrategia",estrategia);
+}
+
+void IRAM_ATTR MaquinaEstados::definirEvasion(bool _evasion){
+	evasion = _evasion;
 }
 
 //metodo que recibe la duracion del ciclo

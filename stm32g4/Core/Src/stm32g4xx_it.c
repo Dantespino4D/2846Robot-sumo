@@ -396,6 +396,8 @@ void TIM6_DAC_IRQHandler(void)
 			return;
 		}
 
+		GPIOC->BSRR = (GPIO_PIN_9 << 16U);
+
 		//verificar si esta sobre el borde
 		if(!(TIM1->BDTR & TIM_BDTR_MOE)) {
 			//establecer las velocidades en 0

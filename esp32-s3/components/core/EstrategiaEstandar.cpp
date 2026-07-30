@@ -12,7 +12,7 @@ void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	uint32_t noti = 0;
 	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(1));
 
-	if(ctx->stall) {//quizas se reestructure
+	if(ctx->stall) {//quizas se reestructure en el futuro
 		ctx->modo = (ctx->memo_eva == 1) ? 0 : 1;
 		return;
 	}else if(false) {//se dejara en false por ahora

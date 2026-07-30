@@ -3,9 +3,14 @@
 
 #include "driver/gpio.h"
 
-    // Pines para ESP32-S3
-    #define MUS GPIO_NUM_3
+    // inicio
     #define INI GPIO_NUM_35
+
+	//interrupcion stm32
+	#define STM32_INT GPIO_NUM_5
+
+	//musica
+    #define MUS GPIO_NUM_3
 
 	//spi
 	#define SPI_MOSI GPIO_NUM_42
