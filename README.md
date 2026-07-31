@@ -14,14 +14,14 @@ El sistema toma decisiones en tiempo real mediante una máquina de estados ejecu
 
 | Característica | Detalle |
 |---|---|
-| Microcontrolador | ESP32-S3 (Cerebro Táctico y Control) |
-| Lenguajes & Frameworks | C/C++ nativo sobre ESP-IDF 6.x + FreeRTOS |
-| Herramienta de build | idf.py |
-| Arquitectura | Modular basada en componentes |
-| Comunicación I2C | Arquitectura asíncrona basada en notificaciones de FreeRTOS para máxima eficiencia sin bloqueo de CPU. |
-| Control de motores | PWM gestionando 4 motores mediante drivers independientes (DRV8871 vía MCPWM) |
-| Conectividad | WiFi + MQTT + mDNS + SmartConfig + OTA |
-| Robustez | Watchdog de tareas (WDT) y Timeout I2C por hardware. |
+| Procesamiento Dual | ESP32-S3 (Cerebro Táctico) + STM32G474RET6 (Músculo/Bare-Metal) |
+| Lenguajes & Frameworks | C/C++ nativo sobre ESP-IDF 6.x (FreeRTOS) + STM32 LL / HAL |
+| Herramienta de build | idf.py / CMake / STM32CubeMX |
+| Comunicación I2C | Lectura de 6 sensores ToF vía DMA en el ESP32 sin bloqueo de CPU. |
+| Comunicación SPI | "Bus de la Verdad" operando vía DMA para comandos inter-MCU de latencia cero. |
+| Control de motores | Delegado al STM32. TIM1/TIM6 gestionan 4 drivers DRV8874 con ADC IPROPI. |
+| Conectividad (ESP32) | WiFi + MQTT + mDNS + SmartConfig + OTA (Desactivados en combate) |
+| Robustez | Watchdog (WDT), Timeout I2C (Hardware 5ms) y Kill-Switch analógico (22ns). |
 
 ---
 
@@ -54,14 +54,16 @@ A raíz de los hallazgos del primer prototipo, el proyecto pivotó hacia un dise
 
 ## Especificaciones de Hardware (Actual)
 
-* **Microcontrolador:** ESP32-S3
-* **Tracción:** 4 Motores Pololu N20 de 100 RPM (reducción 298:1)
-* **Control de Potencia:** 4 Drivers de motor DRV8871 independientes
-* **Detección de Rival:** 2 Sensores ultrasónicos **HC-SR04**
-* **Detección de Tatami:** 2 Sensores de color **TCS34725**
-* **Expansión I2C:** Multiplexor **TCA9548A**
-* **Alimentación:** Batería LiPo 2s 2200mAh 50C, gestionada por un BMS 2s de 20A.
-* **Regulación:** Regulador **LM2596** para el sistema lógico.
+* **Arquitectura:** Híbrida Asimétrica.
+* **Cerebro Táctico:** ESP32-S3 (ESP-IDF, FreeRTOS, SMP). Gestiona estrategia y orquestación.
+* **Músculo y Reflejos:** STM32G474RET6 operando en Bare-Metal/HAL.
+* **Tracción:** 4 Motores Pololu N20 de **1000 RPM**.
+* **Control de Potencia:** 4 Drivers DRV8874 independientes.
+* **Detección de Rival (ToF):** 6 Sensores de Tiempo de Vuelo 3 frontales, 3 traseros. Transmisión I2C con DMA a 400kHz.
+* **Reacción de Borde:** Comparadores analógicos ruteados internamente al TIM1_BRK del STM32.
+* **Comunicación Inter-MCU:** (SPI Esclavo + DMA). Transferencias sin bloqueo usando empaquetado de memoria de 1-byte.
+* **Alimentación:** Batería LiPo 2s 2200mAh 50C, gestionada por BMS (20A).
+* **Regulación Lógica:** AP64203.
 
 ---
 
@@ -80,29 +82,33 @@ El sistema integra optimizaciones de bajo nivel para garantizar un rendimiento H
 El firmware utiliza al máximo las capacidades del ESP32-S3 mediante múltiples tareas FreeRTOS supervisadas por un **Task Watchdog (WDT)**. El sistema implementa una lógica de reinicio rápido en caso de fallo, omitiendo esperas innecesarias para reincorporarse al combate al instante.
 
 ```text
-Core 0                         Core 1
-──────────────────────         ──────────────────────
-Sensores Ultra (Prio: 10)      Motores (Prio: 5)
-Telemetria (Prio: 1)           Sensores TCS (Prio: 10)
-Musica (Prio: 1)               Lógica / Combat (Prio: 2)
-                               Interrupciones (Prio: 3)
+ESP32-S3 (Core 0)              ESP32-S3 (Core 1)              STM32G474 (Bare-Metal)
+──────────────────────         ──────────────────────         ──────────────────────
+Matriz ToF I2C (Prio: 10)      Máquina de Estados (Prio: 5)   Control Motores (TIM1/TIM6)
+Bus SPI DMA (Prio: 10)         Interrupciones (Prio: 3)       ADC IPROPI (Corriente)
+Telemetría/Logs (Prio: 1)                                     Interrupciones Borde (22ns)
+Audio/Musica (Prio: 1)
 ```
 
-### Módulos por Componentes
+### Módulos por Componentes (ESP32-S3)
 
-- **`core`** — El corazón del robot. Contiene la `MaquinaEstados`, el `GestorI2C`, la abstracción `Nvs` y todas las **Estrategias** de combate.
-    - **Estrategias:** Implementa un **Patrón Strategy** con un puntero polimórfico (`estActual`) para ejecutar diferentes comportamientos en tiempo real.
-    - **Memoria Táctica:** Sistema de memoria para la persecución predictiva del rival y anti-jitter.
-    - **GestorI2C:** Arquitectura de bus con timeout de hardware de 5ms y autorrecuperación en caso de fallos.
-- **`actuadores`** — Gestión de potencia.
-    - **ControlMotores:** Control de los 4 motores DC mediante MCPWM del ESP32. Incluye una tarea dedicada (`tareaRampa`) que gestiona la aceleración.
-    - **Multiplexor:** Driver para el TCA9548A.
-- **`sensores`** — Drivers autogestionados.
-    - **Interfaces:** `SensorLimite` y `SensorRival` permiten intercambiar hardware de forma transparente.
-- **`comunicaciones`** — Stack de conectividad WiFi, MQTT, mDNS y OTA.
-- **`ui`** — Componente para el control del LED RGB de manera segura.
-- **`configuracion`** — Definición de pines y máscaras de bits (`eventos.h`).
-- **`Musica`** — Tonos para feedback auditivo del robot.
+- **`core`** — El corazón táctico.
+    - **`MaquinaEstados`**: Lógica central de toma de decisiones.
+    - **Estrategias:** Implementa un **Patrón Strategy** polimórfico (`EstrategiaBase`, `EstrategiaEstandar`, `Estrategia1`, `Estrategia2`).
+    - **`GestorI2C`**: Arquitectura de bus I2C con autorrecuperación en caso de fallos.
+    - **`GestorBorde`**: Procesamiento de interrupciones asíncronas para reacciones de supervivencia.
+    - **`Nvs`**: Abstracción persistente para configuración táctica.
+- **`actuadores`** — Delegación de potencia.
+    - **`Velocidades`**: Estructuras y empaquetado de setpoints cinéticos transmitidos vía SPI DMA hacia el STM32.
+- **`sensores`** — Drivers de percepción.
+    - **`SensorTof`**: Driver de la matriz ToF (I2C DMA) para localización de alta velocidad del oponente.
+- **`comunicaciones`** — Gestión del SPI DMA ("Bus de la Verdad") activo en combate. Stack inalámbrico (WiFi, MQTT, OTA, mDNS) desactivado durante asaltos.
+- **`ui` / `configuracion` / `Musica`** — Gestión de LED RGB, pines/eventos y tonos.
+
+### Coprocesador STM32G474 (Bare-Metal)
+- **`TIM1` / `TIM6`**: PWM de tracción y Lookup Tables para curvas de aceleración asíncronas.
+- **`ADC (IPROPI)`**: Sensado de corriente para detección predictiva de stall (atasco).
+- **`Comparadores`**: "Kill-Switch" analógico para sensores de línea ruteados a `TIM1_BRK` (~22ns).
 
 ---
 
@@ -121,18 +127,19 @@ Las variables tácticas críticas se pueden ajustar remotamente:
 
 | Clave NVS | Descripción |
 |---|---|
-| **Tiempos y Estrategia** | |
-| `tiempos/retroceso` | Milisegundos de reversa al detectar borde. |
-| `tiempos/evasion` | Duración de la maniobra de escape. |
-| `tiempos/estrategia` | Algoritmo inicial seleccionado. |
-| `tiempo_rampa` | Aceleración progresiva de los motores (ms). |
-| **Velocidades (PWM)** | |
-| `velocidad_nI` / `nD` | Velocidad normal (Búsqueda). |
-| `velocidad_aI` / `aD` | Velocidad de ataque. |
-| `velocidad_eI` / `eD` | Velocidad de evasión. |
-| **Sensores y Sistema** | |
-| `umbral_color` | Valor de referencia para detección de línea blanca. |
-| `dist_max` | Rango máximo de detección del rival (cm). |
+| **Tiempos y Estrategia (NVS: tiempos)** | |
+| `estrategia` | Algoritmo inicial seleccionado. |
+| `tof_corto_plazo` / `tof_largo_plazo` | Ventanas de filtrado anti-jitter para ToFs. |
+| `recta_star` / `giro_star` | Tiempos de maniobra inicial (Estrategia Star). |
+| `t_stall` | Tiempo límite de corriente máxima antes de abortar. |
+| **Velocidades (NVS: motores)** | |
+| `tiempo_rampa` | Aceleración progresiva de los motores (ms) enviada al STM32. |
+| `velocidad_nI` / `nD` | Velocidad Normal (Búsqueda). |
+| `velocidad_aI` / `aD` | Velocidad de Ataque. |
+| `velocidad_mI` / `mD` | Velocidad Maxima. |
+| `velocidad_pI` / `pD` | Velocidad de giro pronunciado. |
+| `velocidad_gI` / `gD` | Velocidad de Giro. |
+| `velocidad_hI` / `hD` | Velocidad de huida. |
 
 ---
 
@@ -147,30 +154,51 @@ Las variables tácticas críticas se pueden ajustar remotamente:
 ## Estructura del Proyecto
 
 ```text
-├── components/
-│   ├── actuadores/      # Motores y Multiplexor
-│   ├── comunicaciones/  # WiFi, MQTT, OTA, mDNS
-│   ├── configuracion/   # Pines y Eventos
-│   ├── core/            # Maquina de estados, Estrategias y NVS
-│   ├── sensores/        # Drivers Ultra, TCS
-│   ├── ui/              # LED RGB (Interfaz centralizada)
-│   └── Musica/          # Buzzer
-├── main/
-│   ├── main.cpp         # Punto de entrada e inicialización
-│   └── idf_component.yml # Dependencias externas
-├── partitions_s3.csv    # Tabla de particiones
-├── sdkconfig            # Configuración activa del proyecto
-└── CMakeLists.txt       # Script de construcción principal
+├── esp32-s3/                   # Cerebro Táctico (ESP-IDF v6)
+│   ├── components/
+│   │   ├── actuadores/         # Estructuras de payload cinético (Velocidades)
+│   │   ├── comunicaciones/     # Driver SPI (Bus de la Verdad), WiFi, MQTT, OTA
+│   │   ├── configuracion/      # Pines y Eventos
+│   │   ├── core/               # Máquina de estados, Estrategias y NVS
+│   │   ├── sensores/           # Drivers matriz ToF (I2C DMA)
+│   │   ├── ui/                 # LED RGB (Interfaz centralizada)
+│   │   └── Musica/             # Buzzer
+│   ├── main/main.cpp           # Punto de entrada e inicialización
+│   ├── partitions_s3.csv       # Tabla de particiones NVS
+│   └── sdkconfig               # Configuración FreeRTOS/ESP32
+├── stm32g4/                    # Músculo y Reflejos (Bare-Metal)
+│   ├── Core/
+│   │   ├── Inc/                # Cabeceras (LL predominante, HAL, main.h)
+│   │   └── Src/                # Controladores TIM1/TIM6, ADC IPROPI y main.c
+│   ├── Drivers/                # CMSIS y STM32G4xx_HAL_Driver
+│   └── stm32g4.ioc             # Configuración de STM32CubeMX
 ```
 
 ---
 
 ## Compilación y Flasheo
 
+### Cerebro Táctico (ESP32-S3)
 ```bash
+cd esp32-s3/
 # Limpiar y compilar
 idf.py fullclean build
-
 # Flashear y monitorear
 idf.py -p [PUERTO] flash monitor
+```
+
+### Coprocesador Muscular (STM32G474)
+```bash
+cd stm32g4/
+# Compilar proyecto vía CMake
+cmake --build build/Debug
+
+# Generar binario (.bin) a partir del ELF
+arm-none-eabi-objcopy -O binary build/Debug/*.elf build/Debug/firmware.bin
+
+# Flashear vía STM32CubeProgrammer (Protocolo Oficial SWD)
+STM32_Programmer_CLI -c port=SWD mode=UR -w build/Debug/*.elf -v -rst
+
+# Flashear vía st-link (Alternativa Open Source)
+st-flash --reset write build/Debug/*.bin 0x8000000
 ```
