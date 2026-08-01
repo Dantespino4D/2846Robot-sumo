@@ -1596,9 +1596,9 @@ FILE PATH: ./esp32-s3/components/core/EstrategiaEstandar.cpp
 void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	//se reciben los bits de los sensores
 	uint32_t noti = 0;
-	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(1));
+	noti = xEventGroupGetBits(eventos);
 
-	if(ctx->stall) {//quizas se reestructure en el futuro
+	if(ctx->stall) {//quizas se reestructure
 		ctx->modo = (ctx->memo_eva == 1) ? 0 : 1;
 		return;
 	}else if(false) {//se dejara en false por ahora
@@ -3591,9 +3591,16 @@ void robot(void *pvParameters) {
 	//la variable star la cual activa las tareas
   	start = true;
 
+	//variables del tiempo freertos
+	TickType_t xLastWakeTime = xTaskGetTickCount();
+	const TickType_t xFrequency = pdMS_TO_TICKS(1);
+
 	//bucle del robot
 	while (true) {
 		// inicia
+
+		//espera hasta el siguiente ciclo
+		vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
 		// se resetea el watchdog
 		esp_task_wdt_reset();
@@ -3607,8 +3614,6 @@ void robot(void *pvParameters) {
 		uint64_t Tfin = esp_timer_get_time();
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
-
-		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
 }
 
@@ -6569,6 +6574,8 @@ void TIM6_DAC_IRQHandler(void)
 			//retornamos
 			return;
 		}
+
+		GPIOC->BSRR = (GPIO_PIN_9 << 16U);
 
 		//verificar si esta sobre el borde
 		if(!(TIM1->BDTR & TIM_BDTR_MOE)) {

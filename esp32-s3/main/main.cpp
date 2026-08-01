@@ -142,9 +142,16 @@ void robot(void *pvParameters) {
 	//la variable star la cual activa las tareas
   	start = true;
 
+	//variables del tiempo freertos
+	TickType_t xLastWakeTime = xTaskGetTickCount();
+	const TickType_t xFrequency = pdMS_TO_TICKS(1);
+
 	//bucle del robot
 	while (true) {
 		// inicia
+
+		//espera hasta el siguiente ciclo
+		vTaskDelayUntil(&xLastWakeTime, xFrequency);
 
 		// se resetea el watchdog
 		esp_task_wdt_reset();
@@ -158,8 +165,6 @@ void robot(void *pvParameters) {
 		uint64_t Tfin = esp_timer_get_time();
 		int ciclo = (int)((Tfin - Tini)/1000);
 		me->cicloR(ciclo, 1);
-
-		xTaskNotifyWait(0, 0, NULL, pdMS_TO_TICKS(1));
   	}
 }
 

@@ -10,9 +10,9 @@
 void EstrategiaEstandar::seleccion(MaquinaEstados* ctx) {
 	//se reciben los bits de los sensores
 	uint32_t noti = 0;
-	noti = xEventGroupWaitBits(eventos, 0xFFFFFF, pdFALSE, pdFALSE, pdMS_TO_TICKS(1));
+	noti = xEventGroupGetBits(eventos);
 
-	if(ctx->stall) {//quizas se reestructure en el futuro
+	if(ctx->stall) {//quizas se reestructure
 		ctx->modo = (ctx->memo_eva == 1) ? 0 : 1;
 		return;
 	}else if(false) {//se dejara en false por ahora
