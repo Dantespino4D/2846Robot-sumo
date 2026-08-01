@@ -6133,12 +6133,19 @@ void Spi::enviar(uint8_t *data, uint16_t size) {
 	if(LL_DMA_IsEnabledChannel(DMA1, LL_DMA_CHANNEL_2)){
 		return;
 	}
+	//se deshabilitan las interrupciones
+	__disable_irq();
+
+	//se deshabilita el canal de transmision
 	LL_DMA_DisableChannel(DMA1, LL_DMA_CHANNEL_2);
 	LL_DMA_SetMemoryAddress(DMA1, LL_DMA_CHANNEL_2, (uint32_t)data);
 	LL_DMA_SetDataLength(DMA1, LL_DMA_CHANNEL_2, size);
 	LL_DMA_EnableChannel(DMA1, LL_DMA_CHANNEL_2);
 	LL_SPI_EnableDMAReq_TX(SPI1);
 	LL_SPI_Enable(SPI1);
+
+	//se habilitan las interrupciones
+	__enable_irq();
 }
 
 //recibe mensjes
