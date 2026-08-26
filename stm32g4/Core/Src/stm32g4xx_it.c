@@ -270,7 +270,16 @@ void DMA1_Channel2_IRQHandler(void)
 void DMA1_Channel3_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Channel3_IRQn 0 */
-
+	if(LL_DMA_IsActiveFlag_TC3(DMA1)) {
+		LL_DMA_ClearFlag_TC3(DMA1);
+	}
+	if(LL_DMA_IsActiveFlag_HT3(DMA1)) {
+		LL_DMA_ClearFlag_HT3(DMA1);
+	}
+	if(LL_DMA_IsActiveFlag_TE3(DMA1)) {
+		LL_DMA_ClearFlag_TE3(DMA1);
+	}
+	return;
   /* USER CODE END DMA1_Channel3_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_adc1);
   /* USER CODE BEGIN DMA1_Channel3_IRQn 1 */
